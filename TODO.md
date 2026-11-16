@@ -297,7 +297,7 @@ Public repo (do before making it public):
       and commit it: denies `.env`/secrets and force pushes, asks before
       edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
       (see `docs/github-security-setup.md` §6).
-- [ ] **Owner: move the staged commands into `.claude/commands/`** and commit:
+- [x] **Owner: move the staged commands into `.claude/commands/`** and commit:
       `mv claude-staging/commands/*.md .claude/commands/ && rmdir -p claude-staging/commands`.
       Fixes `add-market-profile`, `add-venue-adapter` (synthetic fixtures),
       `certo-task` (`docs/tasks/`, no private data), `next-milestone` (guard
