@@ -345,3 +345,15 @@ to 4 times with exponential backoff on incomplete reads, connection errors,
 timeouts, HTTP 429 and 5xx; other HTTP errors fail at once. Captures are
 write-once and content-hashed, so a re-run after a failure is safe:
 identical windows become duplicate captures that the normaliser merges.
+
+## 2026-11-16 — Model choices in config/models.yaml; .env holds only hosts and keys
+
+Owner rule. Which model serves each role (research, fast_worker, judge,
+ask), the Q&A approach (tools; full-text search; embeddings optional) and
+the egress policy (cloud budget, default 0; private work to cloud only by
+per-run opt-in; every cloud call logged) live in `config/models.yaml`,
+validated strictly by `load_models_config`. `.env` keeps only secrets and
+hosts (`OLLAMA_HOST`, provider keys); the cloud budget moved out of `.env`
+because it is policy, not a secret. A test fails if any configured model
+name appears in `src/`. Only `provider: ollama` is accepted for now; cloud
+providers arrive with Certo's ladder.

@@ -9,6 +9,7 @@ from firm.core.config import (
     load_fee_schedule,
     load_jurisdiction,
     load_market,
+    load_models_config,
     load_risk,
     load_verifier_config,
 )
@@ -221,3 +222,37 @@ def test_fee_schedule_name_must_match_file(tmp_path: Path) -> None:
             _write(tmp_path, "fees/other.yaml", _raw("fees/exchange_taker.yaml")).parent.parent,
             "other",
         )
+
+
+# --- models (golden rule 5: model names come from config only)
+
+
+def test_repo_models_config_loads_with_zero_cloud_budget() -> None:
+    cfg = load_models_config(REPO_CONFIG)
+    assert set(cfg.roles) == {"research", "fast_worker", "judge", "ask"}
+    assert cfg.egress.cloud_spend_budget_gbp == 0
+    assert cfg.ask.approach == "tools"
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d | {"surprise": 1},
+        lambda d: d | {"roles": {k: v for k, v in d["roles"].items() if k != "judge"}},
+        lambda d: d | {"egress": d["egress"] | {"log_every_cloud_call": False}},
+        lambda d: d | {"egress": d["egress"] | {"cloud_spend_budget_gbp": -1}},
+        lambda d: d | {"ask": d["ask"] | {"text_search": "embeddings"}},
+    ],
+)
+def test_models_config_refuses_bad_values(tmp_path: Path, mutate) -> None:
+    with pytest.raises(ConfigError):
+        load_models_config(_write(tmp_path, "models.yaml", mutate(_raw("models.yaml"))).parent)
+
+
+def test_no_model_names_in_source() -> None:
+    names = {r.model for r in load_models_config(REPO_CONFIG).roles.values()}
+    src = Path(__file__).resolve().parents[2] / "src"
+    for path in src.rglob("*.py"):
+        text = path.read_text()
+        for name in names:
+            assert name not in text, f"{path}: hard-coded model name {name!r}"

@@ -13,6 +13,8 @@ Three kinds of profile:
 - `config/risk/<name>.yaml`: limits and caps. Agents may neither read nor
   write risk or jurisdiction profiles (firm rule 3).
 - `config/fees/<name>.yaml`: fee schedules named by a market's `costs.commission`.
+- `config/models.yaml` (`config/models/<name>.yaml` later): model per role,
+  Q&A approach and egress policy. Hosts and keys stay in `.env`.
 - `config/verify/<name>.yaml`: verifier thresholds. No agent may write
   them: a lower bar would let an agent pass its own strategy.
 """
@@ -236,6 +238,48 @@ class VerifierConfig(FirmModel):
     trials: TrialThresholds
 
 
+# --------------------------------------------------------------------------- models
+
+
+class ModelRef(FirmModel):
+    provider: Literal["ollama"]  # cloud providers only through Certo's ladder (later)
+    model: Id
+
+
+class AskConfig(FirmModel):
+    approach: Literal["tools"]
+    text_search: Literal["fulltext", "embeddings"]
+    embeddings: ModelRef | None = None
+
+    @model_validator(mode="after")
+    def _embeddings_need_model(self) -> Self:
+        if self.text_search == "embeddings" and self.embeddings is None:
+            raise ValueError("text_search: embeddings needs an embeddings model")
+        return self
+
+
+class EgressConfig(FirmModel):
+    cloud_spend_budget_gbp: float = Field(ge=0)
+    private_to_cloud: Literal["never", "per_run_opt_in"]
+    log_every_cloud_call: Literal[True]
+
+
+class ModelsConfig(FirmModel):
+    """Which model serves each role. No model name may appear in code (golden rule 5)."""
+
+    models: Id
+    roles: dict[Literal["research", "fast_worker", "judge", "ask"], ModelRef]
+    ask: AskConfig
+    egress: EgressConfig
+
+    @model_validator(mode="after")
+    def _all_roles(self) -> Self:
+        missing = {"research", "fast_worker", "judge", "ask"} - set(self.roles)
+        if missing:
+            raise ValueError(f"missing model roles: {sorted(missing)}")
+        return self
+
+
 # --------------------------------------------------------------------------- loader
 
 
@@ -308,6 +352,10 @@ def load_verifier_config(root: Path, name: str = "default") -> VerifierConfig:
     if cfg.verifier != name:
         raise ConfigError(f"{path}: verifier {cfg.verifier!r} must match the file name")
     return cfg
+
+
+def load_models_config(root: Path) -> ModelsConfig:
+    return _validate(ModelsConfig, root / "models.yaml")
 
 
 def load_config(

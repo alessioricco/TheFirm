@@ -219,7 +219,9 @@ from our data, reports and ledger.
       - Delivery: the **read-only MCP endpoint** the SPEC already plans on
         the control API (milestone 4), so any MCP client (local agent, Claude
         Code while building) uses the same tools; plus `firm ask "..."`.
-- [ ] Runs on **local models** (Ollama, a tool-calling model from config):
+- [x] Model per role, Q&A approach and egress policy are in
+      `config/models.yaml` (hosts/keys in `.env`), validated by the loader.
+- [ ] Runs on **local models** (Ollama, the `ask` role in `config/models.yaml`):
       reports, results and the journal are private (firm rule 8). A cloud
       model only with the owner's per-run opt-in, logged with cost.
 - [ ] Read-only by construction: no tool can change state, place orders,
