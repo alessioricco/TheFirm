@@ -176,6 +176,30 @@ strategies are judged on real past data whenever we can download it.
 - [ ] Wrapper `compute_ari_features` + point-in-time and lookback tests.
 - [ ] Step 4: archive the old repo once steps 0–3 pass.
 
+## Technical analysis documents on demand (owner request 2026-11-16)
+
+Generate a technical-analysis document for any instrument from a dataset
+version, using the ported ari feature library. Depends on the ari
+extraction (steps 1–3 and the `compute_ari_features` wrapper).
+
+- [ ] `firm ta <instrument> --venue V --tf T [--as-of TIME] [--dataset ds-...]
+      [--format json|md|html]`: computes the Level 0 document for the last
+      closed bar at `as_of` (default: now), through the wrapper only (closed
+      bars, fixed lookback, one bar one call).
+- [ ] Every document records dataset version, feature-library version,
+      `as_of` and lookback, so it can be regenerated exactly and used
+      point-in-time later (e.g. by the judge or in post-mortems).
+- [ ] Human-readable rendering (Markdown/HTML) from the JSON. The old repo
+      has renderers under `technical_analysis/` (not part of the extraction):
+      decide whether to port one or write a fresh deterministic renderer.
+- [ ] Output goes to the git-ignored store/state (never git: it contains
+      prices), tagged private; served later by the control API and web UI.
+- [ ] Optional narrative summary by a local model (milestone 5), clearly
+      marked as model text. Documents are information for the owner and
+      features for research: never an input to the order path.
+- [ ] Batch mode: documents for a watchlist after each market's close,
+      linked from the daily digest (milestone 4).
+
 ## Later milestones
 
 - [ ] M2: generate NATS account permissions from `PUBLISHERS`.
