@@ -297,7 +297,7 @@ Public repo (do before making it public):
 - [x] Branch protection on `main` (2026-11-16): the five CI checks are
       required, branch must be up to date, applies to admins, no force
       pushes or deletion.
-- [ ] **Owner:** merge PR #1.
+- [x] PR #1 merged (2026-11-16).
 - [x] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
       and commit it: denies `.env`/secrets and force pushes, asks before
       edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
@@ -326,18 +326,27 @@ SPEC changes for the owner (the SPEC is owner-only; these decisions differ):
 
 Functional gaps:
 
-- [ ] `firm data build-dataset` takes one provider per run, so a dataset
+- [x] (2026-11-16, `--bars`/`--trades`) `firm data build-dataset` took one provider per run, so a dataset
       covering Coinbase *and* Kraken (like the real-data one) can't be built
       from the CLI; it was built from Python. Accept several
       `--provider:symbol` pairs.
-- [ ] Trades: parsers exist and are unit-tested, but `normalize_trades` and
-      `Dataset.trades` have no end-to-end test, and no trades have been
-      downloaded yet (SPEC milestone 1 says "bars and trades").
-- [ ] `scripts/download_crypto.py` has no tests (retry logic, pagination);
+- [x] (2026-11-16, tests/data/test_trades.py) Trades: parsers existed, but `normalize_trades` and
+      `Dataset.trades` had no end-to-end test.
+- [ ] **Real trades: deferred to milestone 2** (owner, 2026-11-16: no trade
+      data source yet). Free: Kraken and Coinbase public trade endpoints
+      (no keys; `download_crypto.py --trades-pages N`), but ~1,000 trades
+      per call, so recent trades only, not years of history. Deep tick
+      history = a paid vendor (SPEC: Tardis.dev, later). Daily-bar
+      strategies don't need trades; the paper simulator does (fills,
+      slippage calibration), from live WebSocket feeds plus recent pages.
+- [x] (2026-11-16, tests/scripts/) `scripts/download_crypto.py` had no tests (retry logic, pagination);
       test them with a fake `urlopen` (no network).
-- [ ] `state/` (trials, OOS openings, reports) has no schema/versioning
+- [x] (2026-11-16, `STATE_VERSION`, `firm state show`) `state/` had no schema/versioning
       and no tooling to inspect it (`firm state show`?) until the ledger.
-- [ ] Copy `scripts/fetch_claude_skills.py` from Certo, or drop that line
+- [x] **Owner:** move `claude-staging/commands/update-data.md` into
+      `.claude/commands/` (new `--bars/--trades` syntax; results go to
+      `private/TODO.md`).
+- [x] (2026-11-16) **Owner:** copy `scripts/fetch_claude_skills.py` from Certo, or drop that line
       from SKILLS.md.
 
 ## Later milestones

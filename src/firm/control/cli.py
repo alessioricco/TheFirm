@@ -51,18 +51,49 @@ def _cmd_synthetic(args: argparse.Namespace) -> int:
     return 0
 
 
+def _series(args: argparse.Namespace) -> tuple[list[tuple[str, str, str]], list[tuple[str, str]]]:
+    """Parse `--bars P:S:TF`, `--trades P:S` and the legacy `--provider/--symbol/--tf`."""
+    bars: list[tuple[str, str, str]] = []
+    trades: list[tuple[str, str]] = []
+    for spec in args.bars or []:
+        parts = spec.split(":")
+        if len(parts) != 3 or not all(parts):
+            raise ValueError(f"--bars expects PROVIDER:SYMBOL:TF, got {spec!r}")
+        bars.append((parts[0], parts[1], parts[2]))
+    for spec in args.trades or []:
+        parts = spec.split(":")
+        if len(parts) != 2 or not all(parts):
+            raise ValueError(f"--trades expects PROVIDER:SYMBOL, got {spec!r}")
+        trades.append((parts[0], parts[1]))
+    if args.symbol or args.provider or args.tf:
+        if not (args.symbol and args.provider and args.tf):
+            raise ValueError("--provider, --symbol and --tf go together")
+        bars += [(args.provider, s, args.tf) for s in args.symbol]
+    if not bars and not trades:
+        raise ValueError("nothing to build: give --bars and/or --trades")
+    return bars, trades
+
+
 def _cmd_build_dataset(args: argparse.Namespace) -> int:
     from firm.data.dataset import build_dataset
-    from firm.data.normalize import normalize_bars
+    from firm.data.normalize import normalize_bars, normalize_trades
     from firm.data.store import data_root
 
     root = data_root(args.root)
+    bars, trades = _series(args)
     files = []
-    for spec in args.symbol:
-        files += normalize_bars(root, provider=args.provider, provider_symbol=spec, tf=args.tf)
+    for provider, symbol, tf in bars:
+        files += normalize_bars(root, provider=provider, provider_symbol=symbol, tf=tf)
+    for provider, symbol in trades:
+        files += normalize_trades(root, provider=provider, provider_symbol=symbol)
     manifest = build_dataset(root, files)
     rows = sum(f.rows for f in manifest.files)
     print(f"{manifest.dataset_version}  ({len(manifest.files)} files, {rows} rows)")
+    for f in manifest.files:
+        print(
+            f"  {f.kind:<6} {f.venue}:{f.instrument} {f.tf or '':<3} {f.rows:>8} rows"
+            f"{f'  revisions={f.revisions}' if f.revisions else ''}"
+        )
     return 0
 
 
@@ -107,6 +138,33 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+def _cmd_state_show(args: argparse.Namespace) -> int:
+    from firm.verify.state import state_root, state_summary
+
+    root = state_root(args.state_root)
+    if not root.exists():
+        print(f"no verifier state at {root}")
+        return 0
+    s = state_summary(root)
+    if args.json:
+        print(json.dumps(s, indent=1, sort_keys=True))
+        return 0
+    print(f"state: {s['root']}  (schema {s['schema_version'] or 'unversioned'})")
+    print(f"trials: {s['trials_total']} (global count used by the verifier)")
+    for exp, n in sorted(s["trials_by_experiment"].items()):
+        print(f"  {exp}: {n}")
+    print("out-of-sample vault:")
+    for strategy, counts in sorted(s["oos_vault"].items()):
+        print(f"  {strategy}: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    print(f"reports: {len(s['reports'])}")
+    for r in s["reports"]:
+        print(
+            f"  {r['verdict_id']}  {str(r['outcome']).upper():<10} "
+            f"{r['strategy_id']} on {r['dataset_version']}"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="firm", description="The firm: paper trading, v1.")
     parser.add_argument("--version", action="version", version=f"firm {__version__}")
@@ -123,10 +181,30 @@ def build_parser() -> argparse.ArgumentParser:
     syn.set_defaults(func=_cmd_synthetic)
     bld = data.add_parser("build-dataset", help="normalize captures and freeze a dataset version")
     bld.add_argument("--root")
-    bld.add_argument("--provider", required=True)
-    bld.add_argument("--symbol", required=True, action="append", help="provider symbol; repeat")
-    bld.add_argument("--tf", required=True)
+    bld.add_argument(
+        "--bars",
+        action="append",
+        metavar="PROVIDER:SYMBOL:TF",
+        help="bar series to include; repeat for several venues/symbols",
+    )
+    bld.add_argument(
+        "--trades",
+        action="append",
+        metavar="PROVIDER:SYMBOL",
+        help="trade series to include; repeat",
+    )
+    bld.add_argument("--provider", help="legacy: one provider for all --symbol")
+    bld.add_argument("--symbol", action="append", help="legacy: provider symbol; repeat")
+    bld.add_argument("--tf", help="legacy: timeframe for --symbol")
     bld.set_defaults(func=_cmd_build_dataset)
+
+    state = sub.add_parser("state", help="verifier state (read-only)").add_subparsers(
+        dest="state_cmd"
+    )
+    show = state.add_parser("show", help="trials, out-of-sample openings, reports")
+    show.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
+    show.add_argument("--json", action="store_true")
+    show.set_defaults(func=_cmd_state_show)
 
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
@@ -151,8 +229,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command == "data":
-            parser.parse_args(["data", "--help"])
+        if args.command in ("data", "state"):
+            parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0
     try:

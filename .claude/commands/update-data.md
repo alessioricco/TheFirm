@@ -14,12 +14,12 @@ Update the data series `$ARGUMENTS` in the git-ignored data store.
    don't know the listing date, ask instead of guessing.
 3. Run it for real. Transient errors are retried; report any that remain.
    Re-runs are safe: captures are write-once and content-hashed.
-4. Build the dataset version:
-   `uv run firm data build-dataset --provider P --symbol S --tf T`
-   (one provider per run for now; see TODO.md for multi-venue datasets).
+4. Build the dataset version, including every series it should span:
+   `uv run firm data build-dataset --bars P:S:TF [--bars ...] [--trades P:S ...]`.
 5. Report: dataset version, bars per series, first and last close time,
    gaps, revisions (closed bars on which captures disagreed), and that the
    still-forming bar was dropped. Compare last closes across venues if
    more than one is present.
 6. Check the data is still out of git: `python3 scripts/check_repo.py --all`.
-   Record the new dataset version and anything odd in TODO.md.
+   Record the download, the new dataset version and anything odd in the
+   git-ignored `private/TODO.md` (never in the public TODO.md).

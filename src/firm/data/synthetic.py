@@ -154,3 +154,128 @@ def seed_store(
 def last_closed(start: datetime, n: int, tf: str = "1d") -> datetime:
     """Close time of the n-th bar from `start`."""
     return start + timedelta(seconds=n * tf_seconds(tf))
+
+
+# --------------------------------------------------------------------------- trades
+
+
+@dataclass(frozen=True)
+class SyntheticTrade:
+    time_us: int  # unix microseconds
+    trade_id: int
+    price: float
+    size: float
+    taker_side: str  # "buy" | "sell"
+
+
+def synthetic_trades(
+    n: int,
+    *,
+    seed: int,
+    start: datetime,
+    mean_gap_s: float = 60.0,
+    start_price: float = 20_000.0,
+) -> list[SyntheticTrade]:
+    """`n` trades from `start`, random gaps (microsecond resolution), small price steps."""
+    rng = np.random.default_rng(seed)
+    t = int(start.timestamp()) * 1_000_000
+    price = start_price
+    out = []
+    for k in range(n):
+        t += 1 + int(rng.exponential(mean_gap_s) * 1_000_000)
+        price = round(price * (1 + 0.0005 * rng.standard_normal()), 1)
+        size = round(float(rng.uniform(0.0001, 0.5)), 8)
+        side = "buy" if rng.random() < 0.5 else "sell"
+        out.append(SyntheticTrade(t, 1_000_000 + k, price, size, side))
+    return out
+
+
+def kraken_trades_payload(trades: list[SyntheticTrade], pair_key: str = "XXBTZUSD") -> bytes:
+    """Kraken `/0/public/Trades`: oldest first, side is the taker's (b/s)."""
+    rows = [
+        [
+            f"{t.price:.1f}",
+            f"{t.size:.8f}",
+            t.time_us / 1_000_000,
+            "b" if t.taker_side == "buy" else "s",
+            "m",
+            "",
+            t.trade_id,
+        ]
+        for t in trades
+    ]
+    last = str(trades[-1].time_us * 1_000) if trades else "0"
+    return json.dumps({"error": [], "result": {pair_key: rows, "last": last}}).encode()
+
+
+def coinbase_trades_payload(trades: list[SyntheticTrade]) -> bytes:
+    """Coinbase `/products/<id>/trades`: newest first, `side` is the MAKER's side."""
+    rows = [
+        {
+            "time": datetime.fromtimestamp(t.time_us / 1_000_000, tz=UTC)
+            .isoformat(timespec="microseconds")
+            .replace("+00:00", "Z"),
+            "trade_id": t.trade_id,
+            "price": f"{t.price:.1f}",
+            "size": f"{t.size:.8f}",
+            "side": "sell" if t.taker_side == "buy" else "buy",
+        }
+        for t in reversed(trades)
+    ]
+    return json.dumps(rows).encode()
+
+
+def seed_trades(
+    root: Path,
+    *,
+    venue: str = "kraken",
+    instrument: str = "BTC-USD",
+    provider_symbol: str = "XBTUSD",
+    n: int = 3_000,
+    seed: int = 11,
+    start: datetime = datetime(2019, 1, 1, tzinfo=UTC),
+    page: int = 1_000,
+    overlap: int = 50,
+) -> list[SyntheticTrade]:
+    """Write the instrument record and overlapping trade pages; returns the trades.
+
+    Each page is captured one second after its last trade, so every trade in
+    it was known at capture time.
+    """
+    write_instrument(
+        root,
+        InstrumentRecord(
+            venue=venue,
+            instrument=instrument,
+            asset_class="crypto",
+            base=instrument.split("-")[0],
+            quote=instrument.split("-")[1],
+            provider_symbols={venue: provider_symbol},
+            listed_at=start,
+            known_at=start,
+        ),
+    )
+    trades = synthetic_trades(n, seed=seed, start=start)
+    first = 0
+    while first < n:
+        chunk = trades[first : first + page]
+        captured_at = datetime.fromtimestamp(chunk[-1].time_us / 1_000_000 + 1, tz=UTC)
+        payload = (
+            kraken_trades_payload(chunk) if venue == "kraken" else coinbase_trades_payload(chunk)
+        )
+        write_capture(
+            root,
+            payload,
+            provider=venue,
+            kind="trades",
+            provider_symbol=provider_symbol,
+            tf=None,
+            fmt="json",
+            captured_at=captured_at,
+            request={"synthetic_seed": seed, "first": first},
+            via="firm.data.synthetic",
+            licence=SYNTHETIC_LICENCE,
+            capture_method="synthetic",
+        )
+        first += page - overlap
+    return trades

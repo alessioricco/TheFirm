@@ -69,7 +69,7 @@ git config core.hooksPath .githooks    # enable the pre-commit guard (once per c
 # try it with synthetic data in a separate demo store (no network, no real data)
 export FIRM_DATA_ROOT=./data-demo FIRM_STATE_ROOT=./data-demo/state
 uv run firm data synthetic
-uv run firm data build-dataset --provider kraken --symbol XBTUSD --tf 1d
+uv run firm data build-dataset --bars kraken:XBTUSD:1d
 #   -> prints a dataset version, e.g. ds-xxxxxxxxxxxx
 uv run firm verify --dataset ds-xxxxxxxxxxxx --venue kraken --instrument BTC-USD \
     --tf 1d --market crypto \
@@ -89,7 +89,11 @@ do. Check each provider's terms of use; the data is for your own use.
 ```bash
 uv run python scripts/download_crypto.py --venue coinbase --instrument BTC-USD \
     --symbol BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
-uv run firm data build-dataset --provider coinbase --symbol BTC-USD --tf 1d
+uv run firm data build-dataset --bars coinbase:BTC-USD:1d
+# several venues and kinds in one dataset version:
+uv run firm data build-dataset --bars coinbase:BTC-USD:1d --bars kraken:XBTUSD:1d \
+    --trades kraken:XBTUSD
+uv run firm state show          # trials, out-of-sample openings, reports
 ```
 
 ## Data never goes in this repo
