@@ -151,15 +151,22 @@ Gotchas:
 - `normalize.py`: captures → Parquet (`BAR_SCHEMA`, `TRADE_SCHEMA`), merge
   overlapping captures, count revisions. `NORMALIZER_VERSION` is part of
   every dataset version: bump it when output bytes change.
+- `resample.py`: `derive_bars(root, files, to_tf)` builds coarser bars on the
+  canonical grid (complete buckets only, `derived_from` set, UTC-aligned
+  sources only); `aggregate()` is the pure core.
 - `dataset.py`: `build_dataset` → `ds-<sha12>.json`; `open_dataset` (verifies
-  checksums) → `Dataset.bars/trades/universe` with `as_of`;
+  checksums) → `Dataset.bars/trades/universe` with `as_of` (`bars(...,
+  derived_from=None)` reads native bars; name the source tf for derived
+  ones); `Dataset.alignment(venue, instrument, tf)`;
   `Dataset.capped(hidden_from)` → `CappedDataset` raising
   `HiddenPeriodError` (the research view).
 - `synthetic.py`: deterministic synthetic bars and trades in provider
   formats; `seed_store` / `seed_trades` write an instrument + overlapping
   captures. Tests use only this.
 
-Gotchas: capture names hash payload + request (identical bytes from two
+Gotchas: alignment is per provider (`Provider.day_boundary`, `week_start`)
+and checked by the normaliser; `firm.core.timeframes` holds the grid helpers.
+Capture names hash payload + request (identical bytes from two
 requests in the same second must not collide); the meta's `sha256` is the
 payload's own checksum. DuckDB queries take bound parameters (`$files`, `$as_of`); timestamps
 are int64 ns until the reader converts them; `as_of` must be timezone-aware.

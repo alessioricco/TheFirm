@@ -19,12 +19,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from firm.core.base import FirmModel, Id, Sha256
+from firm.core.timeframes import is_aligned
 from firm.data import providers
 from firm.data.providers import BarRow, TradeRow
 from firm.data.reference import latest_instruments, resolve
 from firm.data.store import Capture, StoreError, iter_captures, partition, sha256_bytes, write_once
 
-NORMALIZER_VERSION = "1"
+NORMALIZER_VERSION = "2"  # 2: bar alignment checked and recorded; derived series
 
 BAR_SCHEMA = pa.schema(
     [
@@ -60,6 +61,8 @@ class NormalizedFile(FirmModel):
     instrument: Id
     tf: Id | None
     revisions: int = 0  # closed rows on which captures disagreed
+    alignment: Id | None = None  # bars: "utc", "week:<day>" or "session"
+    derived_from: Id | None = None  # bars built by firm.data.resample from this tf
 
 
 def _parquet_bytes(table: pa.Table) -> bytes:
@@ -83,6 +86,8 @@ def _write_partitions(
     instrument: str,
     tf: str | None,
     revisions: int,
+    alignment: str | None = None,
+    derived_from: str | None = None,
 ) -> list[NormalizedFile]:
     by_year: dict[int, list[dict[str, object]]] = {}
     for r in rows:
@@ -99,6 +104,8 @@ def _write_partitions(
         parts = {"kind": kind, "venue": venue, "instrument": instrument}
         if tf is not None:
             parts["tf"] = tf
+        if derived_from is not None:
+            parts["derived_from"] = derived_from
         rel = Path("normalized") / partition(**parts, year=str(year)) / f"part-{sha[:8]}.parquet"
         write_once(root / rel, data)
         out.append(
@@ -111,6 +118,8 @@ def _write_partitions(
                 instrument=instrument,
                 tf=tf,
                 revisions=revisions if year == max(by_year) else 0,
+                alignment=alignment,
+                derived_from=derived_from,
             )
         )
     return out
@@ -154,7 +163,17 @@ def normalize_bars(
     if not caps:
         raise StoreError(f"no bar captures for {provider}:{provider_symbol} {tf}")
     rec = resolve(latest_instruments(root), provider, provider_symbol)
-    rows, revisions = _merge(caps, providers.get(provider).parse_bars, "open_time_ns", tf=tf)
+    source = providers.get(provider)
+    rows, revisions = _merge(caps, source.parse_bars, "open_time_ns", tf=tf)
+    alignment = source.alignment(tf)
+    for r in rows:
+        t = int(r["open_time_ns"]) // 1_000_000_000  # type: ignore[call-overload]
+        if not is_aligned(t, tf, alignment):
+            when = datetime.fromtimestamp(t, tz=UTC).isoformat()
+            raise StoreError(
+                f"{provider}:{provider_symbol} {tf} bar at {when} breaks the declared "
+                f"alignment {alignment!r}; fix the provider's declaration, don't mix grids"
+            )
     return _write_partitions(
         root,
         rows,
@@ -165,6 +184,7 @@ def normalize_bars(
         instrument=rec.instrument,
         tf=tf,
         revisions=revisions,
+        alignment=alignment,
     )
 
 

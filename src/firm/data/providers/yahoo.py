@@ -87,6 +87,8 @@ class Yahoo(Provider):
     max_bars_per_request = None  # one request returns the whole range (intraday ranges are capped)
     min_interval_s = 1.0
     price_adjustment = "split_adjusted"  # raw bytes; parse_bars undoes it
+    day_boundary = "session"  # bars start at the exchange session open, not 00:00 UTC
+    week_start = "monday"
     licence = "yahoo finance: personal use only, never redistribute; unofficial endpoint"
     history_note = "daily history for decades; intraday limited (1m: ~7 days, 60m: ~730 days)"
 

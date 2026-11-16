@@ -53,6 +53,7 @@ class Kraken(Provider):
     min_interval_s = 1.2
     licence = "kraken public market data: personal use; check terms before redistribution"
     history_note = "OHLC: last 720 bars per timeframe only; older history needs trades"
+    week_start = "thursday"  # weekly bars are epoch-aligned; 1970-01-01 was a Thursday
 
     def bar_requests(
         self, symbol: str, tf: str, *, start: datetime | None, end: datetime

@@ -315,6 +315,35 @@ The CLI stays; a web interface monitors everything, live. Builds on the
 - [ ] Re-check Binance's and Yahoo's terms of use before any wider use; both
       are personal/research use here and never redistributed.
 
+## Timeframes (owner request 2026-11-16)
+
+- [x] Every layer already keyed by timeframe (raw `tf=`, normalized `tf=`,
+      manifests, `bars(..., tf)`); "known at" follows each bar's own close.
+- [x] Provider alignment declared and checked: Kraken weeks start Thursday,
+      Binance/Yahoo Monday, Yahoo days follow the exchange session; the
+      normaliser refuses bars off their declared grid and records the
+      alignment in the manifest (normaliser version 2).
+- [x] Derived timeframes on one canonical grid (days 00:00 UTC, weeks
+      Monday): `firm data build-dataset ... --derive 1m:1h --derive 1d:1w`;
+      complete buckets only; stored apart (`derived_from`), read with
+      `bars(..., derived_from="1m")`. Verified on the real Coinbase/Kraken data.
+- [x] Intraday and weekly tests end to end (`tests/data/test_timeframes.py`).
+- [ ] Deriving share timeframes needs the exchange calendar (sessions,
+      half days): milestone 6.
+- [ ] Deep 1m history: Binance (about 530 requests per instrument-year) is
+      the practical source; Kraken serves only 720 minutes, Yahoo ~7 days.
+- [ ] Storage: yearly files are fine for 1m on a few instruments; switch to
+      monthly partitions if many instruments or ticks arrive.
+- [ ] **Owner decision: vault key vs re-processed data.** The OOS vault keys a
+      candidate by code + params + *dataset version* + window. Re-normalising
+      the same bars (e.g. normaliser v2) gives a new dataset version, so
+      re-verifying an unchanged strategy on it is refused as "another
+      version" in its scope. Proposal: key on a hash of the bars the check
+      actually read (content), not the dataset version, so re-processing is a
+      replay while new or changed data is still a new candidate.
+- [ ] The verifier reads one series; strategies that combine timeframes
+      (e.g. 1h signals filtered by 1d trend) need a multi-series view.
+
 ## Gaps found in the 2026-11-16 project review
 
 Public repo (do before making it public):

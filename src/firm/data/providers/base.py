@@ -32,7 +32,7 @@ from typing import ClassVar, Literal, TypedDict
 
 import pandas as pd
 
-from firm.core.timeframes import tf_seconds
+from firm.core.timeframes import alignment_for, tf_seconds
 
 NS = 1_000_000_000
 Kind = Literal["bars", "trades"]
@@ -120,8 +120,16 @@ class Provider(ABC):
     max_bars_per_request: ClassVar[int | None]  # None: one request returns the whole range
     min_interval_s: ClassVar[float]  # pause between requests (public rate limits)
     price_adjustment: ClassVar[Adjustment] = "none"  # of the RAW bytes, before parsing
+    # How the source aligns its bars: "utc" days (00:00 UTC) or exchange "session"s;
+    # and which weekday its weekly bars start on (None: no weekly bars).
+    day_boundary: ClassVar[Literal["utc", "session"]] = "utc"
+    week_start: ClassVar[Literal["monday", "thursday"] | None] = None
     licence: ClassVar[str]
     history_note: ClassVar[str] = ""
+
+    def alignment(self, tf: str) -> str:
+        """How this source's `tf` bars are aligned (see firm.core.timeframes)."""
+        return alignment_for(tf, day_boundary=self.day_boundary, week_start=self.week_start)
 
     def supports(self, kind: Kind, tf: str | None = None) -> None:
         if kind not in self.kinds:

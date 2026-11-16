@@ -64,6 +64,7 @@ class Binance(Provider):
     min_interval_s = 0.25
     licence = "binance public market data: personal use; check terms before redistribution"
     history_note = "klines from each pair's listing (BTCUSDT: 2017-08), 1000 per request"
+    week_start = "monday"
 
     def bar_requests(
         self, symbol: str, tf: str, *, start: datetime | None, end: datetime
