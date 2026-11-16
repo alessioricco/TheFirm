@@ -116,18 +116,19 @@ def store(root: Path, args: argparse.Namespace, kind: str, url: str, dry: bool) 
     return body
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--venue", choices=["kraken", "coinbase"], required=True)
     ap.add_argument("--instrument", required=True, help="firm id, e.g. BTC-USD")
     ap.add_argument("--symbol", required=True, help="provider symbol: XBTUSD (kraken), BTC-USD")
     ap.add_argument("--tf", default="1d")
     ap.add_argument("--since", help="coinbase: first day to fetch (YYYY-MM-DD)")
+    ap.add_argument("--until", help="coinbase: stop at this day (YYYY-MM-DD; default now)")
     ap.add_argument("--listed-at", help="listing date, needed the first time")
     ap.add_argument("--trades-pages", type=int, default=0, help="also fetch N pages of trades")
     ap.add_argument("--root", help="data store (default $FIRM_DATA_ROOT or ./data)")
     ap.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     root = data_root(args.root)
     if not args.dry_run:
         ensure_instrument(root, args)
@@ -142,7 +143,11 @@ def main() -> int:
             since = int(json.loads(body)["result"]["last"])
     else:
         step = timedelta(seconds=tf_seconds(args.tf) * 300)
-        end = datetime.now(UTC)
+        end = (
+            datetime.fromisoformat(args.until).replace(tzinfo=UTC)
+            if args.until
+            else datetime.now(UTC)
+        )
         start = datetime.fromisoformat(args.since).replace(tzinfo=UTC) if args.since else end - step
         t = start
         while t < end:
