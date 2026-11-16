@@ -20,6 +20,8 @@ class VerifyContext:
     params: Mapping[str, ParamValue]
     strategy_id: str
     candidate_key: str  # hash of code + params + dataset + window
+    scope: str  # strategy | instrument(s) | timeframe: the unit of an OOS opening
+    config_key: str  # hash of costs + verifier config: one sealed OOS result per config
     trial_ids: tuple[str, ...]
     dataset_version: str
     in_sample: pd.DataFrame  # bars before the hidden period: all an author may see

@@ -3,7 +3,7 @@
 import json
 
 from firm.core.domain import CheckStatus, VerdictOutcome
-from verify_helpers import run_verify
+from verify_helpers import NOW, run_verify
 
 
 def _check(result, name):
@@ -37,7 +37,8 @@ def test_same_dataset_and_strategy_give_byte_identical_reports(dataset, tmp_path
     assert a.report == b.report == c.report
     body = json.loads(a.report)
     assert body["verdict_id"] == a.verdict.verdict_id
-    assert "issued_at" not in a.report.decode() and "2026-11-16" not in a.report.decode()
+    text = a.report.decode()
+    assert "issued_at" not in text and NOW.isoformat() not in text  # no wall-clock time
 
 
 def test_report_identical_after_rebuilding_dataset_from_captures(tmp_path) -> None:

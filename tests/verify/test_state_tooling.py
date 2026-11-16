@@ -50,8 +50,8 @@ def test_summary_counts_trials_vault_and_reports(tmp_path) -> None:
         reg.record(_trial(i, exp))
     vault = OosVault(tmp_path)
     kw = dict(dataset_version="ds", window=["x", "y"], at=NOW)
-    vault.request(strategy_id="s", candidate_key="k1", **kw)
-    vault.request(strategy_id="s", candidate_key="k2", **kw)
+    vault.request(strategy_id="s", scope="s|X|1d", candidate_key="k1", **kw)
+    vault.request(strategy_id="s", scope="s|X|1d", candidate_key="k2", **kw)
     (tmp_path / "reports").mkdir()
     (tmp_path / "reports" / "v-1.json").write_text(
         json.dumps(

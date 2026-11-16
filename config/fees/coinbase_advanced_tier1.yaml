@@ -1,0 +1,12 @@
+# Coinbase Advanced spot, entry tier (30-day volume < $10,000).
+# Bar backtests assume every fill is a taker fill.
+fee_schedule: coinbase_advanced_tier1
+venue: coinbase
+tier: "1"
+maker_bps: 40
+taker_bps: 60
+source: https://help.coinbase.com/en/coinbase/trading-and-funding/advanced-trade/advanced-trade-fees
+as_of: 2026-11-16
+note: >-
+  Numbers from third-party guides; Coinbase's public help page asks you to
+  sign in for the full table. Confirm against the signed-in fee page.

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from firm.core.domain import CheckResult, CheckStatus
 from firm.verify.context import VerifyContext
+from firm.verify.state import opening_trial_id
 from firm.verify.stats import deflated_sharpe
 
 NAME = "trial_count"
@@ -21,7 +22,11 @@ def run(ctx: VerifyContext) -> CheckResult:
             status=CheckStatus.FAILED,
             detail=f"unrecorded trials: {missing or 'candidate lists none'}",
         )
-    n_trials = max(1, ctx.registry.count())
+    # The candidate's own OOS opening (if any, from an earlier run) is not a
+    # trial that could have influenced its selection: leaving it out keeps a
+    # replay's report identical to the first run's.
+    own_opening = opening_trial_id(ctx.scope, ctx.candidate_key)
+    n_trials = max(1, len(known - {own_opening}))
     r = ctx.in_sample_backtest().net[1 : ctx.oos_start]
     m = deflated_sharpe(r, n_trials, ctx.registry.sharpes())
     ok = m["dsr"] >= th.min_dsr
