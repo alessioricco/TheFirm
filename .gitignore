@@ -249,4 +249,6 @@ __marimo__/
 .claude/settings.local.json
 # Editor workspaces (can hold machine-specific paths)
 *.code-workspace
+# staging for files the Claude Code sandbox can't write into .claude/
+/claude-staging/
 .DS_Store

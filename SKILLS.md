@@ -12,7 +12,11 @@ their skills through Certo.)
 | `/check-point-in-time PATH` | Audits code for lookahead and survivorship leaks. Changes no file. |
 | `/add-market-profile NAME` | Adds a market (calendar, data, costs, broker) without touching core code. |
 | `/add-venue-adapter VENUE` | Adds a broker or exchange behind the adapter interface; must pass the conformance suite. |
-| `/certo-task WHAT` | Writes a Certo task file with script-checkable acceptance criteria. |
+| `/certo-task WHAT` | Writes a Certo task file (`docs/tasks/`) with script-checkable acceptance criteria; no private data. |
+| `/add-strategy NAME HYPOTHESIS` | Writes a strategy from the template, verifies it on synthetic then real data, reports the verdict as is; warns that every run is a trial. |
+| `/update-data VENUE INSTRUMENT SYMBOL TF` | Downloads or refreshes a series into the data store, builds a dataset version, reports gaps and revisions. |
+| `/pre-push [TARGET]` | Checks everything about to be pushed to the public repo (guard, tests, lint, types, outgoing diff, commit emails). Never pushes. |
+| `/review-docs` | Reviews the docs against the code: fixes stale facts, lists SPEC deltas and the rest in TODO.md. |
 
 ## Skills from Anthropic (downloaded, git-ignored)
 

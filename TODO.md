@@ -293,14 +293,16 @@ Public repo (do before making it public):
 - [ ] If the repo stays private for a while: `ubuntu-24.04-arm` runners may
       not be available to private repos on the free plan; switch that
       matrix entry to `ubuntu-latest` until it is public.
-- [ ] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
+- [x] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
       and commit it: denies `.env`/secrets and force pushes, asks before
       edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
       (see `docs/github-security-setup.md` §6).
-- [ ] **Owner edit in `.claude/commands/`** (the session can't write there):
-      `add-market-profile.md` and `add-venue-adapter.md` say "recorded
-      fixtures"; they should say synthetic fixtures in the provider's format,
-      never real data (public repo).
+- [ ] **Owner: move the staged commands into `.claude/commands/`** and commit:
+      `mv claude-staging/commands/*.md .claude/commands/ && rmdir -p claude-staging/commands`.
+      Fixes `add-market-profile`, `add-venue-adapter` (synthetic fixtures),
+      `certo-task` (`docs/tasks/`, no private data), `next-milestone` (guard
+      + checks before stopping); adds `add-strategy`, `update-data`,
+      `pre-push`, `review-docs` (listed in SKILLS.md).
 - [ ] Licence notice: when the ari code (Apache-2.0) is copied in, add its
       LICENSE/NOTICE and say so in the README (the firm is MIT).
 
