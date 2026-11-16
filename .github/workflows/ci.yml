@@ -21,13 +21,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-arm, macos-latest]   # Linux arm64 and macOS arm64 (CLAUDE.md)
+        # Linux arm64 checks are required on main; macOS arm64 runs too but is
+        # informational (GitHub's macOS capacity often leaves jobs unstarted).
+        os: [ubuntu-24.04-arm, macos-latest]
         python: ["3.12", "3.14"]           # floor and latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
       - name: Repo guard (no data, secrets, machine paths, big files)
         run: python3 scripts/check_repo.py --all
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6.8.0
         with:
           python-version: ${{ matrix.python }}
       - name: Install (locked)
@@ -45,9 +47,9 @@ jobs:
     name: secret scan (full history)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,7 +1,14 @@
 # GitHub security setup (owner checklist)
 
 This repo is public. These steps protect it against leaked secrets and
-unreviewed changes to `main`. Do them **before** (or right when) the repo
+unreviewed changes to `main`.
+
+> **Status (2026-11-16):** steps 1–4 are done for this repo (applied with
+> `gh` and read back): secret scanning and push protection on; `main`
+> protected with the Linux and secret-scan checks required; actions pinned
+> to SHAs with Dependabot keeping them fresh; Dependabot alerts on;
+> workflow permissions read-only. Still yours: push protection for your
+> account (step 1, "Your account too") and the optional items in step 4. Do them **before** (or right when) the repo
 becomes public. Each step has the GitHub web UI route and a `gh` command;
 GitHub renames menus from time to time, so if a label differs, look for the
 nearest match under the same settings page.
@@ -79,13 +86,15 @@ run. Push a branch or open a PR first, let `ci` run once, then:
 4. Rules, tick:
    - **Restrict deletions**
    - **Block force pushes**
-   - **Require status checks to pass**, then **Add checks** and pick all
-     of these (names as CI reports them):
+   - **Require status checks to pass**, then **Add checks** and pick these
+     (names as CI reports them):
      - `test (ubuntu-24.04-arm, py3.12)`
      - `test (ubuntu-24.04-arm, py3.14)`
-     - `test (macos-latest, py3.12)`
-     - `test (macos-latest, py3.14)`
      - `secret scan (full history)`
+
+     The macOS jobs run too but are **not required**: GitHub's macOS arm64
+     capacity often leaves them queued for 15 minutes and then cancelled
+     unstarted, which would block every merge.
    - Optional: **Require a pull request before merging** (with 0 required
      approvals if you work alone: it still forces CI to run on the branch).
 5. **Create**.
@@ -100,8 +109,6 @@ gh api -X PUT repos/{owner}/{repo}/branches/main/protection --input - <<'JSON'
     "contexts": [
       "test (ubuntu-24.04-arm, py3.12)",
       "test (ubuntu-24.04-arm, py3.14)",
-      "test (macos-latest, py3.12)",
-      "test (macos-latest, py3.14)",
       "secret scan (full history)"
     ]
   },
