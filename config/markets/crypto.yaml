@@ -6,7 +6,7 @@ universe:
   source: exchanges         # listings from the venues below, delisted pairs kept
   include_delisted: true
 data:
-  history: [kraken_rest, coinbase_rest]
+  history: [coinbase, kraken, binance]   # registered providers (firm.data.providers)
   realtime: [kraken_ws, coinbase_ws]
 costs:
   commission:               # fee schedule per venue (config/fees/)

@@ -26,7 +26,7 @@ config/
   risk/default.yaml                         (agents: no access)
 examples/strategies/  ma_crossover.py (clean), lookahead_ma.py (planted lookahead)
 scripts/
-  download_crypto.py               owner-run: Kraken/Coinbase public REST -> raw captures
+  download_data.py                 owner-run: any registered provider -> raw captures
   ari_golden/generate_baseline.py  one-off; ran with the old repo's venv
 tests/
   invariants/   one test per SPEC firm rule
@@ -132,8 +132,20 @@ Gotchas:
 - `store.py`: `data_root()`, path rules (`partition`, `path_value`,
   `stamp`), `write_once` (atomic, refuses different bytes), raw captures
   (`write_capture`, `iter_captures`, `CaptureMeta`).
-- `providers.py`: URL builders and pure parsers for Kraken and Coinbase bars
-  and trades. Bars that hadn't closed at `captured_at` are dropped.
+- `providers/`: one contract (`base.Provider`) and a registry
+  (`providers.get(name)`, `available()`). A provider declares its kinds,
+  timeframes, page size, politeness interval, licence and raw price
+  adjustment; turns a request into a plan of URLs (`bar_requests`, cursor-paged
+  `trade_request`/`next_trade_cursor`); and parses bytes into canonical rows,
+  closed bars only, unadjusted. Built in: `kraken`, `coinbase`, `binance`
+  (data-api.binance.vision), `yahoo` (unofficial; undoes split adjustment
+  with the split events in the same response). No I/O inside providers.
+  To add one: a module that `register()`s an instance, imported in
+  `providers/__init__.py`, plus tests with synthetic payloads in its format.
+- `fetch.py`: the only network code. `http_get` (retries transient errors
+  only), `Fetcher(root, transport, clock, sleep)` runs a provider's plan and
+  stores each response as a capture; `ensure_instrument` creates/extends the
+  instrument record. Transport, clock and sleep are injectable for tests.
 - `reference.py`: `InstrumentRecord` (firm ID, provider symbols, listed /
   delisted, `status(as_of)`), versioned files, `resolve(provider, symbol)`.
 - `normalize.py`: captures → Parquet (`BAR_SCHEMA`, `TRADE_SCHEMA`), merge
@@ -147,7 +159,9 @@ Gotchas:
   formats; `seed_store` / `seed_trades` write an instrument + overlapping
   captures. Tests use only this.
 
-Gotchas: DuckDB queries take bound parameters (`$files`, `$as_of`); timestamps
+Gotchas: capture names hash payload + request (identical bytes from two
+requests in the same second must not collide); the meta's `sha256` is the
+payload's own checksum. DuckDB queries take bound parameters (`$files`, `$as_of`); timestamps
 are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 
 ## verify (milestone 1)
