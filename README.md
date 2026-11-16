@@ -82,13 +82,23 @@ Exit codes: 0 pass, 1 fail, 2 unverified, 3 error.
 
 ### Real market data
 
-`scripts/download_crypto.py` fetches public Kraken and Coinbase market data
-(no API keys) into your local data store; you run it yourself, tests never
-do. Check each provider's terms of use; the data is for your own use.
+`scripts/download_data.py` fetches public market data (no API keys) from any
+registered provider into your local data store; you run it yourself, tests
+never do. Built in: **kraken**, **coinbase**, **binance** (crypto) and
+**yahoo** (shares; unofficial endpoint, prices stored un-split-adjusted).
+Check each provider's terms of use; the data is for your own use. Using a
+source for research or paper trading says nothing about trading there with
+real money: that is decided by the jurisdiction profile and is off in v1.
 
 ```bash
-uv run python scripts/download_crypto.py --venue coinbase --instrument BTC-USD \
-    --symbol BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
+uv run python scripts/download_data.py --providers        # what's available
+uv run python scripts/download_data.py --provider coinbase --symbol BTC-USD \
+    --instrument BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
+uv run python scripts/download_data.py --provider binance --symbol BTCUSDT \
+    --instrument BTC-USDT --tf 1d --since 2017-08-17 --listed-at 2017-08-17
+uv run python scripts/download_data.py --provider yahoo --symbol NVDA \
+    --instrument NVDA.XNAS --venue xnas --asset-class equity --quote USD \
+    --tf 1d --since 2015-01-01 --listed-at 1999-01-22
 uv run firm data build-dataset --bars coinbase:BTC-USD:1d
 # several venues and kinds in one dataset version:
 uv run firm data build-dataset --bars coinbase:BTC-USD:1d --bars kraken:XBTUSD:1d \

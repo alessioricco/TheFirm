@@ -6,7 +6,7 @@ universe:
   source: eodhd
   include_delisted: true
 data:
-  history: eodhd
+  history: [eodhd, yahoo]   # eodhd planned; yahoo available (unofficial)
   realtime: ibkr
 costs:
   commission: ibkr_tiered

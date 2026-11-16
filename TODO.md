@@ -272,6 +272,49 @@ state (SPEC "Control and notifications").
 - [ ] Tests: API contract tests shared by UI and CLI; browser tests for the
       main flows (the `webapp-testing` skill in SKILLS.md, milestone 4).
 
+## Web monitoring and real-time instruments (owner request 2026-11-16)
+
+The CLI stays; a web interface monitors everything, live. Builds on the
+"Web UI" section above (milestone 4) and the control API.
+
+- [ ] **Live monitoring dashboard**: one page that shows the state of the
+      whole firm at a glance: desks and services up/down (bus heartbeats),
+      feed health and staleness per market, agents and experiments running,
+      strategies by stage, paper positions and P&L, risk usage and halts,
+      recent verdicts, alerts. Updates pushed over WebSocket, no refresh.
+- [ ] **Real-time instruments**: watchlists of several instruments at once
+      (crypto and shares, any venue), live prices, spreads and volume,
+      intraday charts with our own bars, the judge's regime label later.
+      Instruments can be added/removed from the UI and the CLI
+      (`firm market watch BTC-USD ETH-USD NVDA.XNAS`).
+- [ ] **Streaming data layer**: a streaming counterpart of the provider
+      layer (`firm.data.providers`): Kraken, Coinbase and Binance WebSocket
+      feeds behind one interface, normalised to the same bar/trade rows,
+      reconnects with backoff, staleness detection (SPEC: stale feed → urgent
+      alert, no new paper orders on that market). Live ticks are also
+      captured to the store with their capture time, so live and backtest
+      data are the same data.
+- [ ] Yahoo has no free real-time stream; real-time US shares come from the
+      IBKR feed (milestone 6) or another licensed source.
+- [ ] Read-only by construction for agents; the owner's actions (kill
+      switch, approvals) stay behind confirmation (see "Web UI" above).
+
+## Data providers (2026-11-16)
+
+- [x] One provider layer (`firm.data.providers`): contract, registry,
+      kraken, coinbase, binance, yahoo; generic fetch engine and
+      `scripts/download_data.py` (replaces `download_crypto.py`).
+- [ ] **Owner:** move `claude-staging/commands/update-data.md` into
+      `.claude/commands/` (it now uses `scripts/download_data.py`).
+- [ ] EODHD provider (US shares with delistings; needs a key in `.env`,
+      paid plan) for milestone 6.
+- [ ] Yahoo dividends: the chart response carries them; store them as
+      corporate actions in `reference/` when shares are verified (M6).
+- [ ] Library-backed providers (yfinance, ccxt, ...) fit the same contract
+      but are new dependencies: owner approval first.
+- [ ] Re-check Binance's and Yahoo's terms of use before any wider use; both
+      are personal/research use here and never redistributed.
+
 ## Gaps found in the 2026-11-16 project review
 
 Public repo (do before making it public):
@@ -334,7 +377,7 @@ Functional gaps:
       `Dataset.trades` had no end-to-end test.
 - [ ] **Real trades: deferred to milestone 2** (owner, 2026-11-16: no trade
       data source yet). Free: Kraken and Coinbase public trade endpoints
-      (no keys; `download_crypto.py --trades-pages N`), but ~1,000 trades
+      (no keys; `download_data.py --trades-pages N`), but ~1,000 trades
       per call, so recent trades only, not years of history. Deep tick
       history = a paid vendor (SPEC: Tardis.dev, later). Daily-bar
       strategies don't need trades; the paper simulator does (fills,

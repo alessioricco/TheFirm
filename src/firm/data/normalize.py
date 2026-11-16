@@ -19,7 +19,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from firm.core.base import FirmModel, Id, Sha256
-from firm.data.providers import BAR_PARSERS, TRADE_PARSERS, BarRow, TradeRow
+from firm.data import providers
+from firm.data.providers import BarRow, TradeRow
 from firm.data.reference import latest_instruments, resolve
 from firm.data.store import Capture, StoreError, iter_captures, partition, sha256_bytes, write_once
 
@@ -153,7 +154,7 @@ def normalize_bars(
     if not caps:
         raise StoreError(f"no bar captures for {provider}:{provider_symbol} {tf}")
     rec = resolve(latest_instruments(root), provider, provider_symbol)
-    rows, revisions = _merge(caps, BAR_PARSERS[provider], "open_time_ns", tf=tf)
+    rows, revisions = _merge(caps, providers.get(provider).parse_bars, "open_time_ns", tf=tf)
     return _write_partitions(
         root,
         rows,
@@ -174,7 +175,7 @@ def normalize_trades(root: Path, *, provider: str, provider_symbol: str) -> list
     if not caps:
         raise StoreError(f"no trade captures for {provider}:{provider_symbol}")
     rec = resolve(latest_instruments(root), provider, provider_symbol)
-    rows, revisions = _merge(caps, TRADE_PARSERS[provider], "trade_id")
+    rows, revisions = _merge(caps, providers.get(provider).parse_trades, "trade_id")
     rows.sort(key=lambda r: (r["time_ns"], r["trade_id"]))  # type: ignore[arg-type,return-value]
     return _write_partitions(
         root,

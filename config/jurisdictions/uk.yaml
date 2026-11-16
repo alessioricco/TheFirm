@@ -2,7 +2,7 @@
 # All values are placeholders to calibrate in milestone 1 (SPEC "Configuration").
 jurisdiction: uk
 base_currency: GBP
-allowed_venues: [kraken, coinbase, ibkr]
+allowed_venues: [kraken, coinbase, ibkr]   # real-money venues; data/paper may use any source
 # Regulatory standing of each venue here. Every allowed venue needs an entry.
 # Statuses as stated in docs/SPEC.md (2026-11-15); re-check before any live use.
 venue_status:
@@ -20,6 +20,13 @@ venue_status:
     regulator: FCA
     status: authorised
     as_of: 2026-11-15
+  # Data and paper trading only (the lab). Real money only on allowed venues.
+  binance:
+    regulator: FCA
+    status: not_permitted     # UK permissions cancelled May 2023; not on the register
+    as_of: 2026-11-16
+    review_by: 2027-02-28     # end of the FCA authorisation window it may apply in
+    note: Reported plans to apply under the new UK regime; re-check the FCA register.
 leverage_max: 1.0          # no leverage in v1 (the loader refuses > 1.0)
 tax:
   report: uk_cgt

@@ -94,6 +94,93 @@ def coinbase_candles_payload(bars: list[SyntheticBar]) -> bytes:
     return json.dumps(rows).encode()
 
 
+def binance_klines_payload(bars: list[SyntheticBar], tf: str = "1d") -> bytes:
+    """Binance `/api/v3/klines`: oldest first; times in ms; prices as strings."""
+    step_ms = tf_seconds(tf) * 1000
+    rows = [
+        [
+            b.open_time * 1000,
+            f"{b.open:.2f}",
+            f"{b.high:.2f}",
+            f"{b.low:.2f}",
+            f"{b.close:.2f}",
+            f"{b.volume:.8f}",
+            b.open_time * 1000 + step_ms - 1,
+            "0",
+            100,
+            "0",
+            "0",
+            "0",
+        ]
+        for b in bars
+    ]
+    return json.dumps(rows).encode()
+
+
+def yahoo_chart_payload(bars: list[SyntheticBar], splits: list[tuple[int, int, int]] = ()) -> bytes:
+    """Yahoo `/v8/finance/chart`: prices SPLIT-ADJUSTED as Yahoo serves them.
+
+    `splits` are (unix time, numerator, denominator); bars before a split are
+    divided by its ratio (volumes multiplied), exactly what Yahoo does.
+    """
+
+    def factor(t: int) -> float:
+        f = 1.0
+        for date, num, den in splits:
+            if t < date:
+                f *= num / den
+        return f
+
+    ts = [b.open_time for b in bars]
+    quote = {
+        k: [getattr(b, k) / factor(b.open_time) for b in bars]
+        for k in ("open", "high", "low", "close")
+    }
+    quote["volume"] = [int(b.volume * factor(b.open_time)) for b in bars]
+    doc = {
+        "chart": {
+            "result": [
+                {
+                    "meta": {"currency": "USD", "symbol": "SYNTH", "exchangeName": "NMS"},
+                    "timestamp": ts,
+                    "indicators": {"quote": [quote], "adjclose": [{"adjclose": quote["close"]}]},
+                    "events": {
+                        "splits": {
+                            str(d): {
+                                "date": d,
+                                "numerator": n,
+                                "denominator": m,
+                                "splitRatio": f"{n}:{m}",
+                            }
+                            for d, n, m in splits
+                        }
+                    },
+                }
+            ],
+            "error": None,
+        }
+    }
+    return json.dumps(doc).encode()
+
+
+def binance_agg_trades_payload(trades: list[SyntheticTrade]) -> bytes:
+    """Binance `/api/v3/aggTrades`: `m` true = buyer was maker = taker SOLD."""
+    rows = [
+        {
+            "a": t.trade_id,
+            "p": f"{t.price:.1f}",
+            "q": f"{t.size:.8f}",
+            "f": t.trade_id,
+            "l": t.trade_id,
+            "T": t.time_us // 1000,
+            "m": t.taker_side == "sell",
+            "M": True,
+        }
+        for t in trades
+    ]
+    return json.dumps(rows).encode()
+
+
 def seed_store(
     root: Path,
     *,
@@ -132,7 +219,14 @@ def seed_store(
         page = bars[first:last]
         forming_open = page[-1].open_time
         captured_at = datetime.fromtimestamp(forming_open + step // 2, tz=UTC)
-        payload = kraken_ohlc_payload(page) if venue == "kraken" else coinbase_candles_payload(page)
+        if venue == "kraken":
+            payload = kraken_ohlc_payload(page)
+        elif venue == "coinbase":
+            payload = coinbase_candles_payload(page)
+        elif venue == "binance":
+            payload = binance_klines_payload(page, tf)
+        else:
+            raise ValueError(f"no synthetic bar format for {venue!r}")
         write_capture(
             root,
             payload,

@@ -106,7 +106,7 @@ class CaptureMeta(FirmModel):
     captured_at: AwareDatetime | None  # None only for legacy imports (unknown)
     sha256: Sha256
     bytes: int
-    price_adjustment: Literal["none", "split_and_dividend_adjusted"] = "none"
+    price_adjustment: Literal["none", "split_adjusted", "split_and_dividend_adjusted"] = "none"
     licence: str
     tag: Literal["private"] = "private"
     imported_from: str | None = None
@@ -141,7 +141,7 @@ def write_capture(
     via: str,
     licence: str,
     capture_method: CaptureMethod = "api",
-    price_adjustment: Literal["none", "split_and_dividend_adjusted"] = "none",
+    price_adjustment: Literal["none", "split_adjusted", "split_and_dividend_adjusted"] = "none",
 ) -> Capture:
     """Store one provider response exactly as received, plus its `.meta.json`."""
     if kind not in KINDS:
@@ -153,7 +153,11 @@ def write_capture(
     if tf is not None:
         parts["tf"] = tf
     folder = root / "raw" / partition(**parts)
-    name = f"{stamp(captured_at)}_{sha[:8]}"
+    # The name's hash covers payload AND request: two requests in the same second
+    # can return identical bytes (e.g. an empty page) and must not collide.
+    # `sha256` in the meta stays the payload's own checksum.
+    ident = sha256_bytes(payload + b"\0" + canonical_json(request))
+    name = f"{stamp(captured_at)}_{ident[:8]}"
     meta = CaptureMeta(
         provider=provider,
         via=via,

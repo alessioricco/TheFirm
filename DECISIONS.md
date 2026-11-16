@@ -485,3 +485,44 @@ strategy in the same scope is still refused.
 **Thresholds and listing dates.** Verifier thresholds stay as v1 defaults
 until there are more real verifications. Listing dates stay as recorded
 (Coinbase 2015-01-26 confirmed; Kraken 2013-09-10 approximate).
+
+## 2026-11-16 — A provider layer for data sources; Binance and Yahoo added
+
+Owner request: one abstract layer to call any data source and add new ones
+easily, plus Binance and Yahoo Finance. `firm.data.providers` defines one
+contract (`base.Provider`): declared capabilities (kinds, timeframes, page
+size, politeness interval, licence, raw price adjustment), a request plan
+(paged URLs for bars, a cursor for trades) and pure parsers that emit closed
+bars only, unadjusted. A registry maps names to instances; captures, configs
+and the CLI use those names. Providers do no I/O: `firm.data.fetch` runs the
+plans (retries on transient errors only, provider pacing, captures with the
+provider's licence and adjustment). `scripts/download_data.py` replaces the
+crypto-only `download_crypto.py`.
+
+- **No new dependencies**: Binance and Yahoo are called over HTTP like
+  Kraken and Coinbase, because the store keeps each source's own bytes. A
+  library-backed provider (yfinance, ccxt) fits the contract but needs the
+  owner's approval as a dependency.
+- **Binance**: `data-api.binance.vision` (public market-data host, no key).
+  Lab use only: the UK profile records it as `not_permitted` for real money
+  (FCA permissions cancelled May 2023; may apply in the 2026-09-30 to
+  2027-02-28 authorisation window). Owner principle: the firm is a
+  laboratory; any source may feed research, training and paper trading;
+  real money only on venues the jurisdiction allows, behind the live gate.
+- **Yahoo**: unofficial chart endpoint, personal use, can break without
+  notice. Its OHLC is split-adjusted (lookahead); the parser undoes it with
+  the split events in the same response, so stored prices are what traded.
+  Daily bars get `close_time = open + 1 day`, later than the real close, so
+  a bar is never known too early. Raw captures are labelled `split_adjusted`.
+  Yahoo returns split events only inside the requested window, so the plan
+  always requests up to a far-future `period2`; a live check found a
+  January-2024-only NVDA request coming back ten times too low otherwise.
+  Verified live after the fix: closes match the traded prices on both sides
+  of the 2024 split. Binance verified live too (one month of daily bars).
+- **Capture-name fix found on the way**: names hashed only the payload, so
+  two requests in the same second returning identical bytes (e.g. empty
+  pages) collided and the download crashed. Names now hash payload +
+  request; the meta's `sha256` stays the payload checksum.
+- Binance's trade cursor stops on a short page (fewer than 1,000), saving a
+  request. Market profiles' `data.history` now name registered providers; a
+  test keeps them in sync (planned ones, e.g. `eodhd`, listed explicitly).

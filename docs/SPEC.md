@@ -18,6 +18,7 @@ Build a one-person trading firm that runs on local models: agents research and t
 - **Configurable, not hard-coded.** Country, markets, venues and data vendors are swappable profiles.
 - **Everything is recorded.** Every proposal, verdict, refusal and fill goes in the ledger with its reason.
 - **Paper first, live by hand.** Live trading stays off until the owner turns it on manually.
+- **A laboratory first.** Research, training, strategy design and paper trading may use any data source; real money only on venues the jurisdiction profile permits, behind the live readiness gate.
 - **Public code, private data.** The repository is public. Market data, derived prices, datasets, results, strategy parameters that matter, and secrets never go in git; they live in git-ignored stores, and tests use synthetic data.
 
 ## Architecture overview
@@ -114,12 +115,13 @@ Start cheap: free exchange data for crypto and IBKR plus EODHD for US shares, ad
 | Need | Crypto | US shares |
 | --- | --- | --- |
 | Venue (paper now, live later) | [Kraken](https://www.bitget.cloud/academy/coinbase-fca-regulat), Coinbase (both FCA-registered) | [Interactive Brokers](https://global-best-ai-brokers-uk.pages.dev/interactive-brokers-review) (paper account, mature API) |
+| Lab-only data sources | Binance (public market data; not permitted for real money in the UK profile) | Yahoo Finance (unofficial, personal use; daily history, prices stored un-split-adjusted) |
 | Real-time data | Exchange WebSockets (free) | IBKR market data subscription; Databento or Massive if needed |
 | Historical bars | Exchange REST APIs (free) | [EODHD](https://eodhd.com/financial-apis/delisted-stock-companies-data-2) (includes delisted symbols) |
 | Tick and order book history | [Tardis.dev](https://coinranking.com/blog/best-historical-crypto-data-apis/), from $450/month, history from 2019 (later) | Databento (later) |
 | Survivorship-free universe | Keep delisted coins in our own store | EODHD delisted list; [Norgate](https://norgatedata.com/) as a cross-check (US daily only) |
 
-Crypto data comes from the venues' public REST APIs directly (no unified library: the store keeps the venues' own bytes). Kraken serves only the last 720 bars of a timeframe; Coinbase pages back to 2015. Public trade endpoints give recent trades only; deep trade history needs a paid vendor (later).
+Every source sits behind one provider interface (`firm.data.providers`: declared capabilities, a request plan, parsers that emit closed, unadjusted bars) and a registry; adding a source is one module plus tests. Built in: Kraken, Coinbase, Binance, Yahoo. Sources are called over their public HTTP APIs directly (no unified library: the store keeps each source's own bytes); a library-backed provider fits the same interface if one is ever needed. Kraken serves only the last 720 bars of a timeframe; Coinbase pages back to 2015. Public trade endpoints give recent trades only; deep trade history needs a paid vendor (later).
 
 **Rules for the data plane**
 

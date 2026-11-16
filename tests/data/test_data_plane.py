@@ -10,15 +10,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from firm.data import providers
 from firm.data.dataset import HiddenPeriodError, build_dataset, open_dataset
 from firm.data.normalize import normalize_bars
-from firm.data.providers import (
-    ProviderError,
-    parse_coinbase_candles,
-    parse_coinbase_trades,
-    parse_kraken_ohlc,
-    parse_kraken_trades,
-)
+from firm.data.providers import ProviderError
 from firm.data.store import StoreError, iter_captures, partition, path_value, write_capture
 from firm.data.synthetic import (
     coinbase_candles_payload,
@@ -98,21 +93,25 @@ def test_capture_refuses_naive_time(tmp_path: Path) -> None:
 def test_kraken_drops_the_forming_bar() -> None:
     bars = synthetic_bars(5, seed=1, start=START)
     forming_mid = START + timedelta(days=4, hours=12)
-    rows = parse_kraken_ohlc(kraken_ohlc_payload(bars), tf="1d", captured_at=forming_mid)
+    rows = providers.get("kraken").parse_bars(
+        kraken_ohlc_payload(bars), tf="1d", captured_at=forming_mid
+    )
     assert len(rows) == 4
     assert rows[-1]["close_time_ns"] <= pd.Timestamp(forming_mid).value
 
 
 def test_coinbase_candles_reordered_and_mapped() -> None:
     bars = synthetic_bars(3, seed=2, start=START)
-    rows = parse_coinbase_candles(coinbase_candles_payload(bars), tf="1d", captured_at=FAR)
+    rows = providers.get("coinbase").parse_bars(
+        coinbase_candles_payload(bars), tf="1d", captured_at=FAR
+    )
     assert [r["open"] for r in rows] == [b.open for b in bars]  # oldest first, open not low
     assert [r["low"] for r in rows] == [b.low for b in bars]
 
 
 def test_kraken_error_is_raised() -> None:
     with pytest.raises(ProviderError):
-        parse_kraken_ohlc(
+        providers.get("kraken").parse_bars(
             b'{"error":["EQuery:Unknown asset pair"],"result":{}}', tf="1d", captured_at=FAR
         )
 
@@ -122,18 +121,20 @@ def test_inconsistent_ohlc_refused() -> None:
         {"error": [], "result": {"X": [[0, "10", "9", "8", "11", "9", "1", 1]], "last": 0}}
     ).encode()
     with pytest.raises(ProviderError):
-        parse_kraken_ohlc(payload, tf="1d", captured_at=FAR)
+        providers.get("kraken").parse_bars(payload, tf="1d", captured_at=FAR)
 
 
 def test_trade_sides_normalised_to_taker() -> None:
     k = json.dumps(
         {"error": [], "result": {"X": [["100.0", "0.5", 1.5, "b", "m", "", 7]], "last": "1"}}
     ).encode()
-    assert parse_kraken_trades(k, captured_at=FAR)[0]["taker_side"] == "buy"
+    assert providers.get("kraken").parse_trades(k, captured_at=FAR)[0]["taker_side"] == "buy"
     c = json.dumps(
         [{"time": "2020-01-01T00:00:00Z", "trade_id": 1, "price": "1", "size": "2", "side": "buy"}]
     ).encode()
-    assert parse_coinbase_trades(c, captured_at=FAR)[0]["taker_side"] == "sell"  # maker bought
+    assert (
+        providers.get("coinbase").parse_trades(c, captured_at=FAR)[0]["taker_side"] == "sell"
+    )  # maker bought
 
 
 # --- normalizer and datasets
@@ -219,3 +220,21 @@ def test_synthetic_and_real_captures_never_mix(tmp_path: Path) -> None:
     meta.write_text(json.dumps(doc))  # now one "real" capture among synthetic ones
     with pytest.raises(StoreError, match="mix synthetic and real"):
         normalize_bars(tmp_path, provider="kraken", provider_symbol="XBTUSD", tf="1d")
+
+
+def test_identical_payloads_from_different_requests_do_not_collide(tmp_path: Path) -> None:
+    """Two requests in the same second returning the same bytes (e.g. empty pages)."""
+    kw = dict(
+        provider="coinbase",
+        kind="bars",
+        provider_symbol="BTC-USD",
+        tf="1d",
+        fmt="json",
+        captured_at=START,
+        via="test",
+        licence="synthetic",
+    )
+    a = write_capture(tmp_path, b"[]", request={"url": "https://x?start=1"}, **kw)
+    b = write_capture(tmp_path, b"[]", request={"url": "https://x?start=2"}, **kw)
+    assert a.path != b.path and a.meta.sha256 == b.meta.sha256
+    assert len(list(iter_captures(tmp_path))) == 2
