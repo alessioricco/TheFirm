@@ -551,3 +551,23 @@ keyed by timeframe; this adds what was missing.
   manifests still open (the new fields default to empty).
 - Checked on the real Coinbase and Kraken daily data: every bar on the UTC
   grid; weekly bars derived on Mondays for both venues.
+
+## 2026-11-16 — Candidates and trials keyed by the content of the bars
+
+Owner decision. A candidate's identity in the OOS vault and its trial ID
+were built from the dataset version and window. Re-normalising the same
+bars (normaliser v2) creates a new dataset version, so re-verifying an
+unchanged strategy was refused as "another version" and counted as a new
+trial. Both now use a fingerprint of exactly the bars the verifier read
+(`bars_fingerprint`: open/close times and OHLCV, fixed byte order) with the
+code and parameters. Same bars in any dataset version: a replay, not a new
+trial. Any added, removed or changed bar: a new candidate, as before. The
+report records `bars_sha256`.
+
+Migration, append-only: a vault opening recorded under the old key is
+linked to the content key by an `alias` event the first time a
+verification reproduces the old key (same dataset version and window); a
+trial recorded under the old ID is linked by `trial_aliases.jsonl`, and the
+registry counts each trial once under its canonical ID. Done on the owner's
+real state: same verdicts, trial count unchanged, replays on the rebuilt
+dataset.

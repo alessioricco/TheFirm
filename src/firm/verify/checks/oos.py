@@ -26,6 +26,7 @@ def run(ctx: VerifyContext, in_sample_sharpe: float) -> CheckResult:
         strategy_id=ctx.strategy_id,
         scope=ctx.scope,
         candidate_key=ctx.candidate_key,
+        legacy_keys=ctx.legacy_keys,
         config_key=ctx.config_key,
         dataset_version=ctx.dataset_version,
         window=window,

@@ -24,7 +24,13 @@ from firm.data.dataset import open_dataset
 from firm.verify.backtest import metrics, run_backtest
 from firm.verify.state import OosVault, TrialRegistry
 from firm.verify.strategy import load_strategy
-from firm.verify.verifier import VerificationResult, cost_bps, split_in_sample, verify
+from firm.verify.verifier import (
+    VerificationResult,
+    bars_fingerprint,
+    cost_bps,
+    split_in_sample,
+    verify,
+)
 
 FAR_FUTURE = datetime(2262, 1, 1, tzinfo=UTC)  # within pandas' timestamp range
 
@@ -69,9 +75,14 @@ def verify_strategy_file(
     window = [bars["open_time"].iloc[0].isoformat(), bars["close_time"].iloc[-1].isoformat()]
 
     registry = TrialRegistry(state)
-    trial_id = (
-        "t-" + _h([loaded.strategy.name, loaded.code_sha256, p, dataset_version, window])[:16]
-    )
+    # A trial is identified by code, params and the bars it read (content), so
+    # re-processing the same bars into a new dataset version is not a new trial.
+    # A trial recorded before 2026-11-16 (keyed by dataset version + window) is reused.
+    name, code = loaded.strategy.name, loaded.code_sha256
+    legacy_trial = "t-" + _h([name, code, p, dataset_version, window])[:16]
+    trial_id = "t-" + _h([name, code, p, bars_fingerprint(bars)])[:16]
+    if legacy_trial in registry.raw_ids():
+        registry.alias(legacy_trial, trial_id)  # same trial, now keyed by content
     split = split_in_sample(bars, vcfg.oos.fraction)
     in_sample = bars.iloc[:split].reset_index(drop=True)
     is_metrics = (

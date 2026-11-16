@@ -179,7 +179,9 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 - `backtest.py`: `run_backtest` (decide at close, fill at next open,
   cost per unit traded), `metrics`, `SignalError`.
 - `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
-- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines;
+- `state.py`: `state_root()`, `TrialRegistry` (counts canonical IDs; legacy
+  IDs linked via `trial_aliases.jsonl`), `OosVault` (JSON lines; `alias`
+  events link pre-content keys to content keys;
   openings keyed by `oos_scope(strategy, instruments, tf)`, seals per
   `config_key`; `opening_trial_id()` for openings counted as trials),
   `STATE_SCHEMA_VERSION` (stamped in `STATE_VERSION` on first write; other
@@ -188,6 +190,8 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 - `checks/`: `lookahead`, `costs`, `sensitivity`, `trials`, `oos`; each
   exposes `NAME` and `run(ctx)`.
 - `verifier.py`: `verify(...)` → `VerificationResult(verdict, report)`;
+  `bars_fingerprint` and `candidate_key` (code + params + bars content);
+  `legacy_candidate_key` only to recognise pre-2026-11-16 vault entries;
   `EXIT_CODES`; `cost_bps` (taker fee of the venue's schedule + half spread +
   slippage); `split_in_sample`. The report's `costs` block names the fee
   schedule, its source and date.

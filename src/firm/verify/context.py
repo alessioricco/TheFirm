@@ -19,7 +19,8 @@ class VerifyContext:
     strategy: Strategy
     params: Mapping[str, ParamValue]
     strategy_id: str
-    candidate_key: str  # hash of code + params + dataset + window
+    candidate_key: str  # hash of code + params + fingerprint of the bars read
+    legacy_keys: tuple[str, ...]  # pre-2026-11-16 keys of the same candidate (vault aliases)
     scope: str  # strategy | instrument(s) | timeframe: the unit of an OOS opening
     config_key: str  # hash of costs + verifier config: one sealed OOS result per config
     trial_ids: tuple[str, ...]
