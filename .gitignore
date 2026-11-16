@@ -247,4 +247,6 @@ __marimo__/
 .claude/skills/
 .claude/.cc-writes/
 .claude/settings.local.json
+# Editor workspaces (can hold machine-specific paths)
+*.code-workspace
 .DS_Store
