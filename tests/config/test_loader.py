@@ -293,3 +293,26 @@ def test_every_live_venue_needs_a_fee_schedule(tmp_path: Path) -> None:
     crypto["costs"]["commission"] = {"kraken": "kraken_pro_tier1"}  # coinbase missing
     with pytest.raises(ConfigError, match="fee schedule"):
         load_config(_tree(tmp_path, crypto=crypto), "uk", ["crypto"])
+
+
+# --- data sources in profiles vs the provider registry
+
+
+def test_profile_history_sources_are_registered_providers() -> None:
+    """Every history source a profile names is a registered provider, except the
+    ones explicitly planned (no provider module yet)."""
+    from firm.data import providers
+
+    planned = {"eodhd"}
+    cfg = load_config(REPO_CONFIG, "uk", ["crypto", "us_equities"])
+    for name, market in cfg.markets.items():
+        hist = market.data.history
+        sources = {hist} if isinstance(hist, str) else set(hist)
+        unknown = sources - set(providers.available()) - planned
+        assert not unknown, f"{name}: unknown history sources {sorted(unknown)}"
+
+
+def test_binance_is_lab_only_in_the_uk_profile() -> None:
+    j = load_jurisdiction(REPO_CONFIG / "jurisdictions" / "uk.yaml")
+    assert "binance" not in j.allowed_venues
+    assert j.venue_status["binance"].status == "not_permitted"
