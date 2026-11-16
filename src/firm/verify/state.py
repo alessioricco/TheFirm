@@ -79,8 +79,21 @@ def _read(path: Path) -> list[dict[str, Any]]:
 
 
 class TrialRegistry:
+    """Global trial count. Trial IDs recorded under an old scheme can be linked to
+    their new ID by an append-only alias (`trial_aliases.jsonl`); every trial is
+    counted once under its canonical ID."""
+
     def __init__(self, root: Path) -> None:
         self.path = root / "trials.jsonl"
+        self.alias_path = root / "trial_aliases.jsonl"
+
+    def _aliases(self) -> dict[str, str]:
+        return {a["from"]: a["to"] for a in _read(self.alias_path)}
+
+    def alias(self, old_id: str, new_id: str) -> None:
+        """Link a legacy trial ID to its canonical ID (idempotent)."""
+        if self._aliases().get(old_id) != new_id:
+            _append(self.alias_path, {"from": old_id, "to": new_id})
 
     def record(self, trial: TrialRecord) -> bool:
         """Count a trial. Returns False if it was already counted."""
@@ -92,8 +105,12 @@ class TrialRegistry:
     def all(self) -> list[TrialRecord]:
         return [TrialRecord.model_validate(r) for r in _read(self.path)]
 
-    def ids(self) -> set[str]:
+    def raw_ids(self) -> set[str]:
         return {r["trial_id"] for r in _read(self.path)}
+
+    def ids(self) -> set[str]:
+        aliases = self._aliases()
+        return {aliases.get(i, i) for i in self.raw_ids()}
 
     def count(self) -> int:
         return len(self.ids())
@@ -135,34 +152,61 @@ class OosVault:
         scope: str,
         candidate_key: str,
         dataset_version: str,
-        config_key: str = "",
         window: list[str],
         at: datetime,
+        config_key: str = "",
+        legacy_keys: tuple[str, ...] = (),
     ) -> Opening:
-        """Log an opening attempt and say whether the OOS data may be used."""
+        """Log an opening attempt and say whether the OOS data may be used.
+
+        Candidate keys are compared after resolving `alias` events, and a
+        first opening recorded under one of `legacy_keys` (the pre-content
+        key of the same candidate) is linked to `candidate_key` by a new
+        `alias` event: append-only, nothing is rewritten."""
+        events = self.events()
+        aliases = {e["from"]: e["to"] for e in events if e["event"] == "alias"}
+
+        def canon(key: str) -> str:
+            return aliases.get(key, key)
+
         firsts = [
             e
-            for e in self.events()
+            for e in events
             if e["event"] == "first_opening"
             and e["strategy_id"] == strategy_id
             and e.get("scope", scope) == scope  # no scope = legacy: whole strategy
         ]
+        sealed: str | None = None
         if not firsts:
             access: Access = "first_opening"
-            sealed = None
-        elif firsts[0]["candidate_key"] == candidate_key:
-            access = "replay"
-            seals = [
-                e
-                for e in self.events()
-                if e["event"] == "sealed"
-                and e["candidate_key"] == candidate_key
-                and e.get("scope", scope) == scope
-                and e.get("config_key", "") == config_key
-            ]
-            sealed = seals[0]["result_sha256"] if seals else None
         else:
-            access, sealed = "refused", None
+            opened = firsts[0]["candidate_key"]
+            if canon(opened) != candidate_key and opened in legacy_keys:
+                _append(
+                    self.path,
+                    {
+                        "event": "alias",
+                        "strategy_id": strategy_id,
+                        "scope": scope,
+                        "from": opened,
+                        "to": candidate_key,
+                        "at": at.isoformat(),
+                    },
+                )
+                aliases[opened] = candidate_key
+            if canon(opened) == candidate_key:
+                access = "replay"
+                seals = [
+                    e
+                    for e in events
+                    if e["event"] == "sealed"
+                    and canon(e["candidate_key"]) == candidate_key
+                    and e.get("scope", scope) == scope
+                    and e.get("config_key", "") == config_key
+                ]
+                sealed = seals[0]["result_sha256"] if seals else None
+            else:
+                access = "refused"
         _append(
             self.path,
             {

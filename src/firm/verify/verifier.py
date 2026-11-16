@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from firm import __version__
@@ -54,14 +55,33 @@ def split_in_sample(bars: pd.DataFrame, fraction: float) -> int:
     return len(bars) - round(len(bars) * fraction)
 
 
-def candidate_key(candidate: StrategyCandidate, dataset_version: str, window: list[str]) -> str:
+def bars_fingerprint(bars: pd.DataFrame) -> str:
+    """SHA-256 of exactly the bars a verification read: times and OHLCV, fixed byte order.
+
+    Two dataset versions holding the same bars (e.g. after re-normalising) give
+    the same fingerprint; any changed, added or removed bar changes it."""
+    h = hashlib.sha256(f"bars:{len(bars)}".encode())
+    for col in ("open_time", "close_time"):
+        h.update(np.ascontiguousarray(pd.DatetimeIndex(bars[col]).asi8, dtype="<i8").tobytes())
+    for col in ("open", "high", "low", "close", "volume"):
+        h.update(np.ascontiguousarray(bars[col].to_numpy(dtype=float), dtype="<f8").tobytes())
+    return h.hexdigest()
+
+
+def candidate_key(code_sha256: str, params: Mapping[str, Any], fingerprint: str) -> str:
+    """What makes a candidate *this* candidate: its code, parameters and the bars it saw."""
     blob = json.dumps(
-        {
-            "code": candidate.code_sha256,
-            "params": candidate.spec.parameters,
-            "dataset": dataset_version,
-            "window": window,
-        },
+        {"code": code_sha256, "params": dict(params), "bars": fingerprint}, sort_keys=True
+    )
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
+def legacy_candidate_key(
+    code_sha256: str, params: Mapping[str, Any], dataset_version: str, window: list[str]
+) -> str:
+    """The key used before 2026-11-16 (dataset version + window), to recognise old openings."""
+    blob = json.dumps(
+        {"code": code_sha256, "params": dict(params), "dataset": dataset_version, "window": window},
         sort_keys=True,
     )
     return hashlib.sha256(blob.encode()).hexdigest()
@@ -108,11 +128,13 @@ def verify(
     params: Mapping[str, Any] = candidate.spec.parameters
     split = split_in_sample(bars, config.oos.fraction)
     window = [bars["open_time"].iloc[0].isoformat(), bars["close_time"].iloc[-1].isoformat()]
+    fingerprint = bars_fingerprint(bars)
     ctx = VerifyContext(
         strategy=strategy,
         params=params,
         strategy_id=candidate.strategy_id,
-        candidate_key=candidate_key(candidate, dataset_version, window),
+        candidate_key=candidate_key(candidate.code_sha256, params, fingerprint),
+        legacy_keys=(legacy_candidate_key(candidate.code_sha256, params, dataset_version, window),),
         scope=oos_scope(
             candidate.strategy_id, candidate.spec.instruments, candidate.spec.timeframe
         ),
@@ -194,6 +216,7 @@ def verify(
             "instruments": list(candidate.spec.instruments),
             "timeframe": candidate.spec.timeframe,
             "window": window,
+            "bars_sha256": fingerprint,
             "hidden_from": bars["open_time"].iloc[split].isoformat() if split < len(bars) else None,
             "bars_in_sample": split,
             "bars_hidden": len(bars) - split,
