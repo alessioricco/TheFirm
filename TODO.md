@@ -230,6 +230,42 @@ from our data, reports and ledger.
 - [ ] Evaluation: a small set of questions with known answers from our own
       reports, run against candidate local models (Certo's benchmark idea).
 
+## Web UI for managing everything (milestone 4; owner request 2026-11-16)
+
+One control API serves the web UI, the CLI and the read-only MCP endpoint,
+so anything clickable is also scriptable and both always show the same
+state (SPEC "Control and notifications").
+
+- [ ] **Decide the stack** (SPEC open question): Certo's server mode plus a
+      light frontend, or something else. Constraints: runs on any host (not
+      tied to the DGX), works on the Mac browser, no build step if possible,
+      no data or secrets in the repo.
+- [ ] Pages (SPEC table, plus what we've added since):
+      - **Agents**: start/pause/stop, assign research tasks, budgets and
+        model ladders (from `config/models.yaml`), live runs and verdicts.
+      - **Strategies**: stage (idea → verified → paper), verification
+        reports (the five checks, verdict ID, dataset version), approve
+        promotions.
+      - **Data**: the store (captures, series, gaps, revisions), dataset
+        versions and lineage, incremental updates, real vs synthetic.
+      - **Markets**: watchlists, prices and charts, market hours, feed
+        health, judge regime labels.
+      - **Technical analysis**: on-demand TA documents (render JSON/MD).
+      - **Ask the firm**: question box over our data and reports, with cited sources.
+      - **Paper portfolio**: positions, fills, P&L per strategy and total in
+        GBP, live-vs-backtest drift.
+      - **Ledger and journal**: search any decision or order and replay why;
+        journal filters by strategy, market, date; exports.
+      - **System**: risk limits (read-only view), model server load, GPU
+        memory, kill switches (per market and global, with confirmation).
+- [ ] Owner-only actions with confirmation: promotions, kill switch, and
+      the manual approval that firm rule 7 requires to enable live trading.
+      Agent-facing endpoints can't do any of them (firm rules 3, 7).
+- [ ] Access: private network only (e.g. Tailscale), authenticated, never on
+      the public internet; WebSocket for live updates.
+- [ ] Tests: API contract tests shared by UI and CLI; browser tests for the
+      main flows (the `webapp-testing` skill in SKILLS.md, milestone 4).
+
 ## Gaps found in the 2026-11-16 project review
 
 Public repo (do before making it public):
