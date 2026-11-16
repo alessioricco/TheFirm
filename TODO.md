@@ -331,16 +331,22 @@ Functional gaps:
       from the CLI; it was built from Python. Accept several
       `--provider:symbol` pairs.
 - [x] (2026-11-16, tests/data/test_trades.py) Trades: parsers existed, but `normalize_trades` and
-      `Dataset.trades` had no end-to-end test. Still open: no real trades
-      downloaded yet (`--trades-pages`; SPEC milestone 1 says "bars and trades").
+      `Dataset.trades` had no end-to-end test.
+- [ ] **Real trades: deferred to milestone 2** (owner, 2026-11-16: no trade
+      data source yet). Free: Kraken and Coinbase public trade endpoints
+      (no keys; `download_crypto.py --trades-pages N`), but ~1,000 trades
+      per call, so recent trades only, not years of history. Deep tick
+      history = a paid vendor (SPEC: Tardis.dev, later). Daily-bar
+      strategies don't need trades; the paper simulator does (fills,
+      slippage calibration), from live WebSocket feeds plus recent pages.
 - [x] (2026-11-16, tests/scripts/) `scripts/download_crypto.py` had no tests (retry logic, pagination);
       test them with a fake `urlopen` (no network).
 - [x] (2026-11-16, `STATE_VERSION`, `firm state show`) `state/` had no schema/versioning
       and no tooling to inspect it (`firm state show`?) until the ledger.
-- [ ] **Owner:** move `claude-staging/commands/update-data.md` into
+- [x] **Owner:** move `claude-staging/commands/update-data.md` into
       `.claude/commands/` (new `--bars/--trades` syntax; results go to
       `private/TODO.md`).
-- [ ] **Owner:** copy `scripts/fetch_claude_skills.py` from Certo, or drop that line
+- [x] (2026-11-16) **Owner:** copy `scripts/fetch_claude_skills.py` from Certo, or drop that line
       from SKILLS.md.
 
 ## Later milestones
