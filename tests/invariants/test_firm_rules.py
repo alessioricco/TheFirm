@@ -53,12 +53,13 @@ def test_rule_03_agents_cannot_read_or_write_risk_config_capital_or_jurisdiction
     pytest.fail("placeholder")
 
 
-def test_rule_04_final_oos_opened_once_per_strategy_by_verifier_only_and_logged(
+def test_rule_04_final_oos_opened_once_per_strategy_instrument_timeframe_by_verifier_and_logged(
     dataset, tmp_path
 ) -> None:
     """Research reads are capped before the hidden period; only the verifier's vault
-    opens it; a second version of a strategy is refused; every attempt is logged;
-    a strategy failing in-sample never opens it."""
+    opens it; a second version in the same scope (strategy | instrument | timeframe)
+    is refused, another scope gets its own opening; every attempt is logged and every
+    first opening is counted as a trial; a strategy failing in-sample never opens it."""
     root, version = dataset
     ds = open_dataset(root, version)
     bars = ds.bars("kraken", "BTC-USD", "1d", as_of=NOW)
@@ -77,12 +78,19 @@ def test_rule_04_final_oos_opened_once_per_strategy_by_verifier_only_and_logged(
         "MovingAverageCrossover",
         params={"fast": 12, "slow": 40},
     )
-    events = [(e["event"], e["strategy_id"]) for e in OosVault(tmp_path).events()]
-    assert events == [
-        ("first_opening", "ma_crossover"),
-        ("sealed", "ma_crossover"),
-        ("refused", "ma_crossover"),
-    ]
+    events = [(e["event"], e["scope"]) for e in OosVault(tmp_path).events()]
+    scope = "ma_crossover|BTC-USD|1d"
+    assert events == [("first_opening", scope), ("sealed", scope), ("refused", scope)]
+    assert [t.experiment_id for t in TrialRegistry(tmp_path).all()].count("oos_opening") == 1
+    other = OosVault(tmp_path).request(
+        strategy_id="ma_crossover",
+        scope="ma_crossover|ETH-USD|1d",
+        candidate_key="k",
+        dataset_version="ds",
+        window=["a", "b"],
+        at=NOW,
+    )
+    assert other.access == "first_opening"
 
     src = Path(__file__).resolve().parents[2] / "src" / "firm"
     for path in src.rglob("*.py"):

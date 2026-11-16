@@ -29,7 +29,7 @@ versions, verdict IDs, metrics, download history) goes in the git-ignored
 - [x] Data store backup: `data/` (and `state/`) are covered by the owner's
       Time Machine backup of the Mac (2026-11-16). The DGX or any other host
       running the firm will need its own backup.
-- [ ] **OOS vault scope (decide):** the SPEC says the hidden period is opened
+- [x] (2026-11-16: strategy + instrument + timeframe, openings counted as trials) **OOS vault scope (decide):** the SPEC says the hidden period is opened
       "once per strategy". The vault keys by strategy ID only, so after
       `ma_crossover` opened its OOS on Coinbase BTC-USD, verifying it on
       another venue or instrument would be refused. Per strategy (strict,
@@ -75,10 +75,12 @@ Follow-ups from milestone 1:
 - [x] Real data downloaded 2026-11-16 (Coinbase and Kraken BTC-USD 1d) and
       `ma_crossover` verified on it. Dataset version, verdicts and results
       are private: `private/TODO.md` (git-ignored).
-- [ ] Listing dates used for the instrument records are approximate
+- [x] (2026-11-16: kept; Coinbase confirmed, Kraken approximate) Listing dates used for the instrument records are approximate
       (Coinbase BTC-USD 2015-01-26, Kraken XBTUSD 2013-09-10); confirm.
-- [ ] Calibrate verifier thresholds (`config/verify/default.yaml`) and fee
-      schedules (`config/fees/`): all placeholders (SPEC open question).
+- [x] (2026-11-16) Fees: real published entry-tier fees per venue in
+      `config/fees/` (Coinbase numbers still to confirm on its signed-in page).
+- [ ] Verifier thresholds: kept as v1 defaults (owner, 2026-11-16);
+      calibrate once there are more real verifications.
 - [ ] Kraken OHLC gives only the last 720 bars: full history needs trade
       aggregation or Kraken's files (check terms). Coinbase pages fine.
 - [ ] FX conversion cost not applied in backtests (P&L in quote currency).

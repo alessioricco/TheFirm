@@ -9,7 +9,9 @@ data:
   history: [kraken_rest, coinbase_rest]
   realtime: [kraken_ws, coinbase_ws]
 costs:
-  commission: exchange_taker  # per-venue fee schedule, calibrated in milestone 1
+  commission:               # fee schedule per venue (config/fees/)
+    kraken: kraken_pro_tier1
+    coinbase: coinbase_advanced_tier1
   spread_model: quoted
   spread_bps: 2             # assumed full spread for bar backtests (placeholder)
   slippage_bps: 5

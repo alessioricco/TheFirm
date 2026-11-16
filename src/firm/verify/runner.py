@@ -56,7 +56,7 @@ def verify_strategy_file(
     p = dict(loaded.strategy.default_params) | dict(params or {})
     cfg = load_config(config_root, jurisdiction, [market])
     profile = cfg.markets[market]
-    fees = load_fee_schedule(config_root, profile.costs.commission)
+    fees = load_fee_schedule(config_root, profile.costs.fee_schedule_for(venue))
     vcfg = load_verifier_config(config_root, verifier_name)
     vcfg_sha = hashlib.sha256(
         (config_root / "verify" / f"{verifier_name}.yaml").read_bytes()

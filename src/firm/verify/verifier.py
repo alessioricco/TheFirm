@@ -37,7 +37,7 @@ from firm.core.timeframes import periods_per_year
 from firm.verify.backtest import metrics
 from firm.verify.checks import costs, lookahead, oos, sensitivity, trials
 from firm.verify.context import VerifyContext
-from firm.verify.state import OosVault, TrialRegistry
+from firm.verify.state import OosVault, TrialRegistry, oos_scope
 from firm.verify.strategy import Strategy
 
 EXIT_CODES = {VerdictOutcome.PASS: 0, VerdictOutcome.FAIL: 1, VerdictOutcome.UNVERIFIED: 2}
@@ -113,6 +113,12 @@ def verify(
         params=params,
         strategy_id=candidate.strategy_id,
         candidate_key=candidate_key(candidate, dataset_version, window),
+        scope=oos_scope(
+            candidate.strategy_id, candidate.spec.instruments, candidate.spec.timeframe
+        ),
+        config_key=hashlib.sha256(
+            f"{cost_bps(market, fees)!r}|{config_sha256}".encode()
+        ).hexdigest()[:16],
         trial_ids=candidate.trial_ids,
         dataset_version=dataset_version,
         in_sample=bars.iloc[:split].reset_index(drop=True),
@@ -196,6 +202,8 @@ def verify(
             {
                 "market": market.market,
                 "fee_schedule": fees.fee_schedule,
+                "fee_source": fees.source,
+                "fee_as_of": fees.as_of.isoformat(),
                 "cost_bps_per_unit_traded": ctx.cost_bps,
             }
         ),

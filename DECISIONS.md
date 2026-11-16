@@ -451,3 +451,37 @@ workflow permissions read-only. Actions are pinned to the commit SHAs of
 the newest release in each major (checkout v5.1.0, setup-uv v6.8.0,
 gitleaks-action v2.3.9; the gitleaks SHA matches the one CI had resolved
 for `@v2`), and `.github/dependabot.yml` bumps them weekly via PRs.
+
+## 2026-11-16 — Real fees per venue; OOS scope per strategy, instrument, timeframe
+
+Owner decisions.
+
+**Fees.** The single 40 bps placeholder was about half Kraken's real entry
+taker fee. Each venue now has its own schedule with its published
+entry-tier fees, source and check date: `kraken_pro_tier1` (40/80 bps
+maker/taker; Kraken's tiers since 2026-07-09) and `coinbase_advanced_tier1`
+(40/60 bps; from third-party guides, to confirm on Coinbase's signed-in fee
+page). The market profile's `commission` maps venue → schedule; the loader
+refuses a market whose live venues lack one. Bar backtests charge the taker
+fee. Cost per unit traded on Kraken is now 86 bps (was 46); the synthetic
+exit-check crossover still passes. Earlier real-data verdicts were made at
+46 bps and are stale.
+
+**OOS scope.** The hidden period is opened once per strategy, instrument and
+timeframe (was: once per strategy), and every first opening is recorded as
+a trial (`experiment_id: oos_opening`), so trying a strategy on many
+instruments raises the bar for all. The trial check leaves out the
+candidate's *own* opening, which can't have influenced its selection; this
+keeps a replay's report identical to the first run's. Vault events written
+before scopes existed keep blocking the whole strategy (strict).
+
+**Seals per verifier config.** The candidate key covers code, params,
+dataset and window, not costs, so re-verifying an unchanged strategy after
+a fee change would have reported "does not reproduce the sealed result".
+Results are now sealed per `config_key` (costs + verifier config hash): an
+unchanged strategy replayed under a new config gets a new seal; a changed
+strategy in the same scope is still refused.
+
+**Thresholds and listing dates.** Verifier thresholds stay as v1 defaults
+until there are more real verifications. Listing dates stay as recorded
+(Coinbase 2015-01-26 confirmed; Kraken 2013-09-10 approximate).
