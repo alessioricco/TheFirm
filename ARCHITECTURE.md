@@ -158,14 +158,18 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 - `backtest.py`: `run_backtest` (decide at close, fill at next open,
   cost per unit traded), `metrics`, `SignalError`.
 - `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
-- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines),
+- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines;
+  openings keyed by `oos_scope(strategy, instruments, tf)`, seals per
+  `config_key`; `opening_trial_id()` for openings counted as trials),
   `STATE_SCHEMA_VERSION` (stamped in `STATE_VERSION` on first write; other
   versions are refused), `state_summary()`.
 - `context.py`: `VerifyContext` (frozen inputs, cached in-sample backtests).
 - `checks/`: `lookahead`, `costs`, `sensitivity`, `trials`, `oos`; each
   exposes `NAME` and `run(ctx)`.
 - `verifier.py`: `verify(...)` → `VerificationResult(verdict, report)`;
-  `EXIT_CODES`; `cost_bps`; `split_in_sample`.
+  `EXIT_CODES`; `cost_bps` (taker fee of the venue's schedule + half spread +
+  slippage); `split_in_sample`. The report's `costs` block names the fee
+  schedule, its source and date.
 - `runner.py`: `verify_strategy_file(...)` wires files, config, dataset,
   trial recording and the verifier (used by the CLI and tests).
 

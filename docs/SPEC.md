@@ -94,14 +94,14 @@ broker:
   live: ibkr                # inactive while live_trading is false
 ```
 
-The crypto profile has the same shape, with `calendar: 24x7` and funding rates instead of corporate actions; crypto pairs are USD-quoted. A strategy declares which market profiles it runs on, and the verifier uses that profile's costs and calendar. All numbers are placeholders still to calibrate.
+The crypto profile has the same shape, with `calendar: 24x7` and funding rates instead of corporate actions; crypto pairs are USD-quoted, and `commission` maps each venue to its own fee schedule (Kraken and Coinbase charge differently). A strategy declares which market profiles it runs on, and the verifier uses that profile's costs and calendar. All numbers are placeholders still to calibrate.
 
 **Other profiles**
 
 | File | Holds | Who may read it |
 | --- | --- | --- |
 | `config/risk/<name>.yaml` | Limits and caps, e.g. the per-exchange exposure cap for crypto | Deterministic desks only; no agent |
-| `config/fees/<name>.yaml` | Fee schedules named by a market's `costs.commission` | Everyone |
+| `config/fees/<name>.yaml` | One schedule per venue and tier: the venue's real published maker/taker fees, with source and date | Everyone |
 | `config/verify/<name>.yaml` | Verifier thresholds | Read by the verifier; no agent may change them |
 | `config/models.yaml` | Model per role, Q&A approach, egress policy (cloud budget 0) | Everyone; changed by the owner |
 
@@ -347,10 +347,10 @@ Every venue sits behind one adapter interface designed for real trading from day
 The verifier runs a strategy against an exact dataset version and returns **pass**, **fail** or **unverified**, never "pass" for something it could not check:
 
 1. **Lookahead truncation:** re-run with the data cut at many decision times; any changed past signal fails.
-2. **Cost realism:** must survive the market profile's costs, and not lose money with costs doubled.
+2. **Cost realism:** must survive the real costs of the venue it trades on (published taker fee, half the spread, slippage), and not lose money with costs doubled.
 3. **Parameter sensitivity:** nudging each parameter up and down must not collapse the result.
 4. **Trial count:** the Sharpe ratio is deflated for the global number of trials (Bailey and López de Prado, 2014).
-5. **Hidden out-of-sample:** the last part of the window, opened only if checks 1–4 pass.
+5. **Hidden out-of-sample:** the last part of the window, opened only if checks 1–4 pass, once per strategy, instrument and timeframe. Each first opening counts as a trial, so trying a strategy on many instruments raises the bar.
 
 The backtest decides at a bar's close and fills at the next bar's open. The report is deterministic and its hash is the verdict ID: the same dataset version, candidate and global trial count give the same bytes. All thresholds live in `config/verify/` and are placeholders.
 
@@ -361,7 +361,7 @@ These rules are enforced in code and each one gets an automated test; breaking o
 1. No LLM output can reach the execution desk except through a verdict and a risk approval.
 2. Every order carries a verdict ID and a risk decision ID; an order without both is rejected.
 3. Agents cannot read or write risk configuration, capital allocation, or the jurisdiction profile, and cannot change the verifier's thresholds.
-4. The final out-of-sample period is opened once per strategy, by the verifier only, after the in-sample checks pass; every opening is logged. Re-verifying the identical candidate replays the sealed result; any other version is refused.
+4. The final out-of-sample period is opened once per strategy, instrument and timeframe, by the verifier only, after the in-sample checks pass; every opening is logged and counted as a trial. Re-verifying the identical candidate replays the sealed result; any other version in the same scope is refused.
 5. Every trial an agent runs is counted, and the verifier corrects for the trial count.
 6. The ledger is append-only; nothing is edited or deleted.
 7. `live_trading` is false in v1; turning it on requires a config change plus a manual approval in the web UI.
@@ -391,8 +391,8 @@ The first build target is milestone 1 on crypto: a data plane and a verifier tha
 ## Open questions
 
 - [ ] Judge model: d3 on Ollama chosen; pick d3:9b or d3:27b by testing on our own labelled market cases.
-- [ ] Exact verifier thresholds. The method is decided (see "How the verifier decides"; deflated Sharpe for trial count); the numbers are placeholders.
-- [ ] Out-of-sample scope: opened once per strategy (current, strict), or once per strategy and instrument?
+- [x] Verifier thresholds: the method is decided (see "How the verifier decides"); the current numbers stay as v1 defaults until there are more real verifications to calibrate them on.
+- [x] Out-of-sample scope: once per strategy, instrument and timeframe, each opening counted as a trial.
 - [ ] Paper-to-live drift tolerance that triggers a demotion.
 - [x] Name of the system and its CLI: "the firm", CLI `firm`.
 - [x] The harness lives in its own (public) repo and uses Certo.
