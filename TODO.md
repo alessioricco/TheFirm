@@ -251,15 +251,16 @@ Public repo (do before making it public):
       "must fail the build", but there is no build yet.
 - [x] Secret scanning: pattern checks in the hook and CI, gitleaks over the
       full history in CI.
-- [ ] **Owner, when the repo goes public:** enable GitHub secret scanning
-      and push protection; require the `ci` checks on `main` (branch
-      protection). Pin actions to commit SHAs (they use version tags now).
+- [ ] **Owner, when the repo goes public:** follow
+      `docs/github-security-setup.md` (secret scanning, push protection,
+      required CI checks on `main`, actions pinned to SHAs, Dependabot).
 - [ ] If the repo stays private for a while: `ubuntu-24.04-arm` runners may
       not be available to private repos on the free plan; switch that
       matrix entry to `ubuntu-latest` until it is public.
-- [ ] **Deny `.env` to Claude Code**: CLAUDE.md says `.env` is
-      permission-denied, but no `.claude/settings.json` exists. Owner to add
-      `permissions.deny` for `Read(./.env)` (the session can't write `.claude/`).
+- [ ] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
+      and commit it: denies `.env`/secrets and force pushes, asks before
+      edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
+      (see `docs/github-security-setup.md` §6).
 - [ ] **Owner edit in `.claude/commands/`** (the session can't write there):
       `add-market-profile.md` and `add-venue-adapter.md` say "recorded
       fixtures"; they should say synthetic fixtures in the provider's format,
