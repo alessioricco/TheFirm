@@ -202,7 +202,7 @@ def test_missing_profile(tmp_path: Path) -> None:
 
 
 def test_repo_fee_schedule_and_verifier_config_load() -> None:
-    assert load_fee_schedule(REPO_CONFIG, "exchange_taker").taker_bps > 0
+    assert load_fee_schedule(REPO_CONFIG, "kraken_pro_tier1").taker_bps > 0
     cfg = load_verifier_config(REPO_CONFIG)
     assert cfg.trials.method == "deflated_sharpe" and 0 < cfg.oos.fraction < 1
 
@@ -219,7 +219,7 @@ def test_verifier_config_refuses_unknown_keys_and_zero_steps(tmp_path: Path) -> 
 def test_fee_schedule_name_must_match_file(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="file name"):
         load_fee_schedule(
-            _write(tmp_path, "fees/other.yaml", _raw("fees/exchange_taker.yaml")).parent.parent,
+            _write(tmp_path, "fees/other.yaml", _raw("fees/kraken_pro_tier1.yaml")).parent.parent,
             "other",
         )
 
@@ -256,3 +256,40 @@ def test_no_model_names_in_source() -> None:
         text = path.read_text()
         for name in names:
             assert name not in text, f"{path}: hard-coded model name {name!r}"
+
+
+# --- per-venue fee schedules (real published fees)
+
+
+def test_crypto_market_maps_each_venue_to_its_fee_schedule() -> None:
+    from firm.core.config import load_fee_schedule
+
+    m = load_config(REPO_CONFIG, "uk", ["crypto"]).markets["crypto"]
+    kraken = load_fee_schedule(REPO_CONFIG, m.costs.fee_schedule_for("kraken"))
+    coinbase = load_fee_schedule(REPO_CONFIG, m.costs.fee_schedule_for("coinbase"))
+    assert (kraken.maker_bps, kraken.taker_bps) == (40, 80)
+    assert (coinbase.maker_bps, coinbase.taker_bps) == (40, 60)
+    assert kraken.source and kraken.as_of and coinbase.source and coinbase.as_of
+
+
+def test_fee_schedule_needs_source_and_date(tmp_path: Path) -> None:
+    from firm.core.config import load_fee_schedule
+
+    data = _raw("fees/kraken_pro_tier1.yaml")
+    del data["source"]
+    _write(tmp_path, "fees/kraken_pro_tier1.yaml", data)
+    with pytest.raises(ConfigError):
+        load_fee_schedule(tmp_path, "kraken_pro_tier1")
+
+
+def test_unknown_venue_has_no_fee_schedule() -> None:
+    m = load_config(REPO_CONFIG, "uk", ["crypto"]).markets["crypto"]
+    with pytest.raises(ValueError, match="no fee schedule"):
+        m.costs.fee_schedule_for("binance")
+
+
+def test_every_live_venue_needs_a_fee_schedule(tmp_path: Path) -> None:
+    crypto = _raw("markets/crypto.yaml")
+    crypto["costs"]["commission"] = {"kraken": "kraken_pro_tier1"}  # coinbase missing
+    with pytest.raises(ConfigError, match="fee schedule"):
+        load_config(_tree(tmp_path, crypto=crypto), "uk", ["crypto"])
