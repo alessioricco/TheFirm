@@ -121,11 +121,20 @@ class DataConfig(FirmModel):
 
 
 class CostsConfig(FirmModel):
-    commission: Id  # name of a fee schedule in config/fees/
+    # a fee schedule in config/fees/: one name for all venues, or venue -> name
+    commission: Id | dict[Id, Id]
     spread_model: Literal["quoted"]
     spread_bps: Bps  # full spread assumed when no quote data (bar backtests)
     slippage_bps: Bps
     fx_conversion_bps: Bps
+
+    def fee_schedule_for(self, venue: str) -> str:
+        if isinstance(self.commission, str):
+            return self.commission
+        try:
+            return self.commission[venue]
+        except KeyError:
+            raise ValueError(f"no fee schedule for venue {venue!r}") from None
 
 
 class BrokerConfig(FirmModel):
@@ -184,11 +193,18 @@ class RiskProfile(FirmModel):
 
 
 class FeeSchedule(FirmModel):
-    """Flat percentage fees. Tiered and per-share schedules come with milestone 6."""
+    """Flat percentage fees for one venue tier, with where the numbers come from.
+
+    Volume tiers and per-share schedules come later (milestone 6)."""
 
     fee_schedule: Id
+    venue: Id
+    tier: Id
     taker_bps: Bps
     maker_bps: Bps
+    source: Annotated[str, Field(min_length=1)]  # URL or document the numbers come from
+    as_of: date  # when the numbers were checked
+    note: str = ""
 
 
 # --------------------------------------------------------------------------- verifier
@@ -292,6 +308,10 @@ class FirmConfig(FirmModel):
     def _consistent(self) -> Self:
         allowed = set(self.jurisdiction.allowed_venues)
         for name, m in self.markets.items():
+            if isinstance(m.costs.commission, dict):
+                missing = set(m.broker.live_venues()) - set(m.costs.commission)
+                if missing:
+                    raise ValueError(f"market {name}: no fee schedule for {sorted(missing)}")
             bad = set(m.broker.live_venues()) - allowed
             if bad:
                 raise ValueError(f"market {name}: venues {sorted(bad)} not allowed by jurisdiction")

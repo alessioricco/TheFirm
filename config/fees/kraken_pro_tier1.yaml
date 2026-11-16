@@ -1,0 +1,11 @@
+# Kraken Pro spot, entry tier (30-day volume < $2,500 and holdings < $5M).
+# Bar backtests assume every fill is a taker fill. Re-check when Kraken
+# changes its schedule; higher tiers apply only at volumes we don't have.
+fee_schedule: kraken_pro_tier1
+venue: kraken
+tier: "1"
+maker_bps: 40
+taker_bps: 80
+source: https://support.kraken.com/hi/articles/cross-platform-fee-tier-changes
+as_of: 2026-11-16
+note: Fee tiers restructured on 2026-07-09 (Kraken blog, new Kraken Pro fee tiers).

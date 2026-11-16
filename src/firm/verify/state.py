@@ -8,14 +8,21 @@ milestone 2.
   counted once (idempotent on `trial_id`). The verifier corrects for the
   global count, so more searching raises the bar.
 - OOS vault (firm rule 4): the final out-of-sample period is opened once per
-  strategy, by the verifier only, and every attempt is logged. Re-verifying
-  the identical candidate is a *replay* (nothing new is learnt) and must
-  reproduce the sealed result; any other version of the same strategy is
-  refused.
+  strategy, instrument and timeframe (the *scope*), by the verifier only, and
+  every attempt is logged. Re-verifying the identical candidate is a *replay*
+  (nothing new is learnt) and must reproduce the sealed result; any other
+  version in the same scope is refused. Results are sealed per verifier
+  configuration (`config_key`: costs + thresholds), so changing fees or
+  thresholds gives an unchanged strategy a new seal instead of a false
+  "does not reproduce". Each first opening is also recorded
+  as a trial, so trying a strategy on many instruments raises the bar.
+  Events written before scopes existed have no `scope` and keep blocking the
+  whole strategy (the strict reading).
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -98,6 +105,16 @@ class TrialRegistry:
 Access = Literal["first_opening", "replay", "refused"]
 
 
+def oos_scope(strategy_id: str, instruments: tuple[str, ...] | list[str], timeframe: str) -> str:
+    """The unit the hidden period is opened for: strategy | instrument(s) | timeframe."""
+    return f"{strategy_id}|{'+'.join(instruments)}|{timeframe}"
+
+
+def opening_trial_id(scope: str, candidate_key: str) -> str:
+    """Deterministic trial ID of an OOS first opening (idempotent in the registry)."""
+    return "oos-" + hashlib.sha256(f"{scope}|{candidate_key}".encode()).hexdigest()[:16]
+
+
 @dataclass(frozen=True)
 class Opening:
     access: Access
@@ -115,8 +132,10 @@ class OosVault:
         self,
         *,
         strategy_id: str,
+        scope: str,
         candidate_key: str,
         dataset_version: str,
+        config_key: str = "",
         window: list[str],
         at: datetime,
     ) -> Opening:
@@ -124,7 +143,9 @@ class OosVault:
         firsts = [
             e
             for e in self.events()
-            if e["event"] == "first_opening" and e["strategy_id"] == strategy_id
+            if e["event"] == "first_opening"
+            and e["strategy_id"] == strategy_id
+            and e.get("scope", scope) == scope  # no scope = legacy: whole strategy
         ]
         if not firsts:
             access: Access = "first_opening"
@@ -134,7 +155,10 @@ class OosVault:
             seals = [
                 e
                 for e in self.events()
-                if e["event"] == "sealed" and e["candidate_key"] == candidate_key
+                if e["event"] == "sealed"
+                and e["candidate_key"] == candidate_key
+                and e.get("scope", scope) == scope
+                and e.get("config_key", "") == config_key
             ]
             sealed = seals[0]["result_sha256"] if seals else None
         else:
@@ -144,7 +168,9 @@ class OosVault:
             {
                 "event": access,
                 "strategy_id": strategy_id,
+                "scope": scope,
                 "candidate_key": candidate_key,
+                "config_key": config_key,
                 "dataset_version": dataset_version,
                 "window": window,
                 "at": at.isoformat(),
@@ -153,14 +179,23 @@ class OosVault:
         return Opening(access, sealed)
 
     def seal(
-        self, *, strategy_id: str, candidate_key: str, result_sha256: str, at: datetime
+        self,
+        *,
+        strategy_id: str,
+        scope: str,
+        candidate_key: str,
+        result_sha256: str,
+        at: datetime,
+        config_key: str = "",
     ) -> None:
         _append(
             self.path,
             {
                 "event": "sealed",
                 "strategy_id": strategy_id,
+                "scope": scope,
                 "candidate_key": candidate_key,
+                "config_key": config_key,
                 "result_sha256": result_sha256,
                 "at": at.isoformat(),
             },
