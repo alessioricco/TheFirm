@@ -35,7 +35,30 @@ def state_root(explicit: Path | str | None = None) -> Path:
     return Path(env) if env else Path.cwd() / "state"
 
 
+STATE_SCHEMA_VERSION = 1
+"""Version of the state files' layout. Bump on any incompatible change; old
+state is then refused instead of misread (migrate it, or start a new root)."""
+
+
+class StateVersionError(RuntimeError):
+    """The state directory was written by an incompatible version."""
+
+
+def check_state_version(root: Path, *, create: bool) -> None:
+    marker = root / "STATE_VERSION"
+    if marker.is_file():
+        found = marker.read_text().strip()
+        if found != str(STATE_SCHEMA_VERSION):
+            raise StateVersionError(
+                f"{root}: state schema {found}, this code expects {STATE_SCHEMA_VERSION}"
+            )
+    elif create:
+        root.mkdir(parents=True, exist_ok=True)
+        marker.write_text(f"{STATE_SCHEMA_VERSION}\n")
+
+
 def _append(path: Path, record: dict[str, Any]) -> None:
+    check_state_version(path.parent, create=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, sort_keys=True) + "\n")
@@ -44,6 +67,7 @@ def _append(path: Path, record: dict[str, Any]) -> None:
 def _read(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
+    check_state_version(path.parent, create=False)
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
@@ -141,3 +165,36 @@ class OosVault:
                 "at": at.isoformat(),
             },
         )
+
+
+def state_summary(root: Path) -> dict[str, Any]:
+    """Read-only overview of the verifier state (for `firm state show`)."""
+    check_state_version(root, create=False)
+    trials = TrialRegistry(root).all()
+    by_experiment: dict[str, int] = {}
+    for t in trials:
+        by_experiment[t.experiment_id] = by_experiment.get(t.experiment_id, 0) + 1
+    vault: dict[str, dict[str, int]] = {}
+    for e in OosVault(root).events():
+        counts = vault.setdefault(e["strategy_id"], {})
+        counts[e["event"]] = counts.get(e["event"], 0) + 1
+    reports = []
+    for path in sorted((root / "reports").glob("v-*.json")):
+        body = json.loads(path.read_text())
+        reports.append(
+            {
+                "verdict_id": body.get("verdict_id", path.stem),
+                "outcome": body.get("outcome"),
+                "strategy_id": body.get("candidate", {}).get("strategy_id"),
+                "dataset_version": body.get("data", {}).get("dataset_version"),
+            }
+        )
+    marker = root / "STATE_VERSION"
+    return {
+        "root": str(root),
+        "schema_version": marker.read_text().strip() if marker.is_file() else None,
+        "trials_total": len(trials),
+        "trials_by_experiment": by_experiment,
+        "oos_vault": vault,
+        "reports": reports,
+    }

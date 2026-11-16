@@ -39,7 +39,7 @@ def test_verify_end_to_end_exit_codes(tmp_path, capsys: pytest.CaptureFixture[st
         )
         == 0
     )
-    version = capsys.readouterr().out.strip().splitlines()[-1].split()[0]
+    version = next(w for w in capsys.readouterr().out.split() if w.startswith("ds-"))
     common = [
         "--dataset",
         version,
@@ -86,3 +86,46 @@ def test_synthetic_refuses_a_store_with_real_captures(tmp_path) -> None:
         licence="test",
     )
     assert main(["data", "synthetic", "--root", str(tmp_path)]) == 3
+
+
+def test_build_dataset_across_venues_and_kinds(
+    tmp_path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from firm.data.dataset import open_dataset
+    from firm.data.synthetic import seed_store, seed_trades
+
+    seed_store(tmp_path, venue="kraken", provider_symbol="XBTUSD", n=200)
+    seed_store(tmp_path, venue="coinbase", provider_symbol="BTC-USD", n=150, seed=3)
+    seed_trades(tmp_path, venue="kraken", provider_symbol="XBTUSD", n=400)
+    assert (
+        main(
+            [
+                "data",
+                "build-dataset",
+                "--root",
+                str(tmp_path),
+                "--bars",
+                "kraken:XBTUSD:1d",
+                "--bars",
+                "coinbase:BTC-USD:1d",
+                "--trades",
+                "kraken:XBTUSD",
+            ]
+        )
+        == 0
+    )
+    version = next(w for w in capsys.readouterr().out.split() if w.startswith("ds-"))
+    ds = open_dataset(tmp_path, version)
+    assert {(f.kind, f.venue) for f in ds.manifest.files} == {
+        ("bars", "kraken"),
+        ("bars", "coinbase"),
+        ("trades", "kraken"),
+    }
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [["--bars", "kraken:XBTUSD"], ["--trades", "kraken"], ["--provider", "kraken"], []],
+)
+def test_build_dataset_rejects_bad_specs(tmp_path, bad: list[str]) -> None:
+    assert main(["data", "build-dataset", "--root", str(tmp_path), *bad]) == 3
