@@ -200,6 +200,36 @@ extraction (steps 1–3 and the `compute_ari_features` wrapper).
 - [ ] Batch mode: documents for a watchlist after each market's close,
       linked from the daily digest (milestone 4).
 
+## Ask the firm: an LLM over our data and reports (owner request 2026-11-16)
+
+A model that answers questions ("how did ma_crossover do out of sample?",
+"what does the TA say for BTC-USD today?", "why was v-0ef9... rejected?")
+from our data, reports and ledger.
+
+- [ ] **Decide the approach (spike).** Proposal, to confirm:
+      - Most of our knowledge is *structured* (Parquet via DuckDB, verdict
+        reports, dataset manifests, TA documents, later the ledger and
+        journal). For that, **tool calling** beats a vector RAG: the model
+        calls typed, read-only functions (`list_verdicts`, `get_report`,
+        `bars(as_of)`, `ta_document`, `dataset_info`, maybe read-only SQL on
+        DuckDB) and the numbers come from the tools, not from the model.
+      - **RAG only for unstructured text**: SPEC, DECISIONS, notes, papers,
+        later news/scout notes. Small corpus: start with plain full-text
+        search (DuckDB FTS or ripgrep); add embeddings only if that falls short.
+      - Delivery: the **read-only MCP endpoint** the SPEC already plans on
+        the control API (milestone 4), so any MCP client (local agent, Claude
+        Code while building) uses the same tools; plus `firm ask "..."`.
+- [ ] Runs on **local models** (Ollama, a tool-calling model from config):
+      reports, results and the journal are private (firm rule 8). A cloud
+      model only with the owner's per-run opt-in, logged with cost.
+- [ ] Read-only by construction: no tool can change state, place orders,
+      touch risk or config (firm rules 1, 3). Tool outputs are data, never
+      instructions (golden rule 11).
+- [ ] Answers cite their sources (verdict IDs, dataset versions, report
+      paths, `as_of`), so every number can be checked.
+- [ ] Evaluation: a small set of questions with known answers from our own
+      reports, run against candidate local models (Certo's benchmark idea).
+
 ## Later milestones
 
 - [ ] M2: generate NATS account permissions from `PUBLISHERS`.
