@@ -128,6 +128,7 @@ Every source sits behind one provider interface (`firm.data.providers`: declared
 - Every query takes an `as_of` timestamp and returns only what was known then. A bar is known at its close; a still-forming bar never enters the store.
 - Raw data is stored as received, with a dataset version and checksum, so any backtest can be reproduced.
 - Delisted instruments stay in the universe forever; an instrument's status is evaluated as of the query, so a later delisting never leaks backwards.
+- Every series is keyed by timeframe (1m to 1w) and records how its bars are aligned. Sources differ (Kraken's weeks start Thursday, Binance's Monday, share data follows exchange sessions), so the store refuses bars off their source's declared grid, and coarser timeframes can be derived on one canonical grid (days 00:00 UTC, weeks Monday) from complete sets of finer bars, stored apart from native series.
 - Feed staleness raises an urgent notification and blocks new paper orders on that market.
 - Data never goes in git. The store (`$FIRM_DATA_ROOT`) is git-ignored and has fixed zones, all written once: `raw/` (exactly as received, with a sidecar describing each download), `normalized/` (Parquet in the firm's schema), `datasets/` (content-addressed versions that backtests cite), `reference/` (instrument master), `golden/` (frozen test baselines). Synthetic and real data never mix in one series.
 

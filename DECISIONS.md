@@ -526,3 +526,28 @@ crypto-only `download_crypto.py`.
 - Binance's trade cursor stops on a short page (fewer than 1,000), saving a
   request. Market profiles' `data.history` now name registered providers; a
   test keeps them in sync (planned ones, e.g. `eodhd`, listed explicitly).
+
+## 2026-11-16 — Timeframes: provider alignment checked, derived timeframes on one grid
+
+Owner question: how are 1m to 1d series managed? Every layer was already
+keyed by timeframe; this adds what was missing.
+
+- **Alignment.** Sources disagree on bar boundaries: Kraken's weekly bars
+  are epoch-aligned (Thursday), Binance's and Yahoo's start Monday, Yahoo's
+  days follow the exchange session. Each provider declares `day_boundary`
+  and `week_start`; the normaliser refuses any bar off its declared grid and
+  records the alignment (`utc`, `week:<day>`, `session`) per file in the
+  manifest. A surprise fails loudly instead of mixing two week definitions.
+- **Derived timeframes.** `firm.data.resample` builds coarser bars from finer
+  ones on the canonical grid (intraday and days on epoch multiples, so days
+  are 00:00-24:00 UTC; weeks start Monday). Only complete buckets are
+  emitted, from closed bars, so a derived bar is known at its own close.
+  Derived series are stored apart (`derived_from=<tf>` in path and
+  manifest) and read only when asked (`bars(..., derived_from="1m")`).
+  CLI: `firm data build-dataset ... --derive FROM:TO`. Session-aligned
+  sources (shares) are refused until the exchange calendar (milestone 6).
+- `NORMALIZER_VERSION` 2: manifests now carry `alignment` and
+  `derived_from`, so datasets built from now on get new versions; existing
+  manifests still open (the new fields default to empty).
+- Checked on the real Coinbase and Kraken daily data: every bar on the UTC
+  grid; weekly bars derived on Mondays for both venues.
