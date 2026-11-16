@@ -5,7 +5,10 @@ argument-hint: "<what to build>"
 
 Write a Certo task file for: $ARGUMENTS
 
-Save it as `tasks/<short-slug>.md`. It must contain:
+Save it as `docs/tasks/<short-slug>.md`. The repo is public: a task file
+holds no strategy code, parameters, results, data or private details
+(firm rule 8); private work starts from the firm's local agents instead.
+It must contain:
 
 1. **Goal** in one or two sentences.
 2. **Context**: the files and interfaces involved, with paths, and the
@@ -22,5 +25,5 @@ Keep it short enough for a local model's context. Then show me the command
 to run it, for example:
 
 ```bash
-certo tasks/<short-slug>.md --project firm --escalate
+certo docs/tasks/<short-slug>.md --project firm --escalate
 ```

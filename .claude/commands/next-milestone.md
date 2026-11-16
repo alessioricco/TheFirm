@@ -14,5 +14,8 @@ first one whose exit check is not yet met according to `TODO.md`).
 3. Build it test-first. Keep `tests/invariants/` green; never weaken one.
 4. Run the exit check exactly as written in the SPEC. Report each condition
    as met, not met, or unverified, with the command and its real output.
-5. Update `TODO.md`, `ARCHITECTURE.md` and `DECISIONS.md`.
-6. Stop. Do not start the next milestone.
+5. Update `TODO.md` (every follow-up and open question goes there),
+   `ARCHITECTURE.md` and `DECISIONS.md`.
+6. Run `python3 scripts/check_repo.py --all`, `uv run ruff check .`,
+   `uv run mypy` and `uv run pytest`; report their real output.
+7. Stop. Do not start the next milestone.
