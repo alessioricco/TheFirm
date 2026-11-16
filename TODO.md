@@ -90,6 +90,33 @@ Follow-ups from milestone 1:
       tick volumes arrive.
 - [ ] `periods_per_year` supports exchange calendars only for 1d/1w (M6).
 
+## Data: incremental updates (owner request 2026-11-16)
+
+Downloading a series again should extend what we have, not start over.
+
+Already true: captures accumulate (write-once, content-hashed), and the
+normaliser merges every capture of a series, de-duplicating overlaps and
+counting revisions, so a re-download already yields a newer dataset version.
+
+Still to build:
+
+- [ ] Incremental fetch: start from the last stored closed bar (or trade
+      cursor) per provider/symbol/tf, with a small overlap to detect
+      revisions, instead of the full history (`firm data update`, wrapping
+      the download script). Kraken `since`, Coinbase time windows.
+- [ ] Gap detection after merge: report missing bars per series, and
+      backfill them on the next update.
+- [ ] Incremental normalisation: rebuild only the year partitions touched by
+      new captures; untouched partitions keep their files (same bytes, same
+      names).
+- [ ] Dataset lineage: each new version records the version it extends;
+      a `latest` pointer per series for convenience. Old versions stay
+      valid and reproducible; backtests always cite an exact version.
+- [ ] Revision policy: a changed closed bar is counted today; decide whether
+      it should also raise an alert or block the new version.
+- [ ] Scheduling (later, with the market workers): periodic updates with
+      staleness alerts (SPEC "feed staleness").
+
 ## ari_signals feature extraction (docs/tasks/extract-ari-signals-features.md)
 
 - [x] Step 0: golden baseline (2026-11-16). Data in the store
