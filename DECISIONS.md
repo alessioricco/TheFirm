@@ -324,3 +324,24 @@ the API) is the composition root and may import any desk; nothing imports
 
 `tests/conftest.py` makes any socket connection during a test fail, so "no
 network in tests" is enforced, not assumed.
+
+## 2026-11-16 — Current libraries; the ari code adapts to them
+
+Owner decision. The ari_signals code will be obsolete; the firm does not
+depend on it, its repo or its environment. The firm tracks current library
+versions (pandas 3.1.1, numpy 2.5 today) and the ported ari code is changed
+to fit them (e.g. pandas 3 removed `fillna(method=...)`; other deprecations
+get fixed the same way). The golden baseline, made with pandas 2.3.0, stays
+the reference for intent: the parity test passes byte for byte where it can,
+and declares each difference caused by a library upgrade, with its cause and
+a numeric tolerance. A difference that is neither intended (task findings)
+nor declared fails. This replaces the task file's "byte for byte after step 2".
+
+## 2026-11-16 — Downloader retries transient failures
+
+The first real download hit `http.client.IncompleteRead` on a chunked
+Coinbase response while curl got the same URL fine. `fetch` now retries up
+to 4 times with exponential backoff on incomplete reads, connection errors,
+timeouts, HTTP 429 and 5xx; other HTTP errors fail at once. Captures are
+write-once and content-hashed, so a re-run after a failure is safe:
+identical windows become duplicate captures that the normaliser merges.

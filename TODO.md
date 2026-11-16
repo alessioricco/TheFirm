@@ -22,8 +22,14 @@ Why things were decided goes in `DECISIONS.md`; how modules work goes in
 
 - [ ] **Review milestone 1** on branch `milestone-1` (built on
       `step-0-skeleton`; neither pushed). Merge to `main` when reviewed.
-- [ ] **Back up the data store** (`data/`). It holds the only copy of the
-      ari golden baseline outside the old repo, and git will never have it.
+- [x] Data store backup: `data/` (and `state/`) are covered by the owner's
+      Time Machine backup of the Mac (2026-11-16). The DGX or any other host
+      running the firm will need its own backup.
+- [ ] **OOS vault scope (decide):** the SPEC says the hidden period is opened
+      "once per strategy". The vault keys by strategy ID only, so after
+      `ma_crossover` opened its OOS on Coinbase BTC-USD, verifying it on
+      another venue or instrument would be refused. Per strategy (strict,
+      current) or per strategy × instrument?
 - [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
       pass. Its working tree has 2 modified + 2 untracked files outside the
       extracted code; commit or discard them there before archiving.
@@ -62,8 +68,11 @@ Built 2026-11-16 on branch `milestone-1` (plan approved with the go-ahead):
 
 Follow-ups from milestone 1:
 
-- [ ] **Owner:** run the download script for real data, build a dataset,
-      run `firm verify` on it. Real-data results are *unverified* until then.
+- [x] Real data downloaded 2026-11-16 (Coinbase and Kraken BTC-USD 1d) and
+      `ma_crossover` verified on it. Dataset version, verdicts and results
+      are private: `private/TODO.md` (git-ignored).
+- [ ] Listing dates used for the instrument records are approximate
+      (Coinbase BTC-USD 2015-01-26, Kraken XBTUSD 2013-09-10); confirm.
 - [ ] Calibrate verifier thresholds (`config/verify/default.yaml`) and fee
       schedules (`config/fees/`): all placeholders (SPEC open question).
 - [ ] Kraken OHLC gives only the last 720 bars: full history needs trade
@@ -95,9 +104,12 @@ Follow-ups from milestone 1:
       license/NOTICE under `src/firm/data/features/ari/`.
 - [x] Deps approved 2026-11-16. pandas/numpy added (M1); scipy added with
       step 1 when the ari code arrives (python-dateutil comes with pandas).
-- [ ] The firm resolved **pandas 3.1.1**; the baseline used pandas 2.3.0,
-      and pandas 3 removes `fillna(method=...)`. Parity needs pandas 2.3 in
-      a dedicated env, or declared differences.
+- [ ] **Library versions (owner decision 2026-11-16):** the firm uses current
+      libraries (pandas 3.1.1 today); the ported ari code is adapted to them,
+      never the reverse, and nothing depends on the old repo or its env. The
+      golden baseline (pandas 2.3.0) stays a reference: parity is exact where
+      possible, and every difference caused by a library upgrade is declared
+      in the parity test with its cause and tolerance.
 - [ ] Step 2: mechanical changes + `tests/features/test_ari_parity.py` byte for byte.
       Byte parity is only meaningful with the baseline's library versions
       (Python 3.11.3, pandas 2.3.0, numpy 2.3.1, scipy 1.16.0). The firm

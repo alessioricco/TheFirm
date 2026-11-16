@@ -1,5 +1,12 @@
 # Task: extract the ari_signals Level 0 generator into the firm's feature library
 
+> **Update 2026-11-16 (owner):** the firm uses current library versions and
+> the ported code is adapted to them; nothing depends on the old repo or its
+> environment. "Byte for byte" in step 2 becomes: exact where possible, every
+> library-caused difference declared with cause and tolerance (DECISIONS.md
+> "Current libraries; the ari code adapts to them"). Step 0 is done; the
+> baseline lives in the data store (see `tests/fixtures/ari_golden/`).
+
 Source repo (owner's own code): `~/Documents/GitHub/ari_signals`.
 Target: `src/firm/data/features/ari/` in the firm repo.
 When: step 0 (golden baseline) can run now and must run before the old repo

@@ -23,9 +23,11 @@ Limits worth knowing (see DECISIONS.md "Crypto connectivity"):
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -48,11 +50,26 @@ LICENCE = {
 PAUSE = {"kraken": 1.2, "coinbase": 0.4}  # seconds between requests (public rate limits)
 
 
-def fetch(url: str) -> tuple[bytes, datetime]:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = resp.read()
-    return body, datetime.now(UTC)
+def fetch(url: str, attempts: int = 5) -> tuple[bytes, datetime]:
+    """GET with retries on transient failures (incomplete read, connection, 429, 5xx)."""
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                body = resp.read()
+            return body, datetime.now(UTC)
+        except urllib.error.HTTPError as exc:
+            if (exc.code != 429 and exc.code < 500) or attempt == attempts:
+                raise
+            why = f"HTTP {exc.code}"
+        except (http.client.IncompleteRead, urllib.error.URLError, TimeoutError) as exc:
+            if attempt == attempts:
+                raise
+            why = type(exc).__name__
+        wait = 2**attempt
+        print(f"  retry {attempt}/{attempts - 1} in {wait}s ({why})", file=sys.stderr)
+        time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def ensure_instrument(root: Path, args: argparse.Namespace) -> None:
