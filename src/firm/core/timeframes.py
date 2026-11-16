@@ -45,3 +45,43 @@ def periods_per_year(calendar: str, tf: str) -> float:
     if tf == "1w":
         return 52.0
     raise ValueError(f"periods_per_year: {calendar} {tf} not supported yet (milestone 6)")
+
+
+# --------------------------------------------------------------------------- alignment
+# The firm's canonical grid: intraday and daily bars start on multiples of their
+# length from the Unix epoch (so days run 00:00-24:00 UTC); weeks start Monday
+# 00:00 UTC. Providers may differ (Kraken's weeks start Thursday, share data
+# follows exchange sessions); each declares its alignment and the normaliser
+# checks it, so differently aligned bars are never mixed silently.
+
+WEEK_ORIGIN_S = {"monday": 4 * 86_400, "thursday": 0}  # 1970-01-01 was a Thursday
+CANONICAL_WEEK_START = "monday"
+
+
+def alignment_for(tf: str, *, day_boundary: str, week_start: str | None) -> str:
+    """`utc` (epoch multiples), `week:<day>`, or `session` (exchange-session based)."""
+    tf_seconds(tf)
+    if day_boundary == "session":
+        return "session"
+    if tf == "1w":
+        if week_start is None:
+            raise ValueError("weekly bars need a week_start")
+        return f"week:{week_start}"
+    return "utc"
+
+
+def bucket_start(t_s: int, tf: str, *, week_start: str = CANONICAL_WEEK_START) -> int:
+    """Start (unix s) of the `tf` bar containing `t_s` on the canonical grid."""
+    step = tf_seconds(tf)
+    origin = WEEK_ORIGIN_S[week_start] if tf == "1w" else 0
+    return t_s - (t_s - origin) % step
+
+
+def is_aligned(t_s: int, tf: str, alignment: str) -> bool:
+    if alignment == "session":
+        return True
+    if alignment == "utc":
+        return t_s % tf_seconds(tf) == 0
+    if alignment.startswith("week:"):
+        return bucket_start(t_s, "1w", week_start=alignment.split(":", 1)[1]) == t_s
+    raise ValueError(f"unknown alignment {alignment!r}")

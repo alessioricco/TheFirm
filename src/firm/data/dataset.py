@@ -114,15 +114,36 @@ class Dataset:
     def version(self) -> str:
         return self.manifest.dataset_version
 
-    def _files(self, kind: str, venue: str, instrument: str, tf: str | None) -> list[str]:
+    def _files(
+        self,
+        kind: str,
+        venue: str,
+        instrument: str,
+        tf: str | None,
+        derived_from: str | None = None,
+    ) -> list[str]:
+        want = (kind, venue, instrument, tf, derived_from)
         paths = [
             str(self.root / f.path)
             for f in self.manifest.files
-            if (f.kind, f.venue, f.instrument, f.tf) == (kind, venue, instrument, tf)
+            if (f.kind, f.venue, f.instrument, f.tf, f.derived_from) == want
         ]
         if not paths:
-            raise LookupError(f"{self.version}: no {kind} for {venue}:{instrument} {tf or ''}")
+            src = f" derived from {derived_from}" if derived_from else ""
+            raise LookupError(f"{self.version}: no {kind} for {venue}:{instrument} {tf or ''}{src}")
         return paths
+
+    def alignment(
+        self, venue: str, instrument: str, tf: str, derived_from: str | None = None
+    ) -> str | None:
+        """How this series' bars are aligned ("utc", "week:<day>", "session")."""
+        found = {
+            f.alignment
+            for f in self.manifest.files
+            if (f.kind, f.venue, f.instrument, f.tf, f.derived_from)
+            == ("bars", venue, instrument, tf, derived_from)
+        }
+        return found.pop() if len(found) == 1 else None
 
     def bars(
         self,
@@ -132,9 +153,12 @@ class Dataset:
         *,
         as_of: datetime,
         start: datetime | None = None,
+        derived_from: str | None = None,
     ) -> pd.DataFrame:
-        """Closed bars with `close_time <= as_of` (and `open_time >= start`), oldest first."""
-        files = self._files("bars", venue, instrument, tf)
+        """Closed bars with `close_time <= as_of` (and `open_time >= start`), oldest first.
+
+        Native bars by default; `derived_from="1m"` reads bars derived from 1m."""
+        files = self._files("bars", venue, instrument, tf, derived_from)
         lo = _ns(start) if start is not None else -(2**63)
         df = _query(
             "SELECT open_time_ns, close_time_ns, open, high, low, close, volume "
@@ -200,9 +224,12 @@ class CappedDataset:
         *,
         as_of: datetime,
         start: datetime | None = None,
+        derived_from: str | None = None,
     ) -> pd.DataFrame:
         self._check(as_of)
-        return self._inner.bars(venue, instrument, tf, as_of=as_of, start=start)
+        return self._inner.bars(
+            venue, instrument, tf, as_of=as_of, start=start, derived_from=derived_from
+        )
 
     def trades(
         self, venue: str, instrument: str, *, as_of: datetime, start: datetime | None = None

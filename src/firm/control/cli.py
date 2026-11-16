@@ -77,6 +77,7 @@ def _series(args: argparse.Namespace) -> tuple[list[tuple[str, str, str]], list[
 def _cmd_build_dataset(args: argparse.Namespace) -> int:
     from firm.data.dataset import build_dataset
     from firm.data.normalize import normalize_bars, normalize_trades
+    from firm.data.resample import derive_bars
     from firm.data.store import data_root
 
     root = data_root(args.root)
@@ -86,13 +87,35 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
         files += normalize_bars(root, provider=provider, provider_symbol=symbol, tf=tf)
     for provider, symbol in trades:
         files += normalize_trades(root, provider=provider, provider_symbol=symbol)
+    for spec in args.derive or []:
+        from_tf, _, to_tf = spec.partition(":")
+        if not from_tf or not to_tf:
+            raise ValueError(f"--derive expects FROM:TO, got {spec!r}")
+        series: dict[tuple[str, str], list] = {}
+        for f in files:
+            if f.kind == "bars" and f.tf == from_tf and f.derived_from is None:
+                series.setdefault((f.venue, f.instrument), []).append(f)
+        if not series:
+            raise ValueError(f"--derive {spec}: no native {from_tf} bars in this build")
+        for key in sorted(series):
+            files += derive_bars(root, series[key], to_tf=to_tf)
     manifest = build_dataset(root, files)
     rows = sum(f.rows for f in manifest.files)
     print(f"{manifest.dataset_version}  ({len(manifest.files)} files, {rows} rows)")
+    series: dict[tuple, list] = {}
     for f in manifest.files:
+        key = (f.kind, f.venue, f.instrument, f.tf, f.alignment, f.derived_from)
+        series.setdefault(key, []).append(f)
+    for (kind, venue, instrument, tf, alignment, derived_from), group in sorted(
+        series.items(), key=lambda kv: tuple(str(x) for x in kv[0])
+    ):
+        revisions = sum(f.revisions for f in group)
         print(
-            f"  {f.kind:<6} {f.venue}:{f.instrument} {f.tf or '':<3} {f.rows:>8} rows"
-            f"{f'  revisions={f.revisions}' if f.revisions else ''}"
+            f"  {kind:<6} {venue}:{instrument} {tf or '':<3} {sum(f.rows for f in group):>8} rows"
+            f" in {len(group)} file(s)"
+            f"{f'  aligned={alignment}' if alignment else ''}"
+            f"{f'  derived_from={derived_from}' if derived_from else ''}"
+            f"{f'  revisions={revisions}' if revisions else ''}"
         )
     return 0
 
@@ -192,6 +215,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         metavar="PROVIDER:SYMBOL",
         help="trade series to include; repeat",
+    )
+    bld.add_argument(
+        "--derive",
+        action="append",
+        metavar="FROM:TO",
+        help="also derive TO bars from every native FROM bar series (e.g. 1m:1h, 1d:1w); "
+        "canonical grid: days 00:00 UTC, weeks Monday",
     )
     bld.add_argument("--provider", help="legacy: one provider for all --symbol")
     bld.add_argument("--symbol", action="append", help="legacy: provider symbol; repeat")
