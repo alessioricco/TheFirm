@@ -8,6 +8,10 @@ so nothing pending lives only in a chat.
 Why things were decided goes in `DECISIONS.md`; how modules work goes in
 `ARCHITECTURE.md`.
 
+**This file is public.** Anything about our real data or results (dataset
+versions, verdict IDs, metrics, download history) goes in the git-ignored
+`private/TODO.md` instead; `scripts/check_repo.py` refuses real IDs here.
+
 ## Status
 
 - [x] Step 0: repository skeleton (2026-11-16)

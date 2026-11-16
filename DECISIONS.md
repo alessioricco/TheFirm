@@ -385,3 +385,15 @@ would have merged invented and real bars. Now the normaliser refuses a
 series whose captures mix `synthetic` with any other method, and
 `firm data synthetic` refuses a store that holds real captures of that
 series. The README demo uses a separate store (`./data-demo`, git-ignored).
+
+## 2026-11-16 — Public TODO, private TODO
+
+Owner rule, after `/pre-push` found real verification results in TODO.md.
+`TODO.md` is public and holds the work. `private/TODO.md` (git-ignored,
+backed up with `data/` and `state/`) holds anything tied to our real data:
+download history, dataset versions, verdict IDs, metrics, strategy
+parameters that matter. `scripts/check_repo.py` refuses `private/` paths
+and any real-looking dataset (`ds-` + 12 hex) or verdict (`v-` + 16 hex) ID
+in committed files. The results that had already been written to TODO.md
+were moved to the private file and scrubbed from the unpushed history
+(`git filter-branch --index-filter`, TODO.md only) before the first push.

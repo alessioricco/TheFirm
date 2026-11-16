@@ -40,7 +40,7 @@ DATA_SUFFIXES = {
     ".xlsx",
     ".jsonl",
 }
-FORBIDDEN_PREFIXES = ("data/", "state/", "ledger/", "models/")
+FORBIDDEN_PREFIXES = ("data/", "state/", "ledger/", "models/", "private/")
 FORBIDDEN_NAMES = {".env", ".envrc", ".mcp.json"}
 SIZE_LIMIT = 200_000
 SIZE_EXEMPT = {"uv.lock"}
@@ -60,6 +60,9 @@ SECRET_PATTERNS = {
     ),
 }
 HOME_PATH = re.compile(r"(/Users/|/home/)[A-Za-z0-9._-]+/")
+# Real dataset versions and verdict IDs point at private results: they belong
+# in private/TODO.md, never in committed files (placeholders like ds-xxxx are fine).
+PRIVATE_ID = re.compile(r"(?<![A-Za-z0-9])(ds-[0-9a-f]{12}|v-[0-9a-f]{16})(?![0-9a-f])")
 SKIP_CONTENT = {"scripts/check_repo.py", "uv.lock"}  # this file holds the patterns
 
 
@@ -107,6 +110,9 @@ def problems(files: list[tuple[str, bytes]]) -> list[str]:
         m = HOME_PATH.search(text)
         if m:
             found.append(f"{name}: machine-specific path {m.group(0)!r}")
+        m = PRIVATE_ID.search(text)
+        if m:
+            found.append(f"{name}: real dataset/verdict ID {m.group(0)} (private/TODO.md)")
     return found
 
 

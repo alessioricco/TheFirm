@@ -22,6 +22,9 @@ Planning files, one question each:
 
 - @docs/SPEC.md: what we are building and why. Changes only by the owner.
 - @TODO.md: everything still to do, known bugs included. Check it before work.
+  It is public: real-data facts and results (dataset versions, verdict IDs,
+  metrics, download history) go in the git-ignored `private/TODO.md`,
+  which is also your memory for them. Read it when the work touches data or results.
 - `ARCHITECTURE.md`: how each module works and its gotchas. Read it before
   touching a module; update it when you change one.
 - `DECISIONS.md`: why past choices were made, one dated entry each. Read the

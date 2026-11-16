@@ -39,6 +39,9 @@ def test_checker_catches_planted_problems(tmp_path: Path) -> None:
         ("key.pem", b"-----BEGIN RSA " + b"PRIVATE KEY-----"),
         ("notes.md", b"see /Us" + b"ers/someone/file"),
         ("ok.env.example", b"TELEGRAM_BOT_TOKEN=\nOTHER_SETTING_NAME=1\n"),
+        ("results.md", b"verdict v-" + b"0123456789abcdef on ds-" + b"0123456789ab"),
+        ("private/TODO.md", b"notes"),
+        ("placeholder.md", b"prints a dataset version, e.g. ds-xxxxxxxxxxxx"),
     ]
     found = problems(files)
     flagged = {p.split(":")[0] for p in found}
@@ -51,4 +54,6 @@ def test_checker_catches_planted_problems(tmp_path: Path) -> None:
         "leak.py",
         "key.pem",
         "notes.md",
+        "results.md",
+        "private/TODO.md",
     }
