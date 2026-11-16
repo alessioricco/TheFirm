@@ -143,8 +143,9 @@ Gotchas:
   checksums) → `Dataset.bars/trades/universe` with `as_of`;
   `Dataset.capped(hidden_from)` → `CappedDataset` raising
   `HiddenPeriodError` (the research view).
-- `synthetic.py`: deterministic synthetic bars in provider formats;
-  `seed_store` writes an instrument + overlapping captures. Tests use only this.
+- `synthetic.py`: deterministic synthetic bars and trades in provider
+  formats; `seed_store` / `seed_trades` write an instrument + overlapping
+  captures. Tests use only this.
 
 Gotchas: DuckDB queries take bound parameters (`$files`, `$as_of`); timestamps
 are int64 ns until the reader converts them; `as_of` must be timezone-aware.
@@ -157,7 +158,9 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 - `backtest.py`: `run_backtest` (decide at close, fill at next open,
   cost per unit traded), `metrics`, `SignalError`.
 - `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
-- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines).
+- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines),
+  `STATE_SCHEMA_VERSION` (stamped in `STATE_VERSION` on first write; other
+  versions are refused), `state_summary()`.
 - `context.py`: `VerifyContext` (frozen inputs, cached in-sample backtests).
 - `checks/`: `lookahead`, `costs`, `sensitivity`, `trials`, `oos`; each
   exposes `NAME` and `run(ctx)`.
@@ -189,7 +192,9 @@ To add a venue: implement `VenueAdapter`, register a factory in
 ## control
 
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
-  --provider P --symbol S --tf T`; `firm verify --strategy PATH:CLASS
+  --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across
+  venues and kinds; legacy `--provider/--symbol/--tf` still accepted);
+  `firm state show [--json]` (read-only); `firm verify --strategy PATH:CLASS
   --dataset ds-... --venue --instrument --tf --market` (exit 0 pass, 1 fail,
   2 unverified, 3 error; report to `<state>/reports/<verdict>.json`).
 

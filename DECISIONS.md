@@ -407,3 +407,21 @@ is not supported"): switched to `macos-latest`. gitleaks flagged one
 purpose to test the guard. It stays in history, so `.gitleaks.toml` extends
 the default rules with an allowlist for that exact fake value only; any
 other secret still fails. `actions/checkout` moved to v5 (Node 20 deprecation).
+
+## 2026-11-16 — Functional gaps closed after milestone 1
+
+- `firm data build-dataset` takes repeatable `--bars PROVIDER:SYMBOL:TF`
+  and `--trades PROVIDER:SYMBOL`, so one dataset version can span venues
+  and kinds from the CLI. The old `--provider/--symbol/--tf` still works.
+- Trades are tested end to end with synthetic Kraken and Coinbase payloads
+  (overlapping pages de-duplicated by trade ID, Coinbase maker side flipped
+  to the taker's, `as_of` and the capped view respected).
+- The downloader is tested with a fake network: transient errors are
+  retried, client errors are not, Coinbase windows are contiguous and give
+  gap-free bars, Kraken trades follow the `last` cursor. It gained
+  `--until` (default now) and `main(argv)` for that.
+- `state/` carries `STATE_VERSION` (schema 1), stamped on first write;
+  readers refuse another version rather than misread it. State written
+  before the stamp reads as "unversioned" (same format) and is stamped on
+  its next write. `firm state show` summarises trials, vault events and
+  reports, read-only.
