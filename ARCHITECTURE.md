@@ -1,7 +1,8 @@
 # Architecture
 
 How each module works and its gotchas. Read the section before touching a
-module; update it when you change one. Status as of step 0 (skeleton).
+module; update it when you change one. Status: milestone 1 (data plane and
+verifier) built; later desks are interfaces only.
 
 ## Layout
 

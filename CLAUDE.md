@@ -146,8 +146,11 @@ uv run ruff check . && uv run ruff format --check .
 uv run firm --help               # the CLI
 ```
 
-Tests never call a network, an exchange or a model. Use recorded fixtures
-under `tests/fixtures/` and fakes for adapters.
+Tests never call a network, an exchange or a model (a socket guard in
+`tests/conftest.py` enforces it). Test data is synthetic, generated in code
+in the providers' formats (`firm.data.synthetic`); real data lives only in
+the git-ignored store, and tests that need it skip as UNVERIFIED without it.
+Use fakes for adapters.
 
 ## Working agreements
 

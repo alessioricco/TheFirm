@@ -17,7 +17,8 @@ their skills through Certo.)
 ## Skills from Anthropic (downloaded, git-ignored)
 
 From `anthropics/skills`, at a pinned commit, into `.claude/skills/`,
-the same way Certo does it (`scripts/fetch_claude_skills.py`):
+the same way Certo does it (`scripts/fetch_claude_skills.py`, not yet
+copied into this repo; see TODO.md):
 
 | Skill | License | Why, and when |
 |---|---|---|

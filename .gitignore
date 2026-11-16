@@ -242,4 +242,8 @@ __marimo__/
 /models/
 *.gguf
 .mcp.json
+# Claude Code: downloaded skills (SKILLS.md) and harness scratch
+.claude/skills/
+.claude/.cc-writes/
+.claude/settings.local.json
 .DS_Store

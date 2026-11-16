@@ -157,11 +157,9 @@ strategies are judged on real past data whenever we can download it.
       golden baseline (pandas 2.3.0) stays a reference: parity is exact where
       possible, and every difference caused by a library upgrade is declared
       in the parity test with its cause and tolerance.
-- [ ] Step 2: mechanical changes + `tests/features/test_ari_parity.py` byte for byte.
-      Byte parity is only meaningful with the baseline's library versions
-      (Python 3.11.3, pandas 2.3.0, numpy 2.3.1, scipy 1.16.0). The firm
-      env differs (Python 3.12+); decide: pin those versions for the parity
-      run, or declare float-level differences from library upgrades.
+- [ ] Step 2: mechanical changes (imports, pandas 3 fixes) +
+      `tests/features/test_ari_parity.py`: exact where possible, every
+      library-caused difference declared (decision above).
 - [ ] Step 2 also: `technicals/calc_v2_market_regime.py` has the same
       `fillna(method="bfill")` as `calc_signals.py` (the task lists only the latter).
 - [ ] Step 3: the 5 findings in the task, one commit + DECISIONS entry each.
@@ -232,6 +230,62 @@ from our data, reports and ledger.
 - [ ] Evaluation: a small set of questions with known answers from our own
       reports, run against candidate local models (Certo's benchmark idea).
 
+## Gaps found in the 2026-11-16 project review
+
+Public repo (do before making it public):
+
+- [ ] **README** for a public audience: what the firm is, paper trading
+      only, **not financial advice and no signals for others**, how to
+      install and run (`firm data synthetic` → `build-dataset` → `verify`),
+      the data policy (no data in git), licence. Today it is two lines.
+- [ ] **Pre-commit guard** (local git hook or `pre-commit`): run the
+      no-data and secrets checks before every commit. The pytest guard only
+      helps if tests run, and CI runs only after the push (too late for a
+      public repo).
+- [ ] **CI** (GitHub Actions): `pytest`, `ruff`, `mypy`, on Python 3.12 and
+      latest, Linux and macOS arm64. CLAUDE.md says breaking an invariant
+      "must fail the build", but there is no build yet.
+- [ ] **Secret scanning** in CI and the hook (e.g. gitleaks), and GitHub
+      secret scanning / push protection when the repo goes public.
+- [ ] **Deny `.env` to Claude Code**: CLAUDE.md says `.env` is
+      permission-denied, but no `.claude/settings.json` exists. Owner to add
+      `permissions.deny` for `Read(./.env)` (the session can't write `.claude/`).
+- [ ] **Owner edit in `.claude/commands/`** (the session can't write there):
+      `add-market-profile.md` and `add-venue-adapter.md` say "recorded
+      fixtures"; they should say synthetic fixtures in the provider's format,
+      never real data (public repo).
+- [ ] Licence notice: when the ari code (Apache-2.0) is copied in, add its
+      LICENSE/NOTICE and say so in the README (the firm is MIT).
+
+SPEC changes for the owner (the SPEC is owner-only; these decisions differ):
+
+- [ ] Bus table: execution publishes `order.proposed` and risk subscribes to
+      it (not `order.intent`); ledger publishes `digest.daily`; alerts are
+      `alert.<level>.<service>`; `risk.heartbeat`, `control.command` exist.
+- [ ] Configuration: the per-exchange exposure cap lives in
+      `config/risk/`, not the market profile; `venue_status` in the
+      jurisdiction profile; `config/models.yaml`, `config/fees/`,
+      `config/verify/` exist.
+- [ ] Open questions: name (`firm`) and repo placement (own repo using
+      Certo) look settled; verifier thresholds have placeholders and a
+      method (DECISIONS.md); the indicator item is in progress.
+
+Functional gaps:
+
+- [ ] `firm data build-dataset` takes one provider per run, so a dataset
+      covering Coinbase *and* Kraken (like the real-data one) can't be built
+      from the CLI; it was built from Python. Accept several
+      `--provider:symbol` pairs.
+- [ ] Trades: parsers exist and are unit-tested, but `normalize_trades` and
+      `Dataset.trades` have no end-to-end test, and no trades have been
+      downloaded yet (SPEC milestone 1 says "bars and trades").
+- [ ] `scripts/download_crypto.py` has no tests (retry logic, pagination);
+      test them with a fake `urlopen` (no network).
+- [ ] `state/` (trials, OOS openings, reports) has no schema/versioning
+      and no tooling to inspect it (`firm state show`?) until the ledger.
+- [ ] Copy `scripts/fetch_claude_skills.py` from Certo, or drop that line
+      from SKILLS.md.
+
 ## Later milestones
 
 - [ ] M2: generate NATS account permissions from `PUBLISHERS`.
@@ -246,8 +300,6 @@ from our data, reports and ledger.
 
 ## Known gaps / bugs
 
-- `firm.data.interface.DataPlane` returns `object`: frame types are fixed
-  in milestone 1.
 - Conformance `test_rejects_unsupported_order_type` is skipped for the
   simulator (it supports every type); it will run for real venues.
 - No `.python-version` pin on purpose (host-agnostic); verified on 3.12 and 3.14.
