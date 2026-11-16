@@ -294,8 +294,10 @@ Public repo (do before making it public):
 - [ ] **Owner, when the repo goes public:** follow
       `docs/github-security-setup.md` (secret scanning, push protection,
       required CI checks on `main`, actions pinned to SHAs, Dependabot).
-- [ ] **Owner:** now that CI has run, require its five checks on `main`
-      (`docs/github-security-setup.md` step 2), then merge PR #1.
+- [x] Branch protection on `main` (2026-11-16): the five CI checks are
+      required, branch must be up to date, applies to admins, no force
+      pushes or deletion.
+- [ ] **Owner:** merge PR #1.
 - [x] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
       and commit it: denies `.env`/secrets and force pushes, asks before
       edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
