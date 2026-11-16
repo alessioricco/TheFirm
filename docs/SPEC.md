@@ -1,10 +1,10 @@
-# The Firm — Design v0.1
+# The Firm — Design v0.2
 
-Nov 15, 2026 · @Alessio
+Nov 15, 2026 · @Alessio · v0.2 Nov 16, 2026: decisions from step 0 and milestone 1 (details and reasons in `DECISIONS.md`). This file is the source of truth; it changes only through a pull request the owner reviews.
 
 ## Purpose and principles
 
-Build a one-person trading firm that runs on local models: agents research and train strategies, deterministic code verifies, sizes and executes them, and version 1 trades paper money only. It is built with Claude Code and Certo, and runs on a DGX Spark.
+Build a one-person trading firm that runs on local models: agents research and train strategies, deterministic code verifies, sizes and executes them, and version 1 trades paper money only. It is built with Claude Code and Certo, and v1 runs on a DGX Spark (nothing in the code assumes a particular machine).
 
 **In scope for v1:** crypto, then US shares; paper trading against live market data; strategy research and model training by agents; a web UI and CLI; notifications to the owner only.
 
@@ -18,6 +18,7 @@ Build a one-person trading firm that runs on local models: agents research and t
 - **Configurable, not hard-coded.** Country, markets, venues and data vendors are swappable profiles.
 - **Everything is recorded.** Every proposal, verdict, refusal and fill goes in the ledger with its reason.
 - **Paper first, live by hand.** Live trading stays off until the owner turns it on manually.
+- **Public code, private data.** The repository is public. Market data, derived prices, datasets, results, strategy parameters that matter, and secrets never go in git; they live in git-ignored stores, and tests use synthetic data.
 
 ## Architecture overview
 
@@ -36,11 +37,11 @@ Eleven components, split by one rule: AI may only produce candidates, features a
 | Research desk | AI agents (Certo) | Writes hypotheses, strategy code and experiments; experiment manager runs budgeted searches on the DGX | Places orders, reads the final out-of-sample data | `StrategyCandidate` (code + spec + trial log) |
 | ML desk | AI agents + GPU jobs | Trains and tunes models, logs every trial | Changes features after seeing out-of-sample data | `ModelArtifact` (weights + training record) |
 | Judge | Local decision model | Typed calls: news events, regime, proposal consistency | Outputs orders; its outputs are features only | `JudgeCall` (state + questions → typed answers) |
-| Verification desk | Deterministic | Lookahead truncation, hidden out-of-sample, sensitivity, costs, trial count | Uses an LLM to decide a verdict | `Verdict` (pass/fail + report + ID) |
-| Risk desk | Deterministic | Position, exposure and drawdown limits; kill switch; veto | Accepts a change from an agent | `RiskDecision` (approve / resize / reject + reason) |
-| Execution desk | Deterministic | Sizes, places and reconciles orders through an adapter | Trades without a verdict ID and a risk approval | `OrderIntent` → `Fill` |
+| Verification desk | Deterministic | Lookahead truncation, hidden out-of-sample, sensitivity, costs, trial count | Uses an LLM to decide a verdict; calls anything unchecked a pass | `Verdict` (pass / fail / unverified + report + ID) |
+| Risk desk | Deterministic | Position, exposure and drawdown limits; kill switch; veto | Accepts a change from an agent; resizes an order upwards | `RiskDecision` on an `OrderProposal` (approve / resize down / reject + reason) |
+| Execution desk | Deterministic | Sizes orders as proposals; places and reconciles approved orders through an adapter | Trades without a verdict ID and a risk approval | `OrderProposal` → `RiskDecision` → `OrderIntent` → `Fill` |
 | Paper simulator | Deterministic | Fills orders against live data with fees, spread, slippage, partial fills | Fills at prices that weren't available | Same as a broker adapter |
-| Data plane | Deterministic | Ingests, versions and serves point-in-time market data; feature library (ari\_signals Level 0 generator, \~30 indicators → JSON, behind a fixed-lookback, closed-bar wrapper) | Serves data from after the requested timestamp | `bars()`, `trades()`, `book()` with an `as_of` time |
+| Data plane | Deterministic | Ingests, versions and serves point-in-time market data; feature library (ari\_signals Level 0 generator, \~30 indicators → JSON, behind a fixed-lookback, closed-bar wrapper) | Serves data from after the requested timestamp | `bars()`, `trades()`, `book()`, `universe()` with an `as_of` time, on an exact dataset version |
 | Ledger | Deterministic store | Records every proposal, verdict, decision, order and fill | Lets anything be edited or deleted | Append-only events, replayable |
 | Notifier | Deterministic | Urgent alerts, actions, daily digest to the owner | Accepts commands other than status and kill switch | `Notification(level, text, links)` |
 | Control API | Deterministic | Serves the web UI, CLI and a read-only MCP endpoint | Lets agents promote strategies or edit risk | REST + WebSocket, authenticated |
@@ -49,7 +50,7 @@ A strategy moves through fixed stages: idea → verified backtest → paper trad
 
 ## Configuration
 
-Two kinds of profile keep the core free of country and market details: one jurisdiction profile (where you live) and one market profile per market (what you trade). Moving country or adding a market means a new YAML file, not new core code.
+Profiles keep the core free of country and market details: one jurisdiction profile (where you live) and one market profile per market (what you trade), plus a risk profile, fee schedules, verifier thresholds and model choices. Moving country or adding a market means a new YAML file, not new core code. The loader is strict: unknown keys are an error, and `live_trading: true` is refused in v1.
 
 **Jurisdiction profile** — `config/jurisdictions/uk.yaml`
 
@@ -57,7 +58,10 @@ Two kinds of profile keep the core free of country and market details: one juris
 jurisdiction: uk
 base_currency: GBP
 allowed_venues: [kraken, coinbase, ibkr]
-leverage_max: 1.0          # no leverage in v1
+venue_status:              # every allowed venue needs an entry
+  kraken: {regulator: FCA, status: registered, as_of: 2026-11-15, review_by: 2027-10-01}
+  # ... coinbase, ibkr likewise; status: authorised | registered | pending | not_permitted
+leverage_max: 1.0          # no leverage in v1 (refused above 1.0)
 tax:
   report: uk_cgt
   dividend_withholding: w8ben
@@ -79,8 +83,9 @@ data:
   history: eodhd
   realtime: ibkr
 costs:
-  commission: ibkr_tiered
+  commission: ibkr_tiered   # a fee schedule in config/fees/
   spread_model: quoted
+  spread_bps: 2             # assumed spread when there are no quotes (bar backtests)
   slippage_bps: 5
   fx_conversion_bps: 3      # GBP to USD
 corporate_actions: [splits, dividends]
@@ -89,7 +94,18 @@ broker:
   live: ibkr                # inactive while live_trading is false
 ```
 
-The crypto profile has the same shape, with `calendar: 24x7`, funding rates instead of corporate actions, and a per-exchange exposure cap. A strategy declares which market profiles it runs on, and the verifier uses that profile's costs and calendar. All numbers above are placeholders to calibrate in milestone 1.
+The crypto profile has the same shape, with `calendar: 24x7` and funding rates instead of corporate actions; crypto pairs are USD-quoted. A strategy declares which market profiles it runs on, and the verifier uses that profile's costs and calendar. All numbers are placeholders still to calibrate.
+
+**Other profiles**
+
+| File | Holds | Who may read it |
+| --- | --- | --- |
+| `config/risk/<name>.yaml` | Limits and caps, e.g. the per-exchange exposure cap for crypto | Deterministic desks only; no agent |
+| `config/fees/<name>.yaml` | Fee schedules named by a market's `costs.commission` | Everyone |
+| `config/verify/<name>.yaml` | Verifier thresholds | Read by the verifier; no agent may change them |
+| `config/models.yaml` | Model per role, Q&A approach, egress policy (cloud budget 0) | Everyone; changed by the owner |
+
+Hosts and keys go in `.env` (git-ignored); choices go in YAML. No venue, symbol list, fee, calendar or model name is written in code.
 
 ## Venues and data sources
 
@@ -103,14 +119,17 @@ Start cheap: free exchange data for crypto and IBKR plus EODHD for US shares, ad
 | Tick and order book history | [Tardis.dev](https://coinranking.com/blog/best-historical-crypto-data-apis/), from $450/month, history from 2019 (later) | Databento (later) |
 | Survivorship-free universe | Keep delisted coins in our own store | EODHD delisted list; [Norgate](https://norgatedata.com/) as a cross-check (US daily only) |
 
+Crypto data comes from the venues' public REST APIs directly (no unified library: the store keeps the venues' own bytes). Kraken serves only the last 720 bars of a timeframe; Coinbase pages back to 2015. Public trade endpoints give recent trades only; deep trade history needs a paid vendor (later).
+
 **Rules for the data plane**
 
-- Every query takes an `as_of` timestamp and returns only what was known then.
+- Every query takes an `as_of` timestamp and returns only what was known then. A bar is known at its close; a still-forming bar never enters the store.
 - Raw data is stored as received, with a dataset version and checksum, so any backtest can be reproduced.
-- Delisted instruments stay in the universe forever.
+- Delisted instruments stay in the universe forever; an instrument's status is evaluated as of the query, so a later delisting never leaks backwards.
 - Feed staleness raises an urgent notification and blocks new paper orders on that market.
+- Data never goes in git. The store (`$FIRM_DATA_ROOT`) is git-ignored and has fixed zones, all written once: `raw/` (exactly as received, with a sidecar describing each download), `normalized/` (Parquet in the firm's schema), `datasets/` (content-addressed versions that backtests cite), `reference/` (instrument master), `golden/` (frozen test baselines). Synthetic and real data never mix in one series.
 
-The UK crypto regime changes in October 2027; each venue's status lives in the jurisdiction profile so it can change without code.
+The UK crypto regime changes in October 2027; each venue's status lives in the jurisdiction profile (`venue_status`, with a review date) so it can change without code.
 
 ## Models and hardware
 
@@ -132,12 +151,15 @@ The DGX Spark runs the whole firm 24/7 on mixture-of-experts models; the Mac is 
 - Large training runs unload the big agent model first; a scheduler owns that switch.
 - Models are chosen by Certo's benchmark on our own agent tasks (most verified results), not by speed.
 - Ollama to start; vLLM or SGLang when many agents run at once. Certo's model ladder hides the difference.
+- The model for each role is configuration (`config/models.yaml`), never code.
 
 **Roles of each machine**
 
 - **DGX Spark:** model server, ML training, data plane, verifier, risk, paper simulator, execution, ledger, control API, notifier.
 - **Mac:** Claude Code and Certo for building the harness; web UI and CLI for approvals and monitoring.
 - **Cloud watchdog:** a tiny server that only checks the DGX heartbeat and alerts on Telegram if it goes silent. A UPS for the DGX is recommended.
+
+This is the v1 deployment, not a requirement: hosts are configuration, and any service can move to another machine. Whatever runs the data and state stores needs its own backup.
 
 ## Control and notifications
 
@@ -152,7 +174,9 @@ One control API on the DGX serves both the web UI and the CLI, so anything you c
 | Markets | Watchlists, live prices and charts, market hours, judge regime labels |
 | Paper portfolio | Positions, fills, P&L per strategy and total, live-versus-backtest drift |
 | Ledger | Search any decision or order and replay why it happened |
-| System | Risk limits, feed health, model server load, GPU memory, kill switch |
+| Data | Captures, series, gaps, revisions, dataset versions, updates; real versus synthetic |
+| Analysis | Technical-analysis documents on demand; "ask the firm" questions with cited sources |
+| System | Risk limits (read-only), feed health, model server load, GPU memory, kill switches |
 
 **CLI sketch**
 
@@ -184,7 +208,7 @@ Experiment agents search for efficient strategies on the DGX, overnight or on de
 1. You (or a research agent) define an experiment: market profile, hypothesis family, data window, budget, model ladder.
 2. Agents generate variants: new strategy code from hypotheses, plus parameter search (for example Bayesian optimisation) with walk-forward validation.
 3. Every variant is a counted trial in the ledger. The count is global across all experiments, so running more searches makes the bar higher, not lower.
-4. Survivors go to the verifier, which opens the locked out-of-sample period once per finalist.
+4. Survivors go to the verifier, which opens the locked out-of-sample period once per finalist, and only after its in-sample checks pass.
 5. Verified finalists wait for your approval to start paper trading; results arrive in the digest.
 
 **Budgets per experiment:** wall-clock time, trials, GPU memory, tokens, and cloud spend (zero by default). The manager pauses or unloads experiments when the trading stack needs resources.
@@ -277,16 +301,18 @@ Each desk is its own service that talks to the others only through typed message
 | Scout | AI agent | `notes.opportunity` | market data, news | LAN or cloud (public data only) |
 | Research and experiments | AI agents + Certo | `strategy.candidate`, `trial.recorded` | notes, data | LAN; cloud only for non-private work |
 | Verification | Deterministic | `verdict.issued` | `strategy.candidate` | LAN |
-| Risk | Deterministic | `risk.decision`, `risk.halt` | verdicts, positions, `order.intent` | Stays with execution |
-| Execution (per market) | Deterministic | `order.*`, `fill.*` | `risk.decision` | Stays with risk |
-| Ledger and journal | Deterministic | — | everything | LAN |
-| Notifier | Deterministic | — | `alert.*`, `digest.*` | Anywhere, including a small cloud server |
-| Control API | Deterministic | owner commands | everything (read) | LAN |
+| Risk | Deterministic | `risk.decision`, `risk.halt`, `risk.heartbeat`, `alert.urgent.risk` | verdicts, positions, `order.proposed` | Stays with execution |
+| Execution (per market) | Deterministic | `order.proposed`, `order.intent`, `order.update`, `fill.executed`, `alert.urgent.execution`, `alert.action.execution` | `risk.decision`, `risk.heartbeat` | Stays with risk |
+| Ledger and journal | Deterministic | `digest.daily` | everything | LAN |
+| Notifier | Deterministic | — | `alert.>`, `digest.>`; delivers to connectors (Telegram first) | Anywhere, including a small cloud server |
+| Control API | Deterministic | `control.command` (owner commands, kill switch) | everything (read) | LAN |
+
+Order flow: execution publishes a sized `OrderProposal`; risk answers with a `RiskDecision` naming that proposal; only then does execution build the `OrderIntent` (with both the verdict ID and the risk decision ID) and send it to the venue. Alerts are namespaced by the desk that raises them (`alert.<level>.<desk>`), so every subject has exactly one publisher.
 
 **Rules for the bus**
 
 - **Typed messages across desks.** Every message has a schema and version. Free-form conversation between agents is allowed only inside the research desk; what crosses a desk boundary is a typed object.
-- **Permissions are the org chart.** Each service has its own credentials and may publish only its own subjects: no agent can publish `order.intent` or `risk.*`. The golden rules are enforced by the bus as well as by code.
+- **Permissions are the org chart.** Each service has its own credentials and may publish only its own subjects: no agent can publish `order.*`, `risk.*`, `fill.*`, verdicts or alerts. The golden rules are enforced by the bus as well as by code.
 - **The order path stays together.** Risk, execution and the venue adapters run on the same machine, and execution halts by itself if it stops hearing risk's heartbeat. A slow network can delay research, never a stop order.
 - **Placement follows the egress gate.** A service handling private data can move within the LAN; it moves to the cloud only if its data is public or the owner opts in.
 - **Messages are durable and idempotent.** Each message has an ID; consumers can replay after a restart without acting twice.
@@ -316,14 +342,26 @@ Every venue sits behind one adapter interface designed for real trading from day
 
 **Live readiness gate (all required before any real money):** conformance suite passes on the venue's sandbox; 3 months of paper results within the drift tolerance; reconciliation and kill switch tested end to end; per-strategy and total capital caps set; the owner flips `live_trading` and approves in the web UI.
 
+## How the verifier decides
+
+The verifier runs a strategy against an exact dataset version and returns **pass**, **fail** or **unverified**, never "pass" for something it could not check:
+
+1. **Lookahead truncation:** re-run with the data cut at many decision times; any changed past signal fails.
+2. **Cost realism:** must survive the market profile's costs, and not lose money with costs doubled.
+3. **Parameter sensitivity:** nudging each parameter up and down must not collapse the result.
+4. **Trial count:** the Sharpe ratio is deflated for the global number of trials (Bailey and López de Prado, 2014).
+5. **Hidden out-of-sample:** the last part of the window, opened only if checks 1–4 pass.
+
+The backtest decides at a bar's close and fills at the next bar's open. The report is deterministic and its hash is the verdict ID: the same dataset version, candidate and global trial count give the same bytes. All thresholds live in `config/verify/` and are placeholders.
+
 ## Firm rules (safety invariants)
 
 These rules are enforced in code and each one gets an automated test; breaking one fails the build.
 
 1. No LLM output can reach the execution desk except through a verdict and a risk approval.
 2. Every order carries a verdict ID and a risk decision ID; an order without both is rejected.
-3. Agents cannot read or write risk configuration, capital allocation, or the jurisdiction profile.
-4. The final out-of-sample period is opened once per strategy, by the verifier only; every opening is logged.
+3. Agents cannot read or write risk configuration, capital allocation, or the jurisdiction profile, and cannot change the verifier's thresholds.
+4. The final out-of-sample period is opened once per strategy, by the verifier only, after the in-sample checks pass; every opening is logged. Re-verifying the identical candidate replays the sealed result; any other version is refused.
 5. Every trial an agent runs is counted, and the verifier corrects for the trial count.
 6. The ledger is append-only; nothing is edited or deleted.
 7. `live_trading` is false in v1; turning it on requires a config change plus a manual approval in the web UI.
@@ -335,9 +373,9 @@ These rules are enforced in code and each one gets an automated test; breaking o
 
 The first build target is milestone 1 on crypto: a data plane and a verifier that can say whether a hand-written strategy's backtest is trustworthy. Each milestone ends with a numeric exit check, in Certo's style.
 
-1. **Data plane and verifier (crypto).** Ingest Kraken and Coinbase bars and trades; point-in-time queries; lookahead truncation, hidden out-of-sample, sensitivity, cost and trial-count checks.
-   - Exit: a strategy with planted lookahead is rejected; a clean moving-average strategy passes; results reproduce byte for byte from a dataset version.
-2. **Paper simulator, risk desk, ledger, trade journal.** Fills against live data with fees, spread, slippage and partial fills; limits and kill switch; append-only ledger.
+1. **Data plane and verifier (crypto).** *Done Nov 16, 2026.* Ingest Kraken and Coinbase bars and trades; point-in-time queries; lookahead truncation, hidden out-of-sample, sensitivity, cost and trial-count checks.
+   - Exit: a strategy with planted lookahead is rejected; a clean moving-average strategy passes; results reproduce byte for byte from a dataset version (with the same candidate and global trial count).
+2. **Paper simulator, risk desk, ledger, trade journal.** Fills against live data with fees, spread, slippage and partial fills; limits and kill switch; append-only ledger; trade data for fills (live feeds plus recent trades). The trial registry and out-of-sample log move into the ledger.
    - Exit: a verified strategy paper-trades for 7 days unattended; every fill traces to a verdict ID.
 3. **Research agents on Certo.** Research and ML desks propose and train strategies; the verifier gates them.
    - Exit: agents produce at least one strategy that passes verification without human code changes.
@@ -353,13 +391,23 @@ The first build target is milestone 1 on crypto: a data plane and a verifier tha
 ## Open questions
 
 - [ ] Judge model: d3 on Ollama chosen; pick d3:9b or d3:27b by testing on our own labelled market cases.
-- [ ] Exact verifier thresholds: out-of-sample length, sensitivity tolerance, trial-count correction method.
+- [ ] Exact verifier thresholds. The method is decided (see "How the verifier decides"; deflated Sharpe for trial count); the numbers are placeholders.
+- [ ] Out-of-sample scope: opened once per strategy (current, strict), or once per strategy and instrument?
 - [ ] Paper-to-live drift tolerance that triggers a demotion.
-- [ ] Name of the system and its CLI (`firm` is decided: the system is "the firm", CLI \`firm\`).
-- [ ] Does the harness live inside the Certo repo, or in its own repo that uses Certo as a library?
+- [x] Name of the system and its CLI: "the firm", CLI `firm`.
+- [x] The harness lives in its own (public) repo and uses Certo.
 - [ ] Web UI stack (Certo's server mode plus a light frontend, or something else)?
 
-* [ ] Indicator code reviewed (ari\_signals, timeseries\_info): code moves into the firm repo and gets fixed there (lookback skew, unfinished candle, weekly mode, pivot confirmation, as-of time); golden baseline first, then archive the old repo.
+* [ ] Indicator code reviewed (ari\_signals, timeseries\_info): code moves into the firm repo and gets fixed there (lookback skew, unfinished candle, weekly mode, pivot confirmation, as-of time); golden baseline first, then archive the old repo. The baseline is frozen; the port adapts to current library versions.
+
+## Planned additions (owner requests, Nov 2026)
+
+Tracked in `TODO.md`; listed here because they widen what v1 is.
+
+- **Incremental data updates:** downloading a series again extends the store (only new bars, gap detection, dataset lineage) instead of starting over.
+- **Strategies judged on real data:** synthetic data is for tests only; every verdict states what data it rests on, and a verdict on synthetic data can never promote a strategy.
+- **Technical-analysis documents on demand:** from any dataset version, through the indicator wrapper, versioned and point-in-time; optional narrative by a local model, never an input to the order path.
+- **Ask the firm:** a local model answers questions about our data and reports through typed, read-only tools (full-text search for documents; embeddings only if needed), citing its sources. Served through the read-only MCP endpoint and `firm ask`.
 
 ## Sources
 

@@ -14,13 +14,14 @@ supplies the model ladder, budgets and verdict idea. This repo adds the firm
 around it: data, verification of strategies, risk, paper execution, ledger,
 control and notifications.
 
-The design lives in @docs/SPEC.md (exported from the design doc). Follow it
+The design lives in @docs/SPEC.md, the source of truth (v0.2 onwards). Follow it
 milestone by milestone (section "Milestones"). The kickoff prompt is in
 @docs/KICKOFF.md.
 
 Planning files, one question each:
 
-- @docs/SPEC.md: what we are building and why. Changes only by the owner.
+- @docs/SPEC.md: what we are building and why. Changes only with the owner's
+  approval: a pull request they review and merge.
 - @TODO.md: everything still to do, known bugs included. Check it before work.
   It is public: real-data facts and results (dataset versions, verdict IDs,
   metrics, download history) go in the git-ignored `private/TODO.md`,

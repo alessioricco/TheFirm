@@ -425,3 +425,16 @@ other secret still fails. `actions/checkout` moved to v5 (Node 20 deprecation).
   before the stamp reads as "unversioned" (same format) and is stamped on
   its next write. `firm state show` summarises trials, vault events and
   reports, read-only.
+
+## 2026-11-16 — SPEC.md becomes the source of truth (v0.2)
+
+Owner decision (option B of three: re-export from the design doc, edit
+SPEC.md, or keep deviations only here). `docs/SPEC.md` was an export of a
+design doc; it is now the source of truth, changed only through a pull
+request the owner reviews and merges. v0.2 folds in the decisions recorded
+above (order flow, bus subjects, config split, data store, point-in-time
+rules, verifier method, host-agnostic deployment, public-repo rule) and the
+scope the owner added (incremental updates, real-data verdicts, TA
+documents, "ask the firm", web UI pages). Firm rule 3 now also covers the
+verifier thresholds, and rule 4 states the replay/refusal behaviour, both
+matching what the code already does.

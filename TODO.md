@@ -311,18 +311,13 @@ Public repo (do before making it public):
 - [ ] Licence notice: when the ari code (Apache-2.0) is copied in, add its
       LICENSE/NOTICE and say so in the README (the firm is MIT).
 
-SPEC changes for the owner (the SPEC is owner-only; these decisions differ):
+SPEC changes for the owner:
 
-- [ ] Bus table: execution publishes `order.proposed` and risk subscribes to
-      it (not `order.intent`); ledger publishes `digest.daily`; alerts are
-      `alert.<level>.<service>`; `risk.heartbeat`, `control.command` exist.
-- [ ] Configuration: the per-exchange exposure cap lives in
-      `config/risk/`, not the market profile; `venue_status` in the
-      jurisdiction profile; `config/models.yaml`, `config/fees/`,
-      `config/verify/` exist.
-- [ ] Open questions: name (`firm`) and repo placement (own repo using
-      Certo) look settled; verifier thresholds have placeholders and a
-      method (DECISIONS.md); the indicator item is in progress.
+- [x] SPEC v0.2 (2026-11-16, PR "SPEC v0.2"): bus table and order flow,
+      configuration (risk profile, venue status, fees, verifier, models),
+      data plane store and point-in-time rules, verifier method, firm rules
+      3 and 4 wording, milestone 1 done, open questions, planned additions.
+      SPEC.md is now the source of truth, changed only through owner-reviewed PRs.
 
 Functional gaps:
 
