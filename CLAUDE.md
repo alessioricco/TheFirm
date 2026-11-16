@@ -155,7 +155,10 @@ under `tests/fixtures/` and fakes for adapters.
 - Write the test first for anything in verification, risk, simulator, cost
   model or ledger.
 - Small commits with clear messages; never commit `.env`, data files or
-  model weights.
+  model weights. **This repo is public on GitHub:** no market data,
+  derived prices, datasets, personal details or machine-specific paths in
+  git. Data lives in the git-ignored store (`$FIRM_DATA_ROOT`, see
+  ARCHITECTURE.md "Data store"); test fixtures are synthetic.
 - When the spec is ambiguous, write the question in TODO.md and ask; do not
   guess on anything that touches orders, risk or verification.
 - Keep docs honest: never show output that was not produced by a real run.

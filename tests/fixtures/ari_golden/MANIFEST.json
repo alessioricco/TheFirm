@@ -1,0 +1,4452 @@
+{
+ "purpose": "Golden baseline of the unchanged ari_signals Level 0 generator (docs/tasks/extract-ari-signals-features.md, step 0).",
+ "source": {
+  "repo": "ari_signals",
+  "commit": "03a8b8d9acfbb011680ae4ee7f0dd5c2f4c1f5c8",
+  "commit_date": "2026-02-23T21:37:05Z",
+  "extracted_paths_clean": true,
+  "license": "Apache-2.0"
+ },
+ "environment": {
+  "python": "3.11.3",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "pandas": "2.3.0",
+  "numpy": "2.3.1",
+  "scipy": "1.16.0",
+  "jsonschema": "4.26.0"
+ },
+ "generated_at": "2026-11-16T10:02:17+00:00",
+ "params": {
+  "file": "config/strategy_params/default.json",
+  "sha256": "fbf68688bcd59141d8cbb4e2ef4d2a2bf976fdb996b884dff1e704d5b7f54725",
+  "passed_as": "whole file"
+ },
+ "schema_sha256": "093e869d341afa0b0d47dc875f5f69d43cbecef183450b3bc3f61232bc5277c9",
+ "inputs": {
+  "BTCUSDT": {
+   "store_path": "raw/provider=binance/kind=bars/symbol=BTC-USDT/tf=1d/20261116T104804Z_a45cc5fb.csv",
+   "source": "data/simulation/BTCUSDT-1d.csv",
+   "sha256": "a45cc5fb079fc5cc4208a60c310cd8847c8f47f49ee3a13d0ce2e2df7ec06744"
+  },
+  "NVDA": {
+   "store_path": "raw/provider=yahoo/kind=bars/symbol=NVDA/tf=1d/20261116T104804Z_583677d6.csv",
+   "source": "data/simulation/NVDA-1d.csv",
+   "sha256": "583677d6d69681903edb99c5a6cc29d96f7638cf18a35d7c8b53445085ea7dc0"
+  }
+ },
+ "preprocessing": [
+  "pd.read_csv(file) with default options",
+  "normalize(): lower-case columns; timestamp->date; pd.to_datetime(date, utc=True, errors='coerce'); dropna(date); sort by date; reset_index (copy of run_simulation_fast._normalize_csv)",
+  "sim mode only: date = date.dt.floor('D')"
+ ],
+ "modes": {
+  "sim": "timeseries_info(df.iloc[t-200:t+1].copy(), symbol, 'Simulation for {symbol} 1d on {YYYYMMDD}', tf='1d', params, normalized=True)",
+  "live": "timeseries_info(df.iloc[:t+1].copy(), symbol, '{symbol} 1d', tf='1d', params, normalized=False)"
+ },
+ "serialisation": "json.dumps(doc, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=True; pd.Timestamp->isoformat(), numpy scalar->.item()), UTF-8, gzip(mtime=0). output_sha256 is of the uncompressed JSON bytes.",
+ "case_selection": "fixed edges (200, 201, 365-367, 400, last, first bar with 200 weekly bars +-1, 5+5 mid-week bars in the last year) + 40 random bars (numpy default_rng(20261116)); live mode also bars [30, 60, 120, 199]",
+ "cases": [
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 200,
+   "bar_date": "2018-03-05T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    200
+   ],
+   "output": "outputs/BTCUSDT/sim/00200.json.gz",
+   "output_sha256": "748e27b9c1f9cf879cd549f56c07370d270a150b8a0413a8d6ce2695e84ed2bb",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 201,
+   "bar_date": "2018-03-06T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1,
+    201
+   ],
+   "output": "outputs/BTCUSDT/sim/00201.json.gz",
+   "output_sha256": "ef547a475afe327c27a2ca3d366ef3da529cfcd361ae64a8efa08c86ea8555b6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 365,
+   "bar_date": "2018-08-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    165,
+    365
+   ],
+   "output": "outputs/BTCUSDT/sim/00365.json.gz",
+   "output_sha256": "5876f58a410a1c078d61d8c44e39a91aba98299401025a1a0923e8b1bb3e292d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 366,
+   "bar_date": "2018-08-18T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    166,
+    366
+   ],
+   "output": "outputs/BTCUSDT/sim/00366.json.gz",
+   "output_sha256": "36f326a5e093288849e611674cd50a88b8da9fbb8a2a97bfbeebc6a5ef6d075d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 367,
+   "bar_date": "2018-08-19T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    167,
+    367
+   ],
+   "output": "outputs/BTCUSDT/sim/00367.json.gz",
+   "output_sha256": "bd50079ca018f488e28269bd0b099592ed06067294d12871bab725c7f7cace48",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 400,
+   "bar_date": "2018-09-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    200,
+    400
+   ],
+   "output": "outputs/BTCUSDT/sim/00400.json.gz",
+   "output_sha256": "2a28837fa9f7e28d410b89a19ecbb4cba16832d7f9e7e7f9ca7ab9bb46a98911",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 423,
+   "bar_date": "2018-10-14T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    223,
+    423
+   ],
+   "output": "outputs/BTCUSDT/sim/00423.json.gz",
+   "output_sha256": "1ac56f3986ae97b6b670ac4ead8f26f4f537ec3e015fbcd0f1b57566cef4dd83",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 491,
+   "bar_date": "2018-12-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    291,
+    491
+   ],
+   "output": "outputs/BTCUSDT/sim/00491.json.gz",
+   "output_sha256": "2ace2b7ef098804601ba1a8f427624f1bfdb07843d57770a5614c92e0a4a21d9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 521,
+   "bar_date": "2019-01-20T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    321,
+    521
+   ],
+   "output": "outputs/BTCUSDT/sim/00521.json.gz",
+   "output_sha256": "cec8c51ebc644414dbd3dc4b4369d7f17c77cc25f5259efd1bfb3492319e54f0",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 553,
+   "bar_date": "2019-02-21T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    353,
+    553
+   ],
+   "output": "outputs/BTCUSDT/sim/00553.json.gz",
+   "output_sha256": "eda340be51216c9df3e6d6a7592e5819b16517ee7ab3be6da68cad886f2dd205",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 577,
+   "bar_date": "2019-03-17T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    377,
+    577
+   ],
+   "output": "outputs/BTCUSDT/sim/00577.json.gz",
+   "output_sha256": "be79e4765fe4433f4044c10931d6fa9ac8c02b01b834e849eb9c2a1a58ff4f41",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 599,
+   "bar_date": "2019-04-08T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    399,
+    599
+   ],
+   "output": "outputs/BTCUSDT/sim/00599.json.gz",
+   "output_sha256": "964b8391bfaaca2f0648cc54f8afac29283a9ece618ac21cb7d1360a95b7fc10",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 619,
+   "bar_date": "2019-04-28T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    419,
+    619
+   ],
+   "output": "outputs/BTCUSDT/sim/00619.json.gz",
+   "output_sha256": "135e969fd69dabaa645441e5c8484a2df23b604f62f0017d619bf9e6469e0b01",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 629,
+   "bar_date": "2019-05-08T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    429,
+    629
+   ],
+   "output": "outputs/BTCUSDT/sim/00629.json.gz",
+   "output_sha256": "415f125c53cb6675dc83ac70a1bc9418009b24e31f569ba8868d96fa3fc54701",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 645,
+   "bar_date": "2019-05-24T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    445,
+    645
+   ],
+   "output": "outputs/BTCUSDT/sim/00645.json.gz",
+   "output_sha256": "ef548a8da633e49487b33b8af0e3dd9db64e55a4767d5061f45c5be9e7a845a2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 761,
+   "bar_date": "2019-09-17T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    561,
+    761
+   ],
+   "output": "outputs/BTCUSDT/sim/00761.json.gz",
+   "output_sha256": "f6ca7269e6507027d29dda862b98a009b82350af2d1800677602dc74ea2361b4",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 828,
+   "bar_date": "2019-11-23T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    628,
+    828
+   ],
+   "output": "outputs/BTCUSDT/sim/00828.json.gz",
+   "output_sha256": "6cb6364b9518b70015c1ab9a2316efe257d10eeca4ce27a2ea8ef0e72454afd9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 890,
+   "bar_date": "2020-01-24T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    690,
+    890
+   ],
+   "output": "outputs/BTCUSDT/sim/00890.json.gz",
+   "output_sha256": "5cad45f2a9c219291fda87787cf69414b36f2d07efa581e0b7f6d9d4a004d10a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 918,
+   "bar_date": "2020-02-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    718,
+    918
+   ],
+   "output": "outputs/BTCUSDT/sim/00918.json.gz",
+   "output_sha256": "25f5b83742c306c31a23e3cb722b3fdab415e7e2e5c39b00d793f0629811da06",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1033,
+   "bar_date": "2020-06-15T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    833,
+    1033
+   ],
+   "output": "outputs/BTCUSDT/sim/01033.json.gz",
+   "output_sha256": "e285f1a6741a1066a22dc5aae3f26273e149d0cdff993c55d14f9f553e07a7d3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1057,
+   "bar_date": "2020-07-09T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    857,
+    1057
+   ],
+   "output": "outputs/BTCUSDT/sim/01057.json.gz",
+   "output_sha256": "3ccfccfbe2d91c217df0d90d6069947a2f584010b5e57f469ed4fb6e2cba31f6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1065,
+   "bar_date": "2020-07-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    865,
+    1065
+   ],
+   "output": "outputs/BTCUSDT/sim/01065.json.gz",
+   "output_sha256": "799fb90de8c425ed018da7dc31796e2b51232d376e7ed32b5d0e12ce48f83e3f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1091,
+   "bar_date": "2020-08-12T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    891,
+    1091
+   ],
+   "output": "outputs/BTCUSDT/sim/01091.json.gz",
+   "output_sha256": "bfe8cc0018465c0470874dd2e6df3bc055361bc8fe41feb3155f7b3494782f70",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1239,
+   "bar_date": "2021-01-07T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    1039,
+    1239
+   ],
+   "output": "outputs/BTCUSDT/sim/01239.json.gz",
+   "output_sha256": "61c72a1204444a40f3c96d854061ea074a4576e5c3eab46b77989cf3f19630e6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1314,
+   "bar_date": "2021-03-23T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1114,
+    1314
+   ],
+   "output": "outputs/BTCUSDT/sim/01314.json.gz",
+   "output_sha256": "ce6b2517698ad34738e6175fc72ed7d7a05e306c80c2699b892f3acfbe0faab0",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1325,
+   "bar_date": "2021-04-03T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    1125,
+    1325
+   ],
+   "output": "outputs/BTCUSDT/sim/01325.json.gz",
+   "output_sha256": "ca4b2c944d24caf0181ea80a659dce9119186a7c91b9ee2291e9e332aff4713c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1389,
+   "bar_date": "2021-06-06T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    1189,
+    1389
+   ],
+   "output": "outputs/BTCUSDT/sim/01389.json.gz",
+   "output_sha256": "0a7cfc74372a66222c5041a540b184bf8f2be7d244ffccc401cd0ace6af7e9bc",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1390,
+   "bar_date": "2021-06-07T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    1190,
+    1390
+   ],
+   "output": "outputs/BTCUSDT/sim/01390.json.gz",
+   "output_sha256": "20e7a0f24304ff29739fcd969d4bbfb7ee6290a44f26f2ede2f7c41c849c4af8",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1391,
+   "bar_date": "2021-06-08T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1191,
+    1391
+   ],
+   "output": "outputs/BTCUSDT/sim/01391.json.gz",
+   "output_sha256": "ae47650902c2207b319940c3356f89d055d97dc71bda89bb77d46653e971f4cf",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1394,
+   "bar_date": "2021-06-11T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    1194,
+    1394
+   ],
+   "output": "outputs/BTCUSDT/sim/01394.json.gz",
+   "output_sha256": "53c62bc8a25176feda4b552bea83e9257cfa4891768168c200dd82a91a4b6bfa",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1397,
+   "bar_date": "2021-06-14T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    1197,
+    1397
+   ],
+   "output": "outputs/BTCUSDT/sim/01397.json.gz",
+   "output_sha256": "bcff8135b96a2497f2e4b4692218fb541c5435f1e26c25de06e944f8b1637787",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1436,
+   "bar_date": "2021-07-23T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    1236,
+    1436
+   ],
+   "output": "outputs/BTCUSDT/sim/01436.json.gz",
+   "output_sha256": "c1fdc5b8e34410cbede1eae6fc7fdbfc4e17d56055790fd4872706ba239285f7",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1485,
+   "bar_date": "2021-09-10T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    1285,
+    1485
+   ],
+   "output": "outputs/BTCUSDT/sim/01485.json.gz",
+   "output_sha256": "f204e9c2ac08a959dee9b862fddc83a4b09d00c6090b979cbd1a32cf8d151c72",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1505,
+   "bar_date": "2021-09-30T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    1305,
+    1505
+   ],
+   "output": "outputs/BTCUSDT/sim/01505.json.gz",
+   "output_sha256": "d1b41fc30d4c5ffd250de5815ad452f88332bdfe4fe0aa840e4fac8e5b9dc08a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1552,
+   "bar_date": "2021-11-16T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1352,
+    1552
+   ],
+   "output": "outputs/BTCUSDT/sim/01552.json.gz",
+   "output_sha256": "4da872b567c672ee9ecb10a0911ed82aeebc252686dc4e94dfb014c06337019d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 1918,
+   "bar_date": "2022-11-17T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    1718,
+    1918
+   ],
+   "output": "outputs/BTCUSDT/sim/01918.json.gz",
+   "output_sha256": "8456b9f48f84c57f3367b8d63a6f2cc92cb7face864bf20fe97dc7cf187c7605",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2203,
+   "bar_date": "2023-08-29T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2003,
+    2203
+   ],
+   "output": "outputs/BTCUSDT/sim/02203.json.gz",
+   "output_sha256": "9c6c93af006bd0267a73dea612321c343e4bc2428a1e2a6a222153575becd0fd",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2283,
+   "bar_date": "2023-11-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2083,
+    2283
+   ],
+   "output": "outputs/BTCUSDT/sim/02283.json.gz",
+   "output_sha256": "cbe229a216279c4856d3f505e3a4627e0458bd3b2a62424cd99000cefdf9910f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2329,
+   "bar_date": "2024-01-02T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2129,
+    2329
+   ],
+   "output": "outputs/BTCUSDT/sim/02329.json.gz",
+   "output_sha256": "bc42af382bdd77d3186b477c9c9291ff729c64d589380445efd464c890faa738",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2339,
+   "bar_date": "2024-01-12T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2139,
+    2339
+   ],
+   "output": "outputs/BTCUSDT/sim/02339.json.gz",
+   "output_sha256": "a622a1f28845c9dc9a75c8fb7ab665b06546a498bcd7da15263f4b381150a23c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2527,
+   "bar_date": "2024-07-18T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2327,
+    2527
+   ],
+   "output": "outputs/BTCUSDT/sim/02527.json.gz",
+   "output_sha256": "2d6269f38786da71a08355088f4418da9ed0b93264d2741a439a99197188e264",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2534,
+   "bar_date": "2024-07-25T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2334,
+    2534
+   ],
+   "output": "outputs/BTCUSDT/sim/02534.json.gz",
+   "output_sha256": "817f230bd3a0d47b98053696e249842c493e571b61c311a38dd795d6cae8c329",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2589,
+   "bar_date": "2024-09-18T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2389,
+    2589
+   ],
+   "output": "outputs/BTCUSDT/sim/02589.json.gz",
+   "output_sha256": "b44d4be0d1eab01a10b2abc8d4c51a5f23febaf6914928bb578b570abab4a8dd",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2626,
+   "bar_date": "2024-10-25T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2426,
+    2626
+   ],
+   "output": "outputs/BTCUSDT/sim/02626.json.gz",
+   "output_sha256": "7fdb19061955e7472f4264bfcd3caf440e0eefa0d9ec19d48952ad58f5a560e5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2736,
+   "bar_date": "2025-02-12T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2536,
+    2736
+   ],
+   "output": "outputs/BTCUSDT/sim/02736.json.gz",
+   "output_sha256": "10db4b850930a336bf71ff4eb3c5a0f3d7f90210c4db6f3e12181fa2fb80c24a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2837,
+   "bar_date": "2025-05-24T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    2637,
+    2837
+   ],
+   "output": "outputs/BTCUSDT/sim/02837.json.gz",
+   "output_sha256": "ff7f05a05d8e94e1da0b1de72395fa542511a1a725dfe0d540f9d519f38958a0",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2839,
+   "bar_date": "2025-05-26T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    2639,
+    2839
+   ],
+   "output": "outputs/BTCUSDT/sim/02839.json.gz",
+   "output_sha256": "e72f1d089d534b5f4934f7ad0198b6b4b942d3aca8fe218f7897ee7784b1ab08",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2840,
+   "bar_date": "2025-05-27T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2640,
+    2840
+   ],
+   "output": "outputs/BTCUSDT/sim/02840.json.gz",
+   "output_sha256": "718bb891ad27ad3d6e5c74f4a07bbd66e6c8189002436bec22e839798cecbc12",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2841,
+   "bar_date": "2025-05-28T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2641,
+    2841
+   ],
+   "output": "outputs/BTCUSDT/sim/02841.json.gz",
+   "output_sha256": "7032cbc61f7bb4392cb3b56da20c12291e84c192769cd0cf1a58322209cdb8c4",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2842,
+   "bar_date": "2025-05-29T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2642,
+    2842
+   ],
+   "output": "outputs/BTCUSDT/sim/02842.json.gz",
+   "output_sha256": "de33f485cedb23620754c9e0b7657def3a55991bcff8ad0ffe9b46ace1fad8d6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2969,
+   "bar_date": "2025-10-03T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2769,
+    2969
+   ],
+   "output": "outputs/BTCUSDT/sim/02969.json.gz",
+   "output_sha256": "80ed374d187aca5738185a000ad478771bb59214a6193fc262f30fd23389e7f2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2978,
+   "bar_date": "2025-10-12T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    2778,
+    2978
+   ],
+   "output": "outputs/BTCUSDT/sim/02978.json.gz",
+   "output_sha256": "d2d11901427a0de533e09bfc21c110004451c6c9d1a5c226ee270f2506e7521b",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 2997,
+   "bar_date": "2025-10-31T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2797,
+    2997
+   ],
+   "output": "outputs/BTCUSDT/sim/02997.json.gz",
+   "output_sha256": "aada73ae64f33f6cbd948a6db18d9acf5ec9259563dc5ecb63915c10dc2c5e99",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3001,
+   "bar_date": "2025-11-04T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2801,
+    3001
+   ],
+   "output": "outputs/BTCUSDT/sim/03001.json.gz",
+   "output_sha256": "f5e228ef319dbaae2d51abc667d9e0c2bf5562a9f93e519afb8c53821d801013",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3092,
+   "bar_date": "2026-02-03T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2892,
+    3092
+   ],
+   "output": "outputs/BTCUSDT/sim/03092.json.gz",
+   "output_sha256": "b7ff32e87007d0d28d1008e28e47a164278bb3a2c728fb1125a0f0d571899138",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3093,
+   "bar_date": "2026-02-04T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2893,
+    3093
+   ],
+   "output": "outputs/BTCUSDT/sim/03093.json.gz",
+   "output_sha256": "fc1ed659d249c873b8fa006bded8264b773af5bf126b63b851b02474918ab8af",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3094,
+   "bar_date": "2026-02-05T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2894,
+    3094
+   ],
+   "output": "outputs/BTCUSDT/sim/03094.json.gz",
+   "output_sha256": "d53f0676913c962c3bfa2a040fca7ed2bb245740b9b82f8a27c7e3b62e0a772d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3095,
+   "bar_date": "2026-02-06T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    2895,
+    3095
+   ],
+   "output": "outputs/BTCUSDT/sim/03095.json.gz",
+   "output_sha256": "7058580fe69c711c58537f4771c35a319d279300cd5603e929e3f6930be75c69",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "sim",
+   "bar_index": 3096,
+   "bar_date": "2026-02-07T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    2896,
+    3096
+   ],
+   "output": "outputs/BTCUSDT/sim/03096.json.gz",
+   "output_sha256": "e80bde6a17852886cf97f647ae58019a8322efb1a65e4507e12650b5354f0b91",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 30,
+   "bar_date": "2017-09-16T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    30
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 60,
+   "bar_date": "2017-10-16T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    60
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 120,
+   "bar_date": "2017-12-15T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    120
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 199,
+   "bar_date": "2018-03-04T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    199
+   ],
+   "output": "outputs/BTCUSDT/live/00199.json.gz",
+   "output_sha256": "90dd2e958da0e817ad7ab3c4481ee6d7dac24499a0d8491db3377375817e3506",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 200,
+   "bar_date": "2018-03-05T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    200
+   ],
+   "output": "outputs/BTCUSDT/live/00200.json.gz",
+   "output_sha256": "f3a6101dc2f32c00a66a8777678a44983136f67cc05953cc6a4273e38200de97",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 201,
+   "bar_date": "2018-03-06T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    201
+   ],
+   "output": "outputs/BTCUSDT/live/00201.json.gz",
+   "output_sha256": "deecf4fb8e526759e597b08dc8ae2e1d5d08056b1689d01015afe01347bf10f6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 365,
+   "bar_date": "2018-08-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    365
+   ],
+   "output": "outputs/BTCUSDT/live/00365.json.gz",
+   "output_sha256": "51594e39449aa672e6a51069d5b9d79cd3be540c7f3bf8d4ba348e415cf7dfbf",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 366,
+   "bar_date": "2018-08-18T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    366
+   ],
+   "output": "outputs/BTCUSDT/live/00366.json.gz",
+   "output_sha256": "66a2424f6488a706575d558c07e1d5aac1a918e1499d133bfe038c20ce843bac",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 367,
+   "bar_date": "2018-08-19T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    367
+   ],
+   "output": "outputs/BTCUSDT/live/00367.json.gz",
+   "output_sha256": "7f4ad5639a6c85f5c8804fa160fb111fb8f3ac7d30b121aa6dffc574c2f7c99f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 400,
+   "bar_date": "2018-09-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    400
+   ],
+   "output": "outputs/BTCUSDT/live/00400.json.gz",
+   "output_sha256": "a0378084335aae6e79d84c4371cf3275149d421de694471a9da5b40f8914df0d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 423,
+   "bar_date": "2018-10-14T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    423
+   ],
+   "output": "outputs/BTCUSDT/live/00423.json.gz",
+   "output_sha256": "d960b1f75ba3de9de5b3cb44259e41faeb9c5060374cc1d682134152f59a50f2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 491,
+   "bar_date": "2018-12-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    491
+   ],
+   "output": "outputs/BTCUSDT/live/00491.json.gz",
+   "output_sha256": "b268ffa147fb0d670f2da50e6d16b9d56b0f5525ed4755ae109d1530264499f5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 521,
+   "bar_date": "2019-01-20T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    521
+   ],
+   "output": "outputs/BTCUSDT/live/00521.json.gz",
+   "output_sha256": "609ada47cf54607e65f58d558c4c4b73ef77d2ecd7aa40003a40d7412a953d26",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 553,
+   "bar_date": "2019-02-21T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    553
+   ],
+   "output": "outputs/BTCUSDT/live/00553.json.gz",
+   "output_sha256": "1f52b01cc180c0ea122800fccf15de7065698e25478bb6aecf18dc578f599e84",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 577,
+   "bar_date": "2019-03-17T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    577
+   ],
+   "output": "outputs/BTCUSDT/live/00577.json.gz",
+   "output_sha256": "e587923f9e60a8b3cfb44792271a428df3b866a7c9a377b719005550de45cc2e",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 599,
+   "bar_date": "2019-04-08T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    599
+   ],
+   "output": "outputs/BTCUSDT/live/00599.json.gz",
+   "output_sha256": "2d900e7da3d464301650ee7a522dcc0a0d5b628b7b3c253b06b0916e2bea1422",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 619,
+   "bar_date": "2019-04-28T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    619
+   ],
+   "output": "outputs/BTCUSDT/live/00619.json.gz",
+   "output_sha256": "cc998ef1595d24aada020358591ef7a145d9157bdfa4e4fccb959eefb2859572",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 629,
+   "bar_date": "2019-05-08T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    629
+   ],
+   "output": "outputs/BTCUSDT/live/00629.json.gz",
+   "output_sha256": "28bafe6bbd9e2f89dbb90bcb09fb1ae3e8fa3dd379559dbbb8149841a202dcbb",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 645,
+   "bar_date": "2019-05-24T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    645
+   ],
+   "output": "outputs/BTCUSDT/live/00645.json.gz",
+   "output_sha256": "38b479cdd056127ee9476bf9df858e94166ab0ffcf4df21631245776a8ebfcb8",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 761,
+   "bar_date": "2019-09-17T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    761
+   ],
+   "output": "outputs/BTCUSDT/live/00761.json.gz",
+   "output_sha256": "866e6b7d64821acf094a39018c27fed278de226852e7bfd6daa6df8dde876850",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 828,
+   "bar_date": "2019-11-23T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    828
+   ],
+   "output": "outputs/BTCUSDT/live/00828.json.gz",
+   "output_sha256": "276dfab61dbbcdf2a19b85fd0653c056d0a8aed791510670087d16187fecff70",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 890,
+   "bar_date": "2020-01-24T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    890
+   ],
+   "output": "outputs/BTCUSDT/live/00890.json.gz",
+   "output_sha256": "d80cecef6f974e77df7a29348fed00990b574697285258907dcc80592f62d1df",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 918,
+   "bar_date": "2020-02-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    918
+   ],
+   "output": "outputs/BTCUSDT/live/00918.json.gz",
+   "output_sha256": "cc8d8f37d2840c15ac35bb5eb85b92862720a8d9f2f5b2582ee0800c15825555",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1033,
+   "bar_date": "2020-06-15T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1033
+   ],
+   "output": "outputs/BTCUSDT/live/01033.json.gz",
+   "output_sha256": "d59302f12ce2553a7196cca2b043db774bbda90efbb63edd28bda16175e3fccd",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1057,
+   "bar_date": "2020-07-09T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1057
+   ],
+   "output": "outputs/BTCUSDT/live/01057.json.gz",
+   "output_sha256": "12a28859c574e4e02aed8cdffcfe47cf0584f854f6547038e3bd8e5a80fc6b5b",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1065,
+   "bar_date": "2020-07-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1065
+   ],
+   "output": "outputs/BTCUSDT/live/01065.json.gz",
+   "output_sha256": "639ef9664c006055f5d340cbf22d29ba635937d4cd4bfc7dba631c95d4dd8ab9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1091,
+   "bar_date": "2020-08-12T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1091
+   ],
+   "output": "outputs/BTCUSDT/live/01091.json.gz",
+   "output_sha256": "1ee0fb4b289a544d51d9f6fe6cd83db8eadaf8d7e185d160c317b7f6d1a14864",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1239,
+   "bar_date": "2021-01-07T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1239
+   ],
+   "output": "outputs/BTCUSDT/live/01239.json.gz",
+   "output_sha256": "760e5faec567573ae4f38b4eafbeb48b6ef00fb0705984300bd6a7e3999d156f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1314,
+   "bar_date": "2021-03-23T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1314
+   ],
+   "output": "outputs/BTCUSDT/live/01314.json.gz",
+   "output_sha256": "ffbdc2d288b851aafcbaf713a659f1907ab52339b742ee07f96b569f640102d3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1325,
+   "bar_date": "2021-04-03T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1325
+   ],
+   "output": "outputs/BTCUSDT/live/01325.json.gz",
+   "output_sha256": "ab120252bb714452eea031c54be74957de30dfa1d17aee4be9834f5d32c65699",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1389,
+   "bar_date": "2021-06-06T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    1389
+   ],
+   "output": "outputs/BTCUSDT/live/01389.json.gz",
+   "output_sha256": "c1b46743f8bbf5eb2c28f0430666e6902ef7de6a60aeb6b67116f7a2bd5df774",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1390,
+   "bar_date": "2021-06-07T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1390
+   ],
+   "output": "outputs/BTCUSDT/live/01390.json.gz",
+   "output_sha256": "918a6a5c3043dc65914cf6e83f96d92384fab4dd0c32f6d6375967a1a9efc8fb",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1391,
+   "bar_date": "2021-06-08T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1391
+   ],
+   "output": "outputs/BTCUSDT/live/01391.json.gz",
+   "output_sha256": "3fa007604a59f806cb25496d685c980d52452b55d13b3c7aa816d7a03620517a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1394,
+   "bar_date": "2021-06-11T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1394
+   ],
+   "output": "outputs/BTCUSDT/live/01394.json.gz",
+   "output_sha256": "5c23dbca91a6c82f7337dc0fc392aa51d1212b612b83597e40184a39c79a9ac2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1397,
+   "bar_date": "2021-06-14T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1397
+   ],
+   "output": "outputs/BTCUSDT/live/01397.json.gz",
+   "output_sha256": "811418d6a7f605d0d6867d2652fdd39c19b092ff7234c7b13e3d6a5dc1b46a3e",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1436,
+   "bar_date": "2021-07-23T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1436
+   ],
+   "output": "outputs/BTCUSDT/live/01436.json.gz",
+   "output_sha256": "3fc5c2dded043e3085b655b2484ef61677b0e5da1298135285ee203d3375ecd6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1485,
+   "bar_date": "2021-09-10T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1485
+   ],
+   "output": "outputs/BTCUSDT/live/01485.json.gz",
+   "output_sha256": "f3affd1de4942b3e2d11c1a37449929009c46da0928ebcddec5db141871bad61",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1505,
+   "bar_date": "2021-09-30T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1505
+   ],
+   "output": "outputs/BTCUSDT/live/01505.json.gz",
+   "output_sha256": "2058e9b293baa3abd10f17b435e6220c10b24d87fa17b7bfa7cf313623f5ee4d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1552,
+   "bar_date": "2021-11-16T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1552
+   ],
+   "output": "outputs/BTCUSDT/live/01552.json.gz",
+   "output_sha256": "5eef3cd5ec10400269df4cbbe2817a0b501ab1f415c43b060ddd99d47a2fda5a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 1918,
+   "bar_date": "2022-11-17T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1918
+   ],
+   "output": "outputs/BTCUSDT/live/01918.json.gz",
+   "output_sha256": "dfd9a59d05b74e523876b786beea64a12404491b72b1b97e4508246a12df7dfa",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2203,
+   "bar_date": "2023-08-29T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2203
+   ],
+   "output": "outputs/BTCUSDT/live/02203.json.gz",
+   "output_sha256": "e7a24393236c923d0795bfec2744dfd7af57ae0d48df883eeed3b2e1fa7f2d59",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2283,
+   "bar_date": "2023-11-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2283
+   ],
+   "output": "outputs/BTCUSDT/live/02283.json.gz",
+   "output_sha256": "f1325d642c3f40f7b35b693538989b6165d98d1329581a82a967c4ed99dfb1fa",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2329,
+   "bar_date": "2024-01-02T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2329
+   ],
+   "output": "outputs/BTCUSDT/live/02329.json.gz",
+   "output_sha256": "88005eeb293af8ce6fa1e76b46807b8b58a08fdfe68111ed3384bf43dead6323",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2339,
+   "bar_date": "2024-01-12T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2339
+   ],
+   "output": "outputs/BTCUSDT/live/02339.json.gz",
+   "output_sha256": "21046df23fae28a1a56a0f11f9f5280b1c17c8d39b9ea0d41baace1a33dc9792",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2527,
+   "bar_date": "2024-07-18T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2527
+   ],
+   "output": "outputs/BTCUSDT/live/02527.json.gz",
+   "output_sha256": "2b17aff13b56601f5b90d9f90b5d5a99b2f08a3995d16c4555e40d895e1fb427",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2534,
+   "bar_date": "2024-07-25T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2534
+   ],
+   "output": "outputs/BTCUSDT/live/02534.json.gz",
+   "output_sha256": "9ac4d25a2b965cc86031779a7ed01e5e5b24932070a6f23e9342bab5b9d163b3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2589,
+   "bar_date": "2024-09-18T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2589
+   ],
+   "output": "outputs/BTCUSDT/live/02589.json.gz",
+   "output_sha256": "a347e2acef4887d9a3b83f977e356f62443795bbe5209afab54c803727c1a9ba",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2626,
+   "bar_date": "2024-10-25T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2626
+   ],
+   "output": "outputs/BTCUSDT/live/02626.json.gz",
+   "output_sha256": "8c9eb64f5c208b596177bbf19c00bbe3ab7c0c3440c068bd5a5a68182d1f739a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2736,
+   "bar_date": "2025-02-12T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2736
+   ],
+   "output": "outputs/BTCUSDT/live/02736.json.gz",
+   "output_sha256": "81ca0bf740e3a0a05fdfde98be28ec2c0dc4c8154b9d42b70d404864070b0f2c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2837,
+   "bar_date": "2025-05-24T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2837
+   ],
+   "output": "outputs/BTCUSDT/live/02837.json.gz",
+   "output_sha256": "41c94e9f7993d01152260d423e9bb7c1b395445fe9fcf899dac9d27bea82b096",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2839,
+   "bar_date": "2025-05-26T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2839
+   ],
+   "output": "outputs/BTCUSDT/live/02839.json.gz",
+   "output_sha256": "69007e8e15da5aa48e07febf49c7c541ff7069de226abdc66fea17a08bacbd3e",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2840,
+   "bar_date": "2025-05-27T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2840
+   ],
+   "output": "outputs/BTCUSDT/live/02840.json.gz",
+   "output_sha256": "2c9f8c70d0c5c18fbcec15012ea105a53ab474a2522b1e60e35f31f36fc00750",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2841,
+   "bar_date": "2025-05-28T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2841
+   ],
+   "output": "outputs/BTCUSDT/live/02841.json.gz",
+   "output_sha256": "905237f20d26ae5ab29402a7a4cd026cbc143c49ac299cf6827677731b5207fa",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2842,
+   "bar_date": "2025-05-29T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2842
+   ],
+   "output": "outputs/BTCUSDT/live/02842.json.gz",
+   "output_sha256": "efece560190fbc114efbcc2825ba43fa5faf51f4d1bb3dc11cee5e3f7de95207",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2969,
+   "bar_date": "2025-10-03T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2969
+   ],
+   "output": "outputs/BTCUSDT/live/02969.json.gz",
+   "output_sha256": "7c10a52bd9ecfeeb5d802a77cbf05924e889764d2bb3f729bbcaa1ebe28e7bc7",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2978,
+   "bar_date": "2025-10-12T00:00:00+00:00",
+   "weekday": 6,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2978
+   ],
+   "output": "outputs/BTCUSDT/live/02978.json.gz",
+   "output_sha256": "c399caa4eb6a26b0b7661e2fc751616ec98841486fc57e57367b5106fa736bad",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 2997,
+   "bar_date": "2025-10-31T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2997
+   ],
+   "output": "outputs/BTCUSDT/live/02997.json.gz",
+   "output_sha256": "1e65335218b991d692d178225b10c16a711b875c90fe6b004ef71a9e176294e8",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3001,
+   "bar_date": "2025-11-04T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3001
+   ],
+   "output": "outputs/BTCUSDT/live/03001.json.gz",
+   "output_sha256": "4a40d3208836713a521111f1cde73a4668aed5b9ebecd564539c9db708a001d9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3092,
+   "bar_date": "2026-02-03T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3092
+   ],
+   "output": "outputs/BTCUSDT/live/03092.json.gz",
+   "output_sha256": "d4b4b15a7864883de2c2fc1a4fdaa7872d56715091664161c3e5755a152aaeda",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3093,
+   "bar_date": "2026-02-04T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3093
+   ],
+   "output": "outputs/BTCUSDT/live/03093.json.gz",
+   "output_sha256": "99493bf10140326aa15067f23870806607148b862f377542b69ef70b2f6d3491",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3094,
+   "bar_date": "2026-02-05T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3094
+   ],
+   "output": "outputs/BTCUSDT/live/03094.json.gz",
+   "output_sha256": "ef9b2a0172fc5d1edddd2bb99dd1d030dea8e4de9965359e74e532fdf2cff434",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3095,
+   "bar_date": "2026-02-06T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3095
+   ],
+   "output": "outputs/BTCUSDT/live/03095.json.gz",
+   "output_sha256": "743432ff206bba684fc32f2a179df3f5edc23075a61412c12a24e02238f65874",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "BTCUSDT",
+   "mode": "live",
+   "bar_index": 3096,
+   "bar_date": "2026-02-07T00:00:00+00:00",
+   "weekday": 5,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    3096
+   ],
+   "output": "outputs/BTCUSDT/live/03096.json.gz",
+   "output_sha256": "f5c00f14ad90e50a62d69ff50e384468c74480267ca7e6968366f836bd2e19d1",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 200,
+   "bar_date": "2015-10-19T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    200
+   ],
+   "output": "outputs/NVDA/sim/00200.json.gz",
+   "output_sha256": "024140aa5f1a46ab9043f7ee2e31c2e3bef42e7902a7fdd18c1da18bdd901ec0",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 201,
+   "bar_date": "2015-10-20T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1,
+    201
+   ],
+   "output": "outputs/NVDA/sim/00201.json.gz",
+   "output_sha256": "17019111df591053aff96bd2b93e0475981ecc6e78f5291bc7e913cb61f79f09",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 365,
+   "bar_date": "2016-06-15T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    165,
+    365
+   ],
+   "output": "outputs/NVDA/sim/00365.json.gz",
+   "output_sha256": "dd045672467aeffea3a5b5b5c94939a26473d2b7901678aba9c776cd283d0ed3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 366,
+   "bar_date": "2016-06-16T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    166,
+    366
+   ],
+   "output": "outputs/NVDA/sim/00366.json.gz",
+   "output_sha256": "e20f2ce9e9dcf61a970a2661d7c6afa76f1cc0cce8c7f9884ab1bc6ff8802ecf",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 367,
+   "bar_date": "2016-06-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    167,
+    367
+   ],
+   "output": "outputs/NVDA/sim/00367.json.gz",
+   "output_sha256": "aa2e3d3b8b7cf5a9e61aabc439f26ec2797002d64406a84e8c940dc84875377b",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 399,
+   "bar_date": "2016-08-03T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    199,
+    399
+   ],
+   "output": "outputs/NVDA/sim/00399.json.gz",
+   "output_sha256": "6abc866e7ee41b8b2e0ca2b04e280294cd67a8ae4c41a1283b58b5c12ba7f375",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 400,
+   "bar_date": "2016-08-04T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    200,
+    400
+   ],
+   "output": "outputs/NVDA/sim/00400.json.gz",
+   "output_sha256": "b15f83d53a5ac68e7c9200019aab5b1e5f0d840d35a1a5e4978edb449cad2e47",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 461,
+   "bar_date": "2016-10-31T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    261,
+    461
+   ],
+   "output": "outputs/NVDA/sim/00461.json.gz",
+   "output_sha256": "117e577db4d7fcce3fb463ff978a5946bbd51fe37ccdbdde49f1f544c7460ad9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 487,
+   "bar_date": "2016-12-07T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    287,
+    487
+   ],
+   "output": "outputs/NVDA/sim/00487.json.gz",
+   "output_sha256": "8b038792002be592363e8f97fa8ad759736bf32a8ab3b52b5984529a94643b16",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 517,
+   "bar_date": "2017-01-23T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    317,
+    517
+   ],
+   "output": "outputs/NVDA/sim/00517.json.gz",
+   "output_sha256": "fc8dd8f89c3b9105d3a80cb1fa8b55ae2b5e7828cf0857fe88328ac8b2231c68",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 538,
+   "bar_date": "2017-02-22T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    338,
+    538
+   ],
+   "output": "outputs/NVDA/sim/00538.json.gz",
+   "output_sha256": "e99a26e063376bc3d7dd960b6b2dafd393acb27d254a6112f9fc01db7c68a55a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 558,
+   "bar_date": "2017-03-22T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    358,
+    558
+   ],
+   "output": "outputs/NVDA/sim/00558.json.gz",
+   "output_sha256": "380e56caf78b2f42a6386a9aa66abb2b1a727cb69a76808d5bac381f6adceab3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 576,
+   "bar_date": "2017-04-18T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    376,
+    576
+   ],
+   "output": "outputs/NVDA/sim/00576.json.gz",
+   "output_sha256": "ef9bf38ecaa350b94e3c0efd86ead07367e964601c3740dd7e24e969367cb1b5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 584,
+   "bar_date": "2017-04-28T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    384,
+    584
+   ],
+   "output": "outputs/NVDA/sim/00584.json.gz",
+   "output_sha256": "7c2aa12fb3ad7af29dcd7b04ee9fb90a336aa093c7a02920b8d6b0ce49524c18",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 598,
+   "bar_date": "2017-05-18T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    398,
+    598
+   ],
+   "output": "outputs/NVDA/sim/00598.json.gz",
+   "output_sha256": "a7abe086b234f14fac347c1307c687be0b5ac30862621f3f99fe3ac0ee75110b",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 702,
+   "bar_date": "2017-10-16T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    502,
+    702
+   ],
+   "output": "outputs/NVDA/sim/00702.json.gz",
+   "output_sha256": "1a82ececff1bd03054d5e358561ba25570340eef89aa158c5364f07228de2789",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 763,
+   "bar_date": "2018-01-12T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    563,
+    763
+   ],
+   "output": "outputs/NVDA/sim/00763.json.gz",
+   "output_sha256": "cc95bb6bfd5d47ec185a9b925ca77eaa680eb13a25dbb00998e08462556bcac5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 818,
+   "bar_date": "2018-04-04T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    618,
+    818
+   ],
+   "output": "outputs/NVDA/sim/00818.json.gz",
+   "output_sha256": "05e13008498e6cd7e4acc7311df6a6d8bceaa202d9ef426c93ae92758e026b60",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 842,
+   "bar_date": "2018-05-08T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    642,
+    842
+   ],
+   "output": "outputs/NVDA/sim/00842.json.gz",
+   "output_sha256": "8d2204658152ac62718461ee501806f9621f4498e7f06b40c4f330fa56d14db1",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 946,
+   "bar_date": "2018-10-04T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    746,
+    946
+   ],
+   "output": "outputs/NVDA/sim/00946.json.gz",
+   "output_sha256": "068460cdbabd8431a3336a6e4d7f985e2e908aa4662555feeb97d1d8e1acb6f5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 957,
+   "bar_date": "2018-10-19T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    757,
+    957
+   ],
+   "output": "outputs/NVDA/sim/00957.json.gz",
+   "output_sha256": "4ea93639fabc3dbc8f26d78a448ac8bdeeb5e06c9ae88be58c18aae41ad6d756",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 958,
+   "bar_date": "2018-10-22T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    758,
+    958
+   ],
+   "output": "outputs/NVDA/sim/00958.json.gz",
+   "output_sha256": "58c937025513b4fbc5e08a51c6a99d697a718d17f17c80b19002d428346cd898",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 959,
+   "bar_date": "2018-10-23T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    759,
+    959
+   ],
+   "output": "outputs/NVDA/sim/00959.json.gz",
+   "output_sha256": "67cf3811267aecb6444b72061ecf779f7d8b1fc367108f55f1581c42324cccc2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 970,
+   "bar_date": "2018-11-07T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    770,
+    970
+   ],
+   "output": "outputs/NVDA/sim/00970.json.gz",
+   "output_sha256": "8983c70e1eaae994dcfdfbd6dbd6be2a940b2af58243d691da6e2a20ee92ab62",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 977,
+   "bar_date": "2018-11-16T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    777,
+    977
+   ],
+   "output": "outputs/NVDA/sim/00977.json.gz",
+   "output_sha256": "c27895a0c3a2794adbfad74b4fc298b48357c3b2a790bd2461c08811466272bf",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1000,
+   "bar_date": "2018-12-21T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    800,
+    1000
+   ],
+   "output": "outputs/NVDA/sim/01000.json.gz",
+   "output_sha256": "53ef2900937f11129921b0ca26a667667059a833078fad98ce9a166f8d4f4e86",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1134,
+   "bar_date": "2019-07-08T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    934,
+    1134
+   ],
+   "output": "outputs/NVDA/sim/01134.json.gz",
+   "output_sha256": "de2c6578c17580094b9cb30fcfae45f7f9258a0554df2ffe1918796467c0863f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1200,
+   "bar_date": "2019-10-09T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    1000,
+    1200
+   ],
+   "output": "outputs/NVDA/sim/01200.json.gz",
+   "output_sha256": "b47e00e7942688f9ea17d2595d0ae78d9587e8da401a840584b8476b265a2987",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1209,
+   "bar_date": "2019-10-22T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1009,
+    1209
+   ],
+   "output": "outputs/NVDA/sim/01209.json.gz",
+   "output_sha256": "e20a3055c092f9439a5219db7f3ae00fc3561d88ef03da26876ee949a6250c59",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1269,
+   "bar_date": "2020-01-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    1069,
+    1269
+   ],
+   "output": "outputs/NVDA/sim/01269.json.gz",
+   "output_sha256": "d9883a33fb3320c8fffe56aa47d718344e3968c037b0e27ab266ba24eb873e7a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1271,
+   "bar_date": "2020-01-22T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    1071,
+    1271
+   ],
+   "output": "outputs/NVDA/sim/01271.json.gz",
+   "output_sha256": "9756fd90acbbee90724e6e432c569b5add9b02aa944b3cfd20c0f22575353478",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1307,
+   "bar_date": "2020-03-13T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    1107,
+    1307
+   ],
+   "output": "outputs/NVDA/sim/01307.json.gz",
+   "output_sha256": "e4fb4e4401c71780eb02f2ad8b1441ac1bdb1cefb123cb3e63c88678fd9af299",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1350,
+   "bar_date": "2020-05-14T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    1150,
+    1350
+   ],
+   "output": "outputs/NVDA/sim/01350.json.gz",
+   "output_sha256": "9c4ad0a9566d5103936b69edfa5b9b60e1ac08d011e13030a37bd7c7563d23ef",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1368,
+   "bar_date": "2020-06-10T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    1168,
+    1368
+   ],
+   "output": "outputs/NVDA/sim/01368.json.gz",
+   "output_sha256": "5ce4094128e544f12b2ad897bda9708628e7010fbf339ac6af2f948ab1b290b1",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1410,
+   "bar_date": "2020-08-10T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    1210,
+    1410
+   ],
+   "output": "outputs/NVDA/sim/01410.json.gz",
+   "output_sha256": "656f5121c26b9a70fe8ba62ccf57b7c2df39dadbf0db737ec3a1f9b0c5d87351",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1736,
+   "bar_date": "2021-11-23T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1536,
+    1736
+   ],
+   "output": "outputs/NVDA/sim/01736.json.gz",
+   "output_sha256": "3e96dc64c412b3656a69e4072018af35aa4fa78c0dda95ad59f2374d22bd4e13",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 1992,
+   "bar_date": "2022-11-30T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    1792,
+    1992
+   ],
+   "output": "outputs/NVDA/sim/01992.json.gz",
+   "output_sha256": "e9dfe326424e143cb0d530894fa91950d6b33f561678128f127d966965de3c75",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2065,
+   "bar_date": "2023-03-17T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    1865,
+    2065
+   ],
+   "output": "outputs/NVDA/sim/02065.json.gz",
+   "output_sha256": "b0928d7727bf6856b977dc0ebff1355ee1981dfeb92b13fcc4e86f21b40c5609",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2106,
+   "bar_date": "2023-05-16T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    1906,
+    2106
+   ],
+   "output": "outputs/NVDA/sim/02106.json.gz",
+   "output_sha256": "611ec8b46c3b45db0666c65292889704297e8e854d662e2db0eb9d7ec6f70f73",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2114,
+   "bar_date": "2023-05-26T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    1914,
+    2114
+   ],
+   "output": "outputs/NVDA/sim/02114.json.gz",
+   "output_sha256": "0095d6716a24fd1b95ffdb3ab922196b2996bf24645edd503a06445a74569452",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2281,
+   "bar_date": "2024-01-26T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    2081,
+    2281
+   ],
+   "output": "outputs/NVDA/sim/02281.json.gz",
+   "output_sha256": "9c29ebbc9cd4a0cd7af285a4b2c272db6ee931fb747bf06afc85c4937c666bed",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2289,
+   "bar_date": "2024-02-07T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2089,
+    2289
+   ],
+   "output": "outputs/NVDA/sim/02289.json.gz",
+   "output_sha256": "7ba8881e2a6cfed802da07e4d2798453fcc94fa7ddfef02fb2db8ef7370ad06d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2339,
+   "bar_date": "2024-04-19T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    2139,
+    2339
+   ],
+   "output": "outputs/NVDA/sim/02339.json.gz",
+   "output_sha256": "65e46b6c7bb71b0791351c25b4367d779971ee85c4b431cbec7a85f9c852abb6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2370,
+   "bar_date": "2024-06-04T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2170,
+    2370
+   ],
+   "output": "outputs/NVDA/sim/02370.json.gz",
+   "output_sha256": "4cac516e1fd7252359a806ce13812398449849ae3a26126417fcc17a83d5d16c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2469,
+   "bar_date": "2024-10-24T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2269,
+    2469
+   ],
+   "output": "outputs/NVDA/sim/02469.json.gz",
+   "output_sha256": "e938142992cefde0cd8e70e2455d7a5d6d310df34ecc3af6dda113a0231bb07c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2536,
+   "bar_date": "2025-02-03T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    2336,
+    2536
+   ],
+   "output": "outputs/NVDA/sim/02536.json.gz",
+   "output_sha256": "8a476474b884c27336b0e5c8d98392c113ab7fbaf728fe796e8a131d1c198649",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2537,
+   "bar_date": "2025-02-04T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2337,
+    2537
+   ],
+   "output": "outputs/NVDA/sim/02537.json.gz",
+   "output_sha256": "f74496dbaa4b4f3cb2b3e6dedb601a7a9e27d337cf51204256b9f91b63253d08",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2538,
+   "bar_date": "2025-02-05T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2338,
+    2538
+   ],
+   "output": "outputs/NVDA/sim/02538.json.gz",
+   "output_sha256": "b9a1eef3008d773ef8548fcb8a0ee05e8fae794e55e4cf9aeccba3355cb94809",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2539,
+   "bar_date": "2025-02-06T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2339,
+    2539
+   ],
+   "output": "outputs/NVDA/sim/02539.json.gz",
+   "output_sha256": "6b276b781d02d7c8e3f5af91997115ff4f6ba2af292c1bc00d377840673a1314",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2541,
+   "bar_date": "2025-02-10T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    2341,
+    2541
+   ],
+   "output": "outputs/NVDA/sim/02541.json.gz",
+   "output_sha256": "647d4e0081da85b216c0a91b33e37e6d5710bcff4bc5927744c090076bb8a4a3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2679,
+   "bar_date": "2025-08-28T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2479,
+    2679
+   ],
+   "output": "outputs/NVDA/sim/02679.json.gz",
+   "output_sha256": "d39b6ee644a6ef6434632517c421707001d17a95eae736fb19c9989913fed142",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2687,
+   "bar_date": "2025-09-10T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2487,
+    2687
+   ],
+   "output": "outputs/NVDA/sim/02687.json.gz",
+   "output_sha256": "3661ac8323ba582a112302d6d214300ec5ed167fc26341860a0b5e508e1f3e80",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2704,
+   "bar_date": "2025-10-03T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    2504,
+    2704
+   ],
+   "output": "outputs/NVDA/sim/02704.json.gz",
+   "output_sha256": "b5e3e98848634f701c17da495096b2ddec3b3dad5e16d3267db8d1d5f3099379",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2705,
+   "bar_date": "2025-10-06T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    2505,
+    2705
+   ],
+   "output": "outputs/NVDA/sim/02705.json.gz",
+   "output_sha256": "b46b06a89855103b90c624f2a01730d1be56b6e6d8ef3b34a66917070b5d1775",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2789,
+   "bar_date": "2026-02-05T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2589,
+    2789
+   ],
+   "output": "outputs/NVDA/sim/02789.json.gz",
+   "output_sha256": "2e31ada784a2b490cc0edb46043b9481ea0609b9402fb370b9bac24327ec9cc9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2791,
+   "bar_date": "2026-02-09T00:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    2591,
+    2791
+   ],
+   "output": "outputs/NVDA/sim/02791.json.gz",
+   "output_sha256": "442dbca8e05deecabac40926221e5d53b6f7040b9a10193776fb95692e08710c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2792,
+   "bar_date": "2026-02-10T00:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    2592,
+    2792
+   ],
+   "output": "outputs/NVDA/sim/02792.json.gz",
+   "output_sha256": "8594fafb7994ebe889b4e8b16eef968c57c29c245c7018b6367defea27dbda98",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2793,
+   "bar_date": "2026-02-11T00:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    2593,
+    2793
+   ],
+   "output": "outputs/NVDA/sim/02793.json.gz",
+   "output_sha256": "21e64d88d4b96d77f95ca97fa3f7c5a406c1b62471b31de29386fe80252770ea",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2794,
+   "bar_date": "2026-02-12T00:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    2594,
+    2794
+   ],
+   "output": "outputs/NVDA/sim/02794.json.gz",
+   "output_sha256": "d4e97c35953bba73fdc105e29978d865ec0257817eace284cee3af8f167ebcd9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "sim",
+   "bar_index": 2795,
+   "bar_date": "2026-02-13T00:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    2595,
+    2795
+   ],
+   "output": "outputs/NVDA/sim/02795.json.gz",
+   "output_sha256": "2eaada20c1126047d29a4f583498398bb95f720279feec1c0cd5db619f8b7504",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 30,
+   "bar_date": "2015-02-17T05:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    30
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 60,
+   "bar_date": "2015-03-31T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    60
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 120,
+   "bar_date": "2015-06-25T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    120
+   ],
+   "error": "ValueError: DataFrame too short for market structure (min 200 bars)"
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 199,
+   "bar_date": "2015-10-16T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    199
+   ],
+   "output": "outputs/NVDA/live/00199.json.gz",
+   "output_sha256": "9e2e47b04bc1297b72bd6c841112065c37fcc3dbefe46e0b0fdab903e089b980",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 200,
+   "bar_date": "2015-10-19T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    200
+   ],
+   "output": "outputs/NVDA/live/00200.json.gz",
+   "output_sha256": "34dda0a5600c3e7b4cfac5df33e0ae2c3ce0b79185fc8c7afe76e4be113c32a2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 201,
+   "bar_date": "2015-10-20T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    201
+   ],
+   "output": "outputs/NVDA/live/00201.json.gz",
+   "output_sha256": "bce178a0e0e209ea0f7ac05145b80102f261ab9a1b1f629b5865eb4aa4bfa014",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 365,
+   "bar_date": "2016-06-15T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    365
+   ],
+   "output": "outputs/NVDA/live/00365.json.gz",
+   "output_sha256": "93074f64906feedb7df3c84026cb5e70f372f42eb01cc2df2c23231f6b7f0e06",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 366,
+   "bar_date": "2016-06-16T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    366
+   ],
+   "output": "outputs/NVDA/live/00366.json.gz",
+   "output_sha256": "4db6b58b7998c331b26d7666cda703e576bf90f76f273507d0473659b2acb7f2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 367,
+   "bar_date": "2016-06-17T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    367
+   ],
+   "output": "outputs/NVDA/live/00367.json.gz",
+   "output_sha256": "d5a5b87ce85925e7a8d6205ddcb016c3db0973a0b9a93c9ef6e6ca08036eb4ee",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 399,
+   "bar_date": "2016-08-03T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    399
+   ],
+   "output": "outputs/NVDA/live/00399.json.gz",
+   "output_sha256": "e810c4c609ae72156c9a47aae22d2745126af5b44f5d824eee3e803df1172524",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 400,
+   "bar_date": "2016-08-04T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    400
+   ],
+   "output": "outputs/NVDA/live/00400.json.gz",
+   "output_sha256": "f98daf85e75a53690b221ed0afe435c4cca920603f38e9ab9766063b06e6f05e",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 461,
+   "bar_date": "2016-10-31T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    461
+   ],
+   "output": "outputs/NVDA/live/00461.json.gz",
+   "output_sha256": "9c37d8caf8950cd25febeef2ed72b7a61c09a47691bc103707485de89f312993",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 487,
+   "bar_date": "2016-12-07T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    487
+   ],
+   "output": "outputs/NVDA/live/00487.json.gz",
+   "output_sha256": "47959877a276d5f921aca8ec9f7d0b8c788272a1e03415cb12e089b1587233af",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 517,
+   "bar_date": "2017-01-23T05:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    517
+   ],
+   "output": "outputs/NVDA/live/00517.json.gz",
+   "output_sha256": "b175f626d5d027a6e746478bbfb7b3fbde2834104fd27a47a0b9170363541041",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 538,
+   "bar_date": "2017-02-22T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    538
+   ],
+   "output": "outputs/NVDA/live/00538.json.gz",
+   "output_sha256": "a73dbec0322641fa2edb1e0a50213f6c22072d734b1f7ade1f6c1d0a21a0d469",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 558,
+   "bar_date": "2017-03-22T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    558
+   ],
+   "output": "outputs/NVDA/live/00558.json.gz",
+   "output_sha256": "58fa2b0a402ee6f0583ebd342985ffb7f9a848558920dd809e225bb13d53f9a4",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 576,
+   "bar_date": "2017-04-18T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    576
+   ],
+   "output": "outputs/NVDA/live/00576.json.gz",
+   "output_sha256": "699baf55f622092ebfe9d8eb1c981011bb8230032363a73b232df4652e42159c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 584,
+   "bar_date": "2017-04-28T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    584
+   ],
+   "output": "outputs/NVDA/live/00584.json.gz",
+   "output_sha256": "e967082ffdb8dd62c1532ba82db2133ef2989200edba7dbb67aeb72960b0f541",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 598,
+   "bar_date": "2017-05-18T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    598
+   ],
+   "output": "outputs/NVDA/live/00598.json.gz",
+   "output_sha256": "d263d58f3a33e25d8e4fbc102fe86e8997c8091c6e6102cfa602cacd2d50b2a4",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 702,
+   "bar_date": "2017-10-16T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    702
+   ],
+   "output": "outputs/NVDA/live/00702.json.gz",
+   "output_sha256": "2be029ef2c6d4d95088a89e3c8c3e3a3da9ebb0cae6ecca7ccde409e37880bc2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 763,
+   "bar_date": "2018-01-12T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    763
+   ],
+   "output": "outputs/NVDA/live/00763.json.gz",
+   "output_sha256": "ccb754f1c9570350b7e480c010b7c630c1397b7b367b157230f5cae6b2543bca",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 818,
+   "bar_date": "2018-04-04T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    818
+   ],
+   "output": "outputs/NVDA/live/00818.json.gz",
+   "output_sha256": "6c79f190bcd8a1a49d366708b7b547e83778ccf0c6bfb149f3362be22ee0805e",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 842,
+   "bar_date": "2018-05-08T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    842
+   ],
+   "output": "outputs/NVDA/live/00842.json.gz",
+   "output_sha256": "525faeb4be798be77c7645db8c342340b534fed29334ef1e2f8ec003e48ce331",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 946,
+   "bar_date": "2018-10-04T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    946
+   ],
+   "output": "outputs/NVDA/live/00946.json.gz",
+   "output_sha256": "5c1e5c02e8772702f9eee6a1b0c342170477cb6aa350f66b59ba3ea55b26e564",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 957,
+   "bar_date": "2018-10-19T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    957
+   ],
+   "output": "outputs/NVDA/live/00957.json.gz",
+   "output_sha256": "86bc61fdcaba7a8834c7336a61f9a4d0285755209bd80c1151b26dc262fede7f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 958,
+   "bar_date": "2018-10-22T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    958
+   ],
+   "output": "outputs/NVDA/live/00958.json.gz",
+   "output_sha256": "35e0ca694ed88783c9a955d794940ebedb81496a5189e6f42883d9e52330376b",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 959,
+   "bar_date": "2018-10-23T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    959
+   ],
+   "output": "outputs/NVDA/live/00959.json.gz",
+   "output_sha256": "5aad1606528b0ed0951c59dea406c91cccb23f1152ea64c29631f7686c1dfeb7",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 970,
+   "bar_date": "2018-11-07T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    970
+   ],
+   "output": "outputs/NVDA/live/00970.json.gz",
+   "output_sha256": "aa20712c8e43c5d9fa693773050f8d4d43dbb38a108c70715489668ecc53a4e9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 977,
+   "bar_date": "2018-11-16T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    977
+   ],
+   "output": "outputs/NVDA/live/00977.json.gz",
+   "output_sha256": "8f470e3e0bce00a93202a53c5b115d7dc43a8ef4a037dffafcd4249418d54412",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1000,
+   "bar_date": "2018-12-21T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    1000
+   ],
+   "output": "outputs/NVDA/live/01000.json.gz",
+   "output_sha256": "7ff04535bf2733cc28dfcea44473596a2a75c60b67887dd66c0208a5ac310f3f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1134,
+   "bar_date": "2019-07-08T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1134
+   ],
+   "output": "outputs/NVDA/live/01134.json.gz",
+   "output_sha256": "ab5592684573634abf3dc841a1849a6007f5cea083e07dece35c3bfa342bd545",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1200,
+   "bar_date": "2019-10-09T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1200
+   ],
+   "output": "outputs/NVDA/live/01200.json.gz",
+   "output_sha256": "54eb81d55a5905f9df512769be9d785c5fb91df3abfecbb55a50c12475056c49",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1209,
+   "bar_date": "2019-10-22T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1209
+   ],
+   "output": "outputs/NVDA/live/01209.json.gz",
+   "output_sha256": "504b124ed04de8df7f35cb3639459e19b5ab74243a38dcc7c75886eee99cf989",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1269,
+   "bar_date": "2020-01-17T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    1269
+   ],
+   "output": "outputs/NVDA/live/01269.json.gz",
+   "output_sha256": "5e84c9061cc184d435145650f0bee77e4b94276b9a402d43ad346d5633fff472",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1271,
+   "bar_date": "2020-01-22T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1271
+   ],
+   "output": "outputs/NVDA/live/01271.json.gz",
+   "output_sha256": "2ee19570e5a550ecf2e421ae3b2428972066d06015cf672333227f252dcb97a5",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1307,
+   "bar_date": "2020-03-13T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    1307
+   ],
+   "output": "outputs/NVDA/live/01307.json.gz",
+   "output_sha256": "532a16cf657470a1853f5184191990a7cada0ecadedc5673e960d7678926a36c",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1350,
+   "bar_date": "2020-05-14T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1350
+   ],
+   "output": "outputs/NVDA/live/01350.json.gz",
+   "output_sha256": "0082cc85cc9a72985dce03a27a6efd5776a89b69a28c92b2a57136c27007b332",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1368,
+   "bar_date": "2020-06-10T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1368
+   ],
+   "output": "outputs/NVDA/live/01368.json.gz",
+   "output_sha256": "d056397b18f6360971155e7b6ccc4424bfc9307f66fd68a31f58d455e665b908",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1410,
+   "bar_date": "2020-08-10T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1410
+   ],
+   "output": "outputs/NVDA/live/01410.json.gz",
+   "output_sha256": "c3dc6b34b56970412a97da3d465201ab6d2fa843d9d18cae2e7ce2789779fedc",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1736,
+   "bar_date": "2021-11-23T05:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1736
+   ],
+   "output": "outputs/NVDA/live/01736.json.gz",
+   "output_sha256": "74d646d78851d87e706f8764f982d50c5079f2726504190d706bb0b2f4aedfc4",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 1992,
+   "bar_date": "2022-11-30T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    1992
+   ],
+   "output": "outputs/NVDA/live/01992.json.gz",
+   "output_sha256": "dda951a1cc276cb58b71cebe865e4a608841666fb1ca5bfc694ccb1ad0d1d5e3",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2065,
+   "bar_date": "2023-03-17T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2065
+   ],
+   "output": "outputs/NVDA/live/02065.json.gz",
+   "output_sha256": "ae174d7bab839593cfa34788e732af5eb0fd5e9f6f22ff7812596d8618de010f",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2106,
+   "bar_date": "2023-05-16T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2106
+   ],
+   "output": "outputs/NVDA/live/02106.json.gz",
+   "output_sha256": "2cf9552dfb8c6d2b7f8508e3aef61c47c3a8317bb723f4258f71ad0c3e93e12d",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2114,
+   "bar_date": "2023-05-26T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2114
+   ],
+   "output": "outputs/NVDA/live/02114.json.gz",
+   "output_sha256": "9673fda3323f6d9e13873f07b8a0593bb4331a8074a504180df3550f0747ddbb",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2281,
+   "bar_date": "2024-01-26T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2281
+   ],
+   "output": "outputs/NVDA/live/02281.json.gz",
+   "output_sha256": "fbb86979d5350042e72becf7fe48de6e95cc6b03bed1ab8d5c54d4df313032aa",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2289,
+   "bar_date": "2024-02-07T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2289
+   ],
+   "output": "outputs/NVDA/live/02289.json.gz",
+   "output_sha256": "9805449afead3f46424f2942c5e16838909badef15dc866d80a3e5a0bf983e42",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2339,
+   "bar_date": "2024-04-19T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2339
+   ],
+   "output": "outputs/NVDA/live/02339.json.gz",
+   "output_sha256": "1ed7ad1399b3db29edb4e9e524bb97a283f6b9ee8fae6f5b2819dde52fc354f6",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2370,
+   "bar_date": "2024-06-04T04:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2370
+   ],
+   "output": "outputs/NVDA/live/02370.json.gz",
+   "output_sha256": "1446e6834a5eaa293394404f11f200806575fe9bef3bf9ea67a374d9d70fb760",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2469,
+   "bar_date": "2024-10-24T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2469
+   ],
+   "output": "outputs/NVDA/live/02469.json.gz",
+   "output_sha256": "e27c4f7dd248e03e16385af2b1aae563f54cf1c8e3f8dd9a5f5c16ec7ad10a38",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": true
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2536,
+   "bar_date": "2025-02-03T05:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2536
+   ],
+   "output": "outputs/NVDA/live/02536.json.gz",
+   "output_sha256": "d511733b94b113df3149878d6dcde75d353f9abb91b60459197bb612fe85df64",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2537,
+   "bar_date": "2025-02-04T05:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2537
+   ],
+   "output": "outputs/NVDA/live/02537.json.gz",
+   "output_sha256": "28bca1fc482a36bb608218f2c93f83999b9fdbb6bac39c44ea1496ed26e1b682",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2538,
+   "bar_date": "2025-02-05T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2538
+   ],
+   "output": "outputs/NVDA/live/02538.json.gz",
+   "output_sha256": "2c196f77bccecb11134a0dca9dc1803ebac48583d04f7b2fc439c258f17d1884",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2539,
+   "bar_date": "2025-02-06T05:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2539
+   ],
+   "output": "outputs/NVDA/live/02539.json.gz",
+   "output_sha256": "159c7452466db8eafe187375733eb282bd8ccde6580263e5e41da08a1209f051",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2541,
+   "bar_date": "2025-02-10T05:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2541
+   ],
+   "output": "outputs/NVDA/live/02541.json.gz",
+   "output_sha256": "0667926b25706b52c295cc23ea61ade72463aceb23be9ac0725e3e5ada9cdf10",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2679,
+   "bar_date": "2025-08-28T04:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2679
+   ],
+   "output": "outputs/NVDA/live/02679.json.gz",
+   "output_sha256": "3f016f9a1b4049a7328f6022ab5c52cb99983bbe44ede62d4cb94bdc18c99cdc",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2687,
+   "bar_date": "2025-09-10T04:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2687
+   ],
+   "output": "outputs/NVDA/live/02687.json.gz",
+   "output_sha256": "976550dbb57ff474af6be31f66b4970d9cf01950616ee38e4c130968a6a12401",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2704,
+   "bar_date": "2025-10-03T04:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2704
+   ],
+   "output": "outputs/NVDA/live/02704.json.gz",
+   "output_sha256": "714067f99d2377f5e203ff48f8e829dc06c07343dbfb7aa0684fcd487c5361e9",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2705,
+   "bar_date": "2025-10-06T04:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2705
+   ],
+   "output": "outputs/NVDA/live/02705.json.gz",
+   "output_sha256": "c6f42bc5eb031477889b6e833dccb62400f477cea0cce995b1b48612256a449a",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2789,
+   "bar_date": "2026-02-05T05:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2789
+   ],
+   "output": "outputs/NVDA/live/02789.json.gz",
+   "output_sha256": "25a20b4e1e6162325a8aab006e2d7e193ee60207a6d1aac6275b6ad142709153",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2791,
+   "bar_date": "2026-02-09T05:00:00+00:00",
+   "weekday": 0,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2791
+   ],
+   "output": "outputs/NVDA/live/02791.json.gz",
+   "output_sha256": "d68d8feda59f654f650f34666c57b8d6ac2796e9b726a2aa2c47a384dc833ab2",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2792,
+   "bar_date": "2026-02-10T05:00:00+00:00",
+   "weekday": 1,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2792
+   ],
+   "output": "outputs/NVDA/live/02792.json.gz",
+   "output_sha256": "c53f795a225d48a5fa7b99ed98c2c28366e1e496a7491aed170cceb1705b7c79",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2793,
+   "bar_date": "2026-02-11T05:00:00+00:00",
+   "weekday": 2,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2793
+   ],
+   "output": "outputs/NVDA/live/02793.json.gz",
+   "output_sha256": "e41cb67add3134520854c3948edbea2c6ce8006cc45b83b8ded77625414cdcdc",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2794,
+   "bar_date": "2026-02-12T05:00:00+00:00",
+   "weekday": 3,
+   "mid_week": true,
+   "input_rows": [
+    0,
+    2794
+   ],
+   "output": "outputs/NVDA/live/02794.json.gz",
+   "output_sha256": "1f0d8e30313be6c8f0810be7ed13c3b59302e43732cbf3d9bc4d7ef51b502409",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  },
+  {
+   "symbol": "NVDA",
+   "mode": "live",
+   "bar_index": 2795,
+   "bar_date": "2026-02-13T05:00:00+00:00",
+   "weekday": 4,
+   "mid_week": false,
+   "input_rows": [
+    0,
+    2795
+   ],
+   "output": "outputs/NVDA/live/02795.json.gz",
+   "output_sha256": "4ac252f9c2145b2333f2da2a2ecdfec8781c4a90d0847ddfc09d3257dc1d4966",
+   "has_nan": false,
+   "schema_valid": true,
+   "schema_errors": [],
+   "validator_passed": false
+  }
+ ],
+ "store": {
+  "root": "$FIRM_DATA_ROOT (default <repo>/data, git-ignored)",
+  "outputs_root": "golden/ari_signals-03a8b8d"
+ }
+}
