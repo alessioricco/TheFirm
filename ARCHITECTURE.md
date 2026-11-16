@@ -8,8 +8,8 @@ module; update it when you change one. Status as of step 0 (skeleton).
 ```
 src/firm/
   core/         typed domain objects, config profiles, bus messages (no deps on other desks)
-  data/         data plane + feature library            (M1)
-  verify/       verification desk                       (M1)
+  data/         data plane: store, providers, normalizer, datasets, reference  (M1)
+  verify/       verification desk: backtest, 5 checks, verifier, state       (M1)
   risk/         risk desk                               (M2)
   execution/    VenueAdapter interface + paper simulator (M2)
   ledger/       append-only hash-chained ledger          (M2)
@@ -23,7 +23,9 @@ config/
   jurisdictions/uk.yaml                     (agents: no access)
   markets/crypto.yaml, markets/us_equities.yaml (agents: read)
   risk/default.yaml                         (agents: no access)
+examples/strategies/  ma_crossover.py (clean), lookahead_ma.py (planted lookahead)
 scripts/
+  download_crypto.py               owner-run: Kraken/Coinbase public REST -> raw captures
   ari_golden/generate_baseline.py  one-off; ran with the old repo's venv
 tests/
   invariants/   one test per SPEC firm rule
@@ -124,6 +126,50 @@ Gotchas:
   (An invariant test enforcing this lands with the execution desk, M2.)
 - YAML dates (`as_of: 2026-11-15`) are parsed by PyYAML into `date`.
 
+## data (milestone 1)
+
+- `store.py`: `data_root()`, path rules (`partition`, `path_value`,
+  `stamp`), `write_once` (atomic, refuses different bytes), raw captures
+  (`write_capture`, `iter_captures`, `CaptureMeta`).
+- `providers.py`: URL builders and pure parsers for Kraken and Coinbase bars
+  and trades. Bars that hadn't closed at `captured_at` are dropped.
+- `reference.py`: `InstrumentRecord` (firm ID, provider symbols, listed /
+  delisted, `status(as_of)`), versioned files, `resolve(provider, symbol)`.
+- `normalize.py`: captures → Parquet (`BAR_SCHEMA`, `TRADE_SCHEMA`), merge
+  overlapping captures, count revisions. `NORMALIZER_VERSION` is part of
+  every dataset version: bump it when output bytes change.
+- `dataset.py`: `build_dataset` → `ds-<sha12>.json`; `open_dataset` (verifies
+  checksums) → `Dataset.bars/trades/universe` with `as_of`;
+  `Dataset.capped(hidden_from)` → `CappedDataset` raising
+  `HiddenPeriodError` (the research view).
+- `synthetic.py`: deterministic synthetic bars in provider formats;
+  `seed_store` writes an instrument + overlapping captures. Tests use only this.
+
+Gotchas: DuckDB queries take bound parameters (`$files`, `$as_of`); timestamps
+are int64 ns until the reader converts them; `as_of` must be timezone-aware.
+
+## verify (milestone 1)
+
+- `strategy.py`: the `Strategy` protocol (`name`, `default_params`,
+  `signals(bars, params)` → target in [0, 1]) and `load_strategy` (executes
+  the file: hand-written code only until a sandbox exists).
+- `backtest.py`: `run_backtest` (decide at close, fill at next open,
+  cost per unit traded), `metrics`, `SignalError`.
+- `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
+- `state.py`: `state_root()`, `TrialRegistry`, `OosVault` (JSON lines).
+- `context.py`: `VerifyContext` (frozen inputs, cached in-sample backtests).
+- `checks/`: `lookahead`, `costs`, `sensitivity`, `trials`, `oos`; each
+  exposes `NAME` and `run(ctx)`.
+- `verifier.py`: `verify(...)` → `VerificationResult(verdict, report)`;
+  `EXIT_CODES`; `cost_bps`; `split_in_sample`.
+- `runner.py`: `verify_strategy_file(...)` wires files, config, dataset,
+  trial recording and the verifier (used by the CLI and tests).
+
+Gotchas: the in-sample frame is everything before the hidden period and is
+all the lookahead/cost/sensitivity/trial checks ever see; only `checks/oos`
+touches the tail, after the vault allows it. Changing anything that alters
+report bytes (rounding, keys) changes every verdict ID.
+
 ## execution
 
 - `adapter.py`: `VenueAdapter` ABC. Constructor runs the live-mode gate and
@@ -141,7 +187,10 @@ To add a venue: implement `VenueAdapter`, register a factory in
 
 ## control
 
-- `cli.py`: `firm --version`, `firm version`. Entry point in `pyproject.toml`.
+- `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
+  --provider P --symbol S --tf T`; `firm verify --strategy PATH:CLASS
+  --dataset ds-... --venue --instrument --tf --market` (exit 0 pass, 1 fail,
+  2 unverified, 3 error; report to `<state>/reports/<verdict>.json`).
 
 ## Tests
 
@@ -150,4 +199,7 @@ To add a venue: implement `VenueAdapter`, register a factory in
   remove the marker or the run fails with XPASS.
 - `tests/core/test_bus.py::test_permission_table_snapshot` pins who may
   publish what; edit it deliberately alongside `PUBLISHERS`.
-- `tests/core/test_import_boundaries.py` fails if one desk imports another.
+- `tests/core/test_import_boundaries.py` fails if one desk imports another
+  (desks may import `core` and `data`; only `control` imports desks).
+- `tests/conftest.py` blocks sockets: any network use fails the test.
+- `tests/verify/test_exit_check.py` is the milestone 1 exit check.

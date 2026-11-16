@@ -203,3 +203,124 @@ original file mtime recorded) and the outputs moved to
 `golden/ari_signals-03a8b8d/outputs/`. All checksums verified after the
 move; the manifest records store paths. The generator now refuses an
 `--out` inside the repo tree but outside the store.
+
+## 2026-11-16 — Crypto connectivity: native public REST, not ccxt
+
+Milestone 1 evaluation. Data ingestion uses the venues' public REST APIs
+directly, through the standard library (`scripts/download_crypto.py`,
+parsers in `firm.data.providers`). Why: the store keeps responses exactly
+as received, and ccxt hands back its own normalised structures, not the
+venue's bytes; the parsers are ~100 lines; no new dependency; and ccxt does
+not lift venue limits (Kraken OHLC serves only the last 720 bars either
+way). Revisit ccxt for the order-path adapters (sandbox/live), where its
+value is larger. Known limits: Kraken OHLC 720 bars per timeframe; Coinbase
+300 candles per call, no 4h/1w; Coinbase trade `side` is the maker's side
+(stored as the taker's).
+
+## 2026-11-16 — Point-in-time policy for market data
+
+A bar is known at its close; `as_of` filters on `close_time <= as_of`. The
+still-forming bar a venue returns is dropped at parse time using the
+capture's `captured_at`, so it never enters the store. A capture with an
+unknown capture time (legacy import) can't be normalised. `captured_at` is
+recorded on every capture but not used to filter: closed exchange bars do
+not change, and if two captures disagree on a closed bar the later one wins
+and the disagreement is counted (`revisions` in the dataset manifest).
+Revisable data (corporate actions, delistings) will need knowledge-time
+filtering when it arrives. Instrument status is evaluated as of the query,
+so a later delisting never leaks backwards.
+
+## 2026-11-16 — Normalised storage and dataset versions
+
+Parquet (zstd) with int64 UTC-nanosecond timestamps (no timezone handling in
+DuckDB or pandas metadata to drift), partitioned by year, file name =
+first 8 hex of the file's sha256. A dataset version `ds-<sha12>` is the hash
+of its manifest content (normaliser version + every file and reference
+record with checksums); no timestamps inside, so rebuilding from the same
+captures gives the same version. Opening a dataset verifies every checksum.
+
+## 2026-11-16 — Backtest timing and cost model
+
+Event-driven over bars: the target exposure decided at bar i's close fills
+at bar i+1's open (no same-bar fills); the gap close→open is held by the
+previous position. Cost per unit of exposure traded = taker fee + half the
+spread + slippage, all in bps from the market profile and its fee schedule
+(`config/fees/`). Targets must be in [0, 1]: spot, no leverage, no shorting
+in v1. `costs.spread_bps` was added to market profiles because bar data has
+no quotes. FX conversion cost is not applied (P&L stays in the quote
+currency); TODO when portfolio P&L in GBP arrives (milestone 2).
+
+## 2026-11-16 — Verifier checks, order and thresholds
+
+Five checks, each its own module returning a `CheckResult`:
+lookahead truncation (re-run with data cut at up to 250 decision times;
+signals up to the cut must be identical within 1e-12), cost realism (net
+Sharpe with profile costs, and with costs ×2), parameter sensitivity (every
+numeric parameter ±10% and ±20%; each perturbed Sharpe ≥ half the base; a
+perturbation the strategy rejects counts as a collapse), trial count
+(deflated Sharpe ≥ 0.95), hidden out-of-sample (last 25% of the window).
+The four in-sample checks run first; the hidden period is opened only if
+all pass, so a strategy can't spend its one opening on a rejected version.
+Too little data → every check `not_run` → verdict UNVERIFIED (exit 2),
+never PASS. All thresholds are placeholders in `config/verify/default.yaml`
+(SPEC open question); the report records the config's sha256.
+
+## 2026-11-16 — Trial-count correction: deflated Sharpe ratio
+
+Bailey & López de Prado (2014). SR0 = expected maximum Sharpe of N trials
+under the null; DSR = probability the observed per-bar Sharpe beats SR0
+given sample length, skewness and kurtosis. N = the **global** trial count
+from the registry (all experiments), so more searching raises the bar. The
+variance of Sharpe ratios comes from recorded trials when at least two have
+one, otherwise from the null approximation 1/(T−1). The registry is
+idempotent on `trial_id`; a hand-written strategy's in-sample run is one
+trial whose ID hashes code + params + dataset + window, so re-verifying the
+same thing is not a new trial. A candidate citing unrecorded trials fails.
+
+## 2026-11-16 — OOS vault: first opening, replay, refusal
+
+Firm rule 4 says the final OOS is opened once per strategy. The vault keys
+openings by strategy ID and a candidate key (code sha + params + dataset +
+window). The first request opens and seals the result hash. The identical
+candidate may be re-verified as a *replay* (it learns nothing new) and must
+reproduce the sealed hash; this is what makes reports reproducible. Any
+other version of the same strategy is refused and fails the check. Every
+attempt is logged. Vault and trial registry are JSON lines under
+`$FIRM_STATE_ROOT` (default `./state`, git-ignored) until the ledger exists
+(milestone 2).
+
+## 2026-11-16 — Reports are deterministic; verdict ID is their hash
+
+The report has no wall-clock time; keys are sorted; floats are rounded to
+10 significant digits; non-finite numbers become null. `verdict_id =
+"v-" + sha256(report body)[:16]`. `issued_at` exists only on the `Verdict`
+object (for the ledger). Same dataset version + candidate + global trial
+count → same bytes, including after rebuilding the dataset from the same
+captures. The trial count is a real input: when any other trial is recorded
+in between, the trial-count check (and so the verdict ID) changes, by design
+(firm rule 5). Seen in the milestone 1 CLI run; pinned by
+`test_report_changes_only_in_trial_count_when_global_trials_grow`. To
+reproduce an old report exactly, the registry state at that time is needed:
+the ledger (milestone 2) should record the trial-count position in each verdict.
+
+## 2026-11-16 — Synthetic fixtures for the exit check
+
+Tests use only synthetic data (public repo). The generator is a
+regime-switching random walk with persistent drifts, written in Kraken's
+exact OHLC format (720-bar overlapping pages with the forming bar). Its
+defaults (drift 0.5%/day, vol 1.5%) were chosen so that the clean crossover
+has a real edge: it passed on 8 of 8 seeds tried; at drift 0.4%, vol 2% it
+passed 5 of 8 and the verifier correctly rejected the weak ones. The seed
+was not searched for a pass; the setting was.
+
+## 2026-11-16 — Import boundaries: data is shared, control composes
+
+`firm.data` is a read-only, point-in-time library in v1 and every desk may
+import it (and `core`); `data` imports only `core`. `control` (CLI, later
+the API) is the composition root and may import any desk; nothing imports
+`control`. Desks still never import each other.
+
+## 2026-11-16 — Tests block the network
+
+`tests/conftest.py` makes any socket connection during a test fail, so "no
+network in tests" is enforced, not assumed.

@@ -11,32 +11,22 @@ Why things were decided goes in `DECISIONS.md`; how modules work goes in
 ## Status
 
 - [x] Step 0: repository skeleton (2026-11-16)
-- [ ] Milestone 1: data plane and verifier (crypto)
+- [x] Milestone 1: data plane and verifier (crypto), exit check met 2026-11-16
 - [ ] Milestone 2: paper simulator, risk desk, ledger, trade journal
 - [ ] Milestone 3: research agents on Certo
 - [ ] Milestone 4: control and notifications
 - [ ] Milestone 5: judge
 - [ ] Milestone 6: US shares
 
-## Now: waiting on the owner
+## Now
 
-- [ ] **Commit step 0.** Everything is uncommitted on `main`. Suggested:
-      one commit for the skeleton (package, config, tests, docs) and one for
-      the `.gitignore` anchoring fix.
-- [ ] **Approve milestone 1 dependencies.** Listed in CLAUDE.md, will add:
-      pyarrow (Parquet), duckdb, exchange_calendars. *Not* listed, need
-      approval: pandas, numpy (backtest engine and the ari feature library,
-      which also needs scipy and python-dateutil).
-- [ ] **Go-ahead for milestone 1.** Per `/next-milestone`: show a plan
-      first, then build test-first, stop at the exit check.
-
+- [ ] **Review milestone 1** on branch `milestone-1` (built on
+      `step-0-skeleton`; neither pushed). Merge to `main` when reviewed.
 - [ ] **Back up the data store** (`data/`). It holds the only copy of the
       ari golden baseline outside the old repo, and git will never have it.
-      Suggest a backup target before archiving ari_signals.
-- [ ] **Archive ari_signals?** Not yet: the task says archive only after
-      steps 0–3 pass. Its working tree has 2 modified + 2 untracked files
-      outside the extracted code (`src/technical_analysis/`, `src/prompts/`);
-      commit or discard them there before archiving.
+- [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
+      pass. Its working tree has 2 modified + 2 untracked files outside the
+      extracted code; commit or discard them there before archiving.
 
 ## Step 0: done (2026-11-16)
 
@@ -54,31 +44,42 @@ Q5 `venue_status` schema; Q6 no host assumed.
 
 ## Milestone 1: data plane and verifier (crypto)
 
-- [ ] Implement the data store layout (ARCHITECTURE.md "Data store"):
-      `firm.data` store root resolution, capture writer with `.meta.json`,
-      normalizer to Parquet, dataset manifests, instrument master.
-- [ ] Synthetic bar generator for tests (no provider data in the repo).
+Built 2026-11-16 on branch `milestone-1` (plan approved with the go-ahead):
 
-- [ ] Evaluate ccxt vs native Kraken/Coinbase APIs; DECISIONS.md entry.
-- [ ] Data plane: ingest Kraken and Coinbase OHLCV bars and trades into
-      versioned Parquet with checksums; every read takes `as_of`;
-      delisted pairs kept. Recorded fixtures for tests; real downloads only
-      in a separate script the owner runs.
-- [ ] Backtest engine: event-driven, bar by bar, strategy sees only visible
-      data; costs from the market profile.
-- [ ] Fee schedules: `costs.commission` names a schedule; numbers TBD.
-- [ ] Verifier checks, each a tested module with a typed result:
-      lookahead truncation, hidden out-of-sample (opened once, logged),
-      parameter sensitivity, cost realism, trial count (pick and document a
-      method, e.g. deflated Sharpe ratio).
-- [ ] Verifier combines checks into one `Verdict` with ID, report, exit code.
-- [ ] Turn invariant placeholders for rules 4 and 5 into real tests.
-- [x] ari_signals golden baseline (task step 0), 2026-11-16, see below.
-- Exit check (all must hold):
-  - [ ] a strategy with planted lookahead is rejected by the truncation check;
-  - [ ] a clean moving-average crossover passes on the fixture data;
-  - [ ] same dataset version + strategy → byte-identical reports;
-  - [ ] `uv run pytest` green with no network and no model.
+- [x] core: timeframes; config: `spread_bps`, fee schedules, verifier thresholds.
+- [x] data: store, Kraken/Coinbase parsers (bars + trades, closed bars only),
+      synthetic data, normalizer, dataset versions, instrument master
+      (delisted kept), `as_of` reader, capped research view.
+- [x] Owner-run download script (native REST; ccxt decision in DECISIONS.md).
+- [x] verify: strategy protocol, cost model, backtest, 5 checks, verifier,
+      deterministic report, exit codes, `firm verify` / `firm data` CLI.
+- [x] Invariant tests for rules 4 and 5 are real.
+- Exit check (see the milestone report):
+  - [x] planted lookahead rejected by the truncation check;
+  - [x] clean moving-average crossover passes on the fixture data;
+  - [x] same dataset version + strategy → byte-identical reports;
+  - [x] `uv run pytest` green with no network and no model.
+
+Follow-ups from milestone 1:
+
+- [ ] **Owner:** run the download script for real data, build a dataset,
+      run `firm verify` on it. Real-data results are *unverified* until then.
+- [ ] Calibrate verifier thresholds (`config/verify/default.yaml`) and fee
+      schedules (`config/fees/`): all placeholders (SPEC open question).
+- [ ] Kraken OHLC gives only the last 720 bars: full history needs trade
+      aggregation or Kraken's files (check terms). Coinbase pages fine.
+- [ ] FX conversion cost not applied in backtests (P&L in quote currency).
+- [ ] Strategy loader executes code: sandbox before agent code (M3).
+- [ ] Trial registry and OOS vault move into the ledger (M2); each verdict
+      should cite the ledger position of the trial count it used, so any
+      old report can be reproduced exactly.
+- [ ] Legacy captures (ari CSVs: no capture time, last row may be forming)
+      can't be normalised; needed only if we backtest on them.
+- [ ] mypy runs on `src/firm/core` only (CLAUDE.md); consider adding
+      `data` and `verify` (needs pandas typing).
+- [ ] Trades are partitioned by year; switch to daily partitions when
+      tick volumes arrive.
+- [ ] `periods_per_year` supports exchange calendars only for 1d/1w (M6).
 
 ## ari_signals feature extraction (docs/tasks/extract-ari-signals-features.md)
 
@@ -92,7 +93,11 @@ Q5 `venue_status` schema; Q6 no host assumed.
       (`git filter-repo`) or plain copy; record the source commit.
       Source license is **Apache-2.0** (firm is MIT): keep headers, add the
       license/NOTICE under `src/firm/data/features/ari/`.
-- [ ] Needs approval: pandas, numpy, scipy, python-dateutil as firm deps.
+- [x] Deps approved 2026-11-16. pandas/numpy added (M1); scipy added with
+      step 1 when the ari code arrives (python-dateutil comes with pandas).
+- [ ] The firm resolved **pandas 3.1.1**; the baseline used pandas 2.3.0,
+      and pandas 3 removes `fillna(method=...)`. Parity needs pandas 2.3 in
+      a dedicated env, or declared differences.
 - [ ] Step 2: mechanical changes + `tests/features/test_ari_parity.py` byte for byte.
       Byte parity is only meaningful with the baseline's library versions
       (Python 3.11.3, pandas 2.3.0, numpy 2.3.1, scipy 1.16.0). The firm
