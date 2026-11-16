@@ -53,11 +53,11 @@ def test_registry_counts_each_trial_once(tmp_path) -> None:
 def test_vault_first_opening_replay_and_refusal(tmp_path) -> None:
     v = OosVault(tmp_path)
     kw = dict(strategy_id="s", dataset_version="ds", window=["a", "b"], at=NOW)
-    assert v.request(candidate_key="k1", **kw).access == "first_opening"
-    v.seal(strategy_id="s", candidate_key="k1", result_sha256="h", at=NOW)
-    replay = v.request(candidate_key="k1", **kw)
+    assert v.request(scope="s|X|1d", candidate_key="k1", **kw).access == "first_opening"
+    v.seal(strategy_id="s", scope="s|X|1d", candidate_key="k1", result_sha256="h", at=NOW)
+    replay = v.request(scope="s|X|1d", candidate_key="k1", **kw)
     assert (replay.access, replay.sealed_hash) == ("replay", "h")
-    assert v.request(candidate_key="k2", **kw).access == "refused"
+    assert v.request(scope="s|X|1d", candidate_key="k2", **kw).access == "refused"
     assert [e["event"] for e in v.events()] == ["first_opening", "sealed", "replay", "refused"]
 
 
@@ -65,5 +65,62 @@ def test_vault_first_opening_replay_and_refusal(tmp_path) -> None:
 def test_vault_is_per_strategy(tmp_path, other: str) -> None:
     v = OosVault(tmp_path)
     kw = dict(dataset_version="ds", window=["a", "b"], at=NOW)
-    v.request(strategy_id="s", candidate_key="k1", **kw)
-    assert v.request(strategy_id=other, candidate_key="k9", **kw).access == "first_opening"
+    v.request(strategy_id="s", scope="s|X|1d", candidate_key="k1", **kw)
+    assert (
+        v.request(strategy_id=other, scope=f"{other}|X|1d", candidate_key="k9", **kw).access
+        == "first_opening"
+    )
+
+
+# --- OOS scope: strategy + instrument + timeframe (owner decision 2026-11-16)
+
+
+def test_vault_scope_is_strategy_instrument_timeframe(tmp_path) -> None:
+    v = OosVault(tmp_path)
+    kw = dict(strategy_id="s", dataset_version="ds", window=["a", "b"], at=NOW)
+    assert v.request(scope="s|BTC-USD|1d", candidate_key="k1", **kw).access == "first_opening"
+    assert v.request(scope="s|ETH-USD|1d", candidate_key="k1", **kw).access == "first_opening"
+    assert v.request(scope="s|BTC-USD|1h", candidate_key="k1", **kw).access == "first_opening"
+    assert v.request(scope="s|BTC-USD|1d", candidate_key="k2", **kw).access == "refused"
+
+
+def test_legacy_openings_without_scope_still_block_the_whole_strategy(tmp_path) -> None:
+    import json
+
+    (tmp_path / "oos_openings.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "first_opening",
+                "strategy_id": "s",
+                "candidate_key": "old",
+                "dataset_version": "ds",
+                "window": ["a", "b"],
+                "at": NOW.isoformat(),
+            }
+        )
+        + "\n"
+    )
+    v = OosVault(tmp_path)
+    kw = dict(strategy_id="s", dataset_version="ds", window=["a", "b"], at=NOW)
+    assert v.request(scope="s|ETH-USD|1d", candidate_key="new", **kw).access == "refused"
+
+
+def test_replay_under_a_new_verifier_config_gets_its_own_seal(tmp_path) -> None:
+    """Changing costs/thresholds must not fail an unchanged strategy's replay, and
+    must not open the hidden period to a changed strategy either."""
+    v = OosVault(tmp_path)
+    kw = dict(strategy_id="s", scope="s|X|1d", dataset_version="ds", window=["a", "b"], at=NOW)
+    assert v.request(candidate_key="k1", config_key="fees-old", **kw).access == "first_opening"
+    v.seal(
+        strategy_id="s",
+        scope="s|X|1d",
+        candidate_key="k1",
+        config_key="fees-old",
+        result_sha256="h-old",
+        at=NOW,
+    )
+    new = v.request(candidate_key="k1", config_key="fees-new", **kw)
+    assert (new.access, new.sealed_hash) == ("replay", None)  # replay, nothing sealed yet
+    old = v.request(candidate_key="k1", config_key="fees-old", **kw)
+    assert (old.access, old.sealed_hash) == ("replay", "h-old")
+    assert v.request(candidate_key="k2", config_key="fees-new", **kw).access == "refused"
