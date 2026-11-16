@@ -117,6 +117,26 @@ Still to build:
 - [ ] Scheduling (later, with the market workers): periodic updates with
       staleness alerts (SPEC "feed staleness").
 
+## Strategies on real data (owner request 2026-11-16)
+
+Synthetic data stays for unit tests (public repo, no network in tests), but
+strategies are judged on real past data whenever we can download it.
+
+- [ ] Verdicts say what data they rest on: the dataset manifest records each
+      file's capture method (`api` / `synthetic` / `legacy_import`) and the
+      report shows it. A verdict on synthetic data is labelled as such and
+      can never promote a strategy to paper trading.
+- [ ] `firm verify` on a missing series/window offers to fetch it first
+      (via the incremental update), then builds the dataset version.
+- [ ] Real-data test tier: tests that run the verifier on real datasets in
+      the store, skipped as UNVERIFIED where the store is absent (like the
+      ari baseline). Run them on the Mac and the DGX before a milestone closes.
+- [ ] Reference real datasets per market (e.g. BTC-USD, ETH-USD 1d on
+      Coinbase and Kraken), refreshed by incremental updates, so every
+      strategy is checked on the same data.
+- [ ] Prefer the longest honest history: Coinbase pages back to 2015, Kraken
+      OHLC only 720 bars (see Milestone 1 follow-ups).
+
 ## ari_signals feature extraction (docs/tasks/extract-ari-signals-features.md)
 
 - [x] Step 0: golden baseline (2026-11-16). Data in the store
