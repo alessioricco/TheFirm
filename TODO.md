@@ -284,19 +284,18 @@ Public repo (do before making it public):
       no-data and secrets checks before every commit. The pytest guard only
       helps if tests run, and CI runs only after the push (too late for a
       public repo).
-- [x] **CI** (2026-11-16, `.github/workflows/ci.yml`; **unverified until
-      the first push**: runners, action versions and the 3.14 job have not
-      run yet): `pytest`, `ruff`, `mypy`, on Python 3.12 and
-      latest, Linux and macOS arm64. CLAUDE.md says breaking an invariant
-      "must fail the build", but there is no build yet.
+- [x] **CI** (2026-11-16, `.github/workflows/ci.yml`): verified on PR #1,
+      all five checks green (Linux and macOS arm64, Python 3.12 and 3.14,
+      gitleaks over the full history). macOS arm64 runners can queue for a
+      long time under GitHub capacity limits; a job GitHub cancels with "not
+      acquired by Runner" is capacity, not code: re-run it.
 - [x] Secret scanning: pattern checks in the hook and CI, gitleaks over the
       full history in CI.
 - [ ] **Owner, when the repo goes public:** follow
       `docs/github-security-setup.md` (secret scanning, push protection,
       required CI checks on `main`, actions pinned to SHAs, Dependabot).
-- [ ] If the repo stays private for a while: `ubuntu-24.04-arm` runners may
-      not be available to private repos on the free plan; switch that
-      matrix entry to `ubuntu-latest` until it is public.
+- [ ] **Owner:** now that CI has run, require its five checks on `main`
+      (`docs/github-security-setup.md` step 2), then merge PR #1.
 - [x] **Owner: move `settings.json` (repo root) to `.claude/settings.json`**
       and commit it: denies `.env`/secrets and force pushes, asks before
       edits to risk/jurisdiction/verifier config, CI, the guard, and pushes
