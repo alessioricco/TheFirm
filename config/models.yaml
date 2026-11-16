@@ -1,0 +1,29 @@
+# Model choices: which model serves each role, and the egress policy.
+# Hosts and keys are NOT here: they live in .env (OLLAMA_HOST, provider keys).
+# Model names are candidates from docs/SPEC.md "Models and hardware"; Certo's
+# benchmark on our own tasks picks the final ones. No code may hard-code a model.
+models: default
+
+roles:
+  research:              # research and coding agents (milestone 3)
+    provider: ollama
+    model: gpt-oss:120b
+  fast_worker:           # cheap, parallel sub-tasks
+    provider: ollama
+    model: qwen3.6:35b-a3b
+  judge:                 # decision model, typed calls via /v1/systemone (milestone 5)
+    provider: ollama
+    model: d3:9b         # test d3:27b against it on our labelled cases
+  ask:                   # question answering over firm data ("Ask the firm")
+    provider: ollama
+    model: gpt-oss:120b
+
+ask:
+  approach: tools        # typed read-only tools over our data (see TODO.md)
+  text_search: fulltext  # for SPEC/DECISIONS/notes; embeddings only if needed
+  embeddings: null       # e.g. {provider: ollama, model: ...} when added
+
+egress:                  # firm rule 8
+  cloud_spend_budget_gbp: 0      # default zero; the owner raises it explicitly
+  private_to_cloud: per_run_opt_in   # private work stays local unless opted in per run
+  log_every_cloud_call: true

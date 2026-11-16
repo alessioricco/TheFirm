@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "certo-dgx": {
+      "command": "ssh",
+      "args": ["dgx", "certo", "mcp", "--root", "/srv/firm/ml"]
+    }
+  }
+}

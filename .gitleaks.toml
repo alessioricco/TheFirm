@@ -1,0 +1,10 @@
+# gitleaks config: the default rules, plus one narrow allowlist.
+# tests/repo/test_no_data_in_repo.py plants FAKE secrets on purpose to prove
+# scripts/check_repo.py catches them. Only those exact fake values are
+# allowed; any other secret, in that file or elsewhere, still fails CI.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Planted fake secrets in the repo-guard test"
+regexes = ['''abcdefghijklmnop1234''']
