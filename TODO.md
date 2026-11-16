@@ -234,19 +234,29 @@ from our data, reports and ledger.
 
 Public repo (do before making it public):
 
-- [ ] **README** for a public audience: what the firm is, paper trading
+- [x] **README** for a public audience (2026-11-16): what the firm is, paper trading
       only, **not financial advice and no signals for others**, how to
       install and run (`firm data synthetic` → `build-dataset` → `verify`),
       the data policy (no data in git), licence. Today it is two lines.
-- [ ] **Pre-commit guard** (local git hook or `pre-commit`): run the
+- [x] **Pre-commit guard** (2026-11-16, `.githooks/pre-commit` +
+      `scripts/check_repo.py`; enable per clone with
+      `git config core.hooksPath .githooks`): run the
       no-data and secrets checks before every commit. The pytest guard only
       helps if tests run, and CI runs only after the push (too late for a
       public repo).
-- [ ] **CI** (GitHub Actions): `pytest`, `ruff`, `mypy`, on Python 3.12 and
+- [x] **CI** (2026-11-16, `.github/workflows/ci.yml`; **unverified until
+      the first push**: runners, action versions and the 3.14 job have not
+      run yet): `pytest`, `ruff`, `mypy`, on Python 3.12 and
       latest, Linux and macOS arm64. CLAUDE.md says breaking an invariant
       "must fail the build", but there is no build yet.
-- [ ] **Secret scanning** in CI and the hook (e.g. gitleaks), and GitHub
-      secret scanning / push protection when the repo goes public.
+- [x] Secret scanning: pattern checks in the hook and CI, gitleaks over the
+      full history in CI.
+- [ ] **Owner, when the repo goes public:** enable GitHub secret scanning
+      and push protection; require the `ci` checks on `main` (branch
+      protection). Pin actions to commit SHAs (they use version tags now).
+- [ ] If the repo stays private for a while: `ubuntu-24.04-arm` runners may
+      not be available to private repos on the free plan; switch that
+      matrix entry to `ubuntu-latest` until it is public.
 - [ ] **Deny `.env` to Claude Code**: CLAUDE.md says `.env` is
       permission-denied, but no `.claude/settings.json` exists. Owner to add
       `permissions.deny` for `Read(./.env)` (the session can't write `.claude/`).

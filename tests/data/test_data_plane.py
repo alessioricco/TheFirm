@@ -208,3 +208,14 @@ def test_delisted_instrument_kept_and_status_is_point_in_time(tmp_path: Path) ->
     assert ds.universe("kraken", as_of=START + timedelta(days=100)) == {"LUNA-USD": "listed"}
     assert ds.universe("kraken", as_of=delist + timedelta(days=1)) == {"LUNA-USD": "delisted"}
     assert len(ds.bars("kraken", "LUNA-USD", "1d", as_of=FAR)) == 300
+
+
+def test_synthetic_and_real_captures_never_mix(tmp_path: Path) -> None:
+    seed_store(tmp_path, n=1500)  # several 720-bar pages = several captures
+    assert len(list(iter_captures(tmp_path))) > 1
+    cap = next(iter_captures(tmp_path))
+    meta = cap.path.with_name(cap.path.name.replace(".json", ".meta.json"))
+    doc = json.loads(meta.read_text()) | {"capture_method": "api"}
+    meta.write_text(json.dumps(doc))  # now one "real" capture among synthetic ones
+    with pytest.raises(StoreError, match="mix synthetic and real"):
+        normalize_bars(tmp_path, provider="kraken", provider_symbol="XBTUSD", tf="1d")

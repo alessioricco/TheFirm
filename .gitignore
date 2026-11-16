@@ -224,6 +224,7 @@ __marimo__/
 # The data store ($FIRM_DATA_ROOT, default ./data/) is anchored to the repo
 # root so src/firm/data/ and src/firm/ledger/ are NOT ignored.
 /data/
+/data-*/
 *.parquet
 *.csv
 *.feather

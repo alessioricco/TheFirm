@@ -144,7 +144,10 @@ uv run pytest                    # all tests, no network, no model
 uv run pytest tests/invariants   # the firm rules
 uv run ruff check . && uv run ruff format --check .
 uv run firm --help               # the CLI
+python3 scripts/check_repo.py --all   # public-repo guard (also pre-commit and CI)
 ```
+
+Enable the pre-commit guard once per clone: `git config core.hooksPath .githooks`.
 
 Tests never call a network, an exchange or a model (a socket guard in
 `tests/conftest.py` enforces it). Test data is synthetic, generated in code

@@ -1,0 +1,53 @@
+# CI for a PUBLIC repo: guard, lint, types, tests. No network in tests,
+# no data and no secrets in the tree. Breaking a firm rule fails the build.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-arm, macos-14]   # Linux arm64 and macOS arm64 (CLAUDE.md)
+        python: ["3.12", "3.14"]           # floor and latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repo guard (no data, secrets, machine paths, big files)
+        run: python3 scripts/check_repo.py --all
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install (locked)
+        run: uv sync --locked --extra dev
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Types
+        run: uv run mypy
+      - name: Firm rules
+        run: uv run pytest tests/invariants -ra
+      - name: All tests
+        run: uv run pytest -ra
+
+  secrets:
+    name: secret scan (full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -357,3 +357,31 @@ hosts (`OLLAMA_HOST`, provider keys); the cloud budget moved out of `.env`
 because it is policy, not a secret. A test fails if any configured model
 name appears in `src/`. Only `provider: ollama` is accepted for now; cloud
 providers arrive with Certo's ladder.
+
+## 2026-11-16 — Public-repo guard: one checker, three places
+
+`scripts/check_repo.py` (standard library only) refuses data files and
+paths (`data/`, `state/`, data suffixes), files over 200 KB, `.env`-like
+files, secret patterns (private keys, cloud/GitHub/model-provider keys,
+Telegram tokens, assigned secrets) and home-directory paths. It runs in the
+pre-commit hook (staged content, before anything is committed), in the
+tests (working tree) and in CI (checkout). A plain git hook in `.githooks/`
+(enabled with `git config core.hooksPath .githooks`) instead of the
+`pre-commit` package: no new dependency, and the check needs no
+environment. CI also runs gitleaks over the full history.
+
+## 2026-11-16 — CI matrix
+
+GitHub Actions: Linux arm64 (`ubuntu-24.04-arm`) and macOS arm64
+(`macos-14`), Python 3.12 (floor) and 3.14 (latest), `uv sync --locked`
+so a stale lockfile fails, then guard, ruff, mypy, invariants, all tests.
+Not run yet: it becomes verified with the first push.
+
+## 2026-11-16 — Synthetic and real data never mix
+
+Found while writing the README: `firm data synthetic` defaulted to the real
+store and the same series as the downloaded Kraken data, so the normaliser
+would have merged invented and real bars. Now the normaliser refuses a
+series whose captures mix `synthetic` with any other method, and
+`firm data synthetic` refuses a store that holds real captures of that
+series. The README demo uses a separate store (`./data-demo`, git-ignored).

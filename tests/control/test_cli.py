@@ -65,3 +65,24 @@ def test_verify_end_to_end_exit_codes(tmp_path, capsys: pytest.CaptureFixture[st
     assert main(["verify", "--strategy", f"{ex}/lookahead_ma.py:LookaheadCrossover", *common]) == 1
     assert main(["verify", "--strategy", f"{ex}/ma_crossover.py", *common]) == 3
     assert len(list((state / "reports").glob("v-*.json"))) == 2
+
+
+def test_synthetic_refuses_a_store_with_real_captures(tmp_path) -> None:
+    from datetime import UTC, datetime
+
+    from firm.data.store import write_capture
+
+    write_capture(
+        tmp_path,
+        b"{}",
+        provider="kraken",
+        kind="bars",
+        provider_symbol="XBTUSD",
+        tf="1d",
+        fmt="json",
+        captured_at=datetime(2026, 1, 1, tzinfo=UTC),
+        request={},
+        via="test",
+        licence="test",
+    )
+    assert main(["data", "synthetic", "--root", str(tmp_path)]) == 3

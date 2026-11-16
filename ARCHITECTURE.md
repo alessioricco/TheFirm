@@ -203,4 +203,7 @@ To add a venue: implement `VenueAdapter`, register a factory in
 - `tests/core/test_import_boundaries.py` fails if one desk imports another
   (desks may import `core` and `data`; only `control` imports desks).
 - `tests/conftest.py` blocks sockets: any network use fails the test.
+- `scripts/check_repo.py` (no data, secrets, machine paths, big files) runs
+  in `.githooks/pre-commit`, in `tests/repo/` and in CI
+  (`.github/workflows/ci.yml`).
 - `tests/verify/test_exit_check.py` is the milestone 1 exit check.

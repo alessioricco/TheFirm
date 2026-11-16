@@ -1,71 +1,54 @@
-"""The repo is public: no market data, datasets or model files in the tree.
+"""The repo is public: no market data, secrets, machine paths or big files.
 
-Data lives in the git-ignored store (`$FIRM_DATA_ROOT`, default `<repo>/data`).
-Test fixtures are generated in code (synthetic bars), never copied from a
-provider. This walks the working tree, so it catches a file before it is
-committed, not only after.
+Runs the same checker as the pre-commit hook and CI (`scripts/check_repo.py`)
+over tracked and untracked files, so a bad file fails here before it is
+committed.
 """
 
+import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-SKIP_DIRS = {
-    ".git",
-    ".venv",
-    "data",
-    "__pycache__",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    "node_modules",
-}
-DATA_SUFFIXES = {
-    ".csv",
-    ".parquet",
-    ".feather",
-    ".arrow",
-    ".duckdb",
-    ".sqlite",
-    ".db",
-    ".gz",
-    ".zip",
-    ".h5",
-    ".hdf5",
-    ".pkl",
-    ".pickle",
-    ".npy",
-    ".npz",
-    ".gguf",
-    ".safetensors",
-    ".pt",
-    ".onnx",
-    ".xlsx",
-}
-MAX_BYTES = 200_000  # anything larger than this in the tree needs a deliberate exception
 
 
-def _files() -> list[Path]:
-    out = []
-    for p in REPO.rglob("*"):
-        rel = p.relative_to(REPO)
-        if rel.parts and rel.parts[0] in SKIP_DIRS:
-            continue
-        if any(part in SKIP_DIRS for part in rel.parts):
-            continue
-        if p.is_file():
-            out.append(p)
-    return out
+def test_repo_check_passes() -> None:
+    r = subprocess.run(
+        [sys.executable, "scripts/check_repo.py", "--all"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
 
 
-def test_no_data_files_in_repo_tree() -> None:
-    bad = [str(p.relative_to(REPO)) for p in _files() if p.suffix.lower() in DATA_SUFFIXES]
-    assert not bad, f"data files must live in the data store, not the repo: {bad}"
-
-
-def test_no_large_files_in_repo_tree() -> None:
-    big = [
-        str(p.relative_to(REPO))
-        for p in _files()
-        if p.stat().st_size > MAX_BYTES and p.name != "uv.lock"
+def test_checker_catches_planted_problems(tmp_path: Path) -> None:
+    sys.path.insert(0, str(REPO / "scripts"))
+    try:
+        from check_repo import problems
+    finally:
+        sys.path.pop(0)
+    files = [
+        ("data/raw/x.json", b"{}"),
+        ("state/trials.jsonl", b"{}"),
+        ("prices.csv", b"a,b"),
+        (".env", b"X=1"),
+        ("big.txt", b"x" * 300_000),
+        # assembled at runtime so this file itself doesn't trip the checker
+        ("leak.py", b"API_" + b'KEY = "abcdefghijklmnop1234"'),
+        ("key.pem", b"-----BEGIN RSA " + b"PRIVATE KEY-----"),
+        ("notes.md", b"see /Us" + b"ers/someone/file"),
+        ("ok.env.example", b"TELEGRAM_BOT_TOKEN=\nOTHER_SETTING_NAME=1\n"),
     ]
-    assert not big, f"unexpectedly large files (data?): {big}"
+    found = problems(files)
+    flagged = {p.split(":")[0] for p in found}
+    assert flagged == {
+        "data/raw/x.json",
+        "state/trials.jsonl",
+        "prices.csv",
+        ".env",
+        "big.txt",
+        "leak.py",
+        "key.pem",
+        "notes.md",
+    }

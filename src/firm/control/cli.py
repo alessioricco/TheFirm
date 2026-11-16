@@ -23,10 +23,22 @@ def _cmd_version(args: argparse.Namespace) -> int:
 
 
 def _cmd_synthetic(args: argparse.Namespace) -> int:
-    from firm.data.store import data_root
+    from firm.data.store import data_root, iter_captures
     from firm.data.synthetic import seed_store
 
     root = data_root(args.root)
+    real = [
+        c
+        for c in iter_captures(root, provider="kraken", provider_symbol=args.symbol)
+        if c.meta.capture_method != "synthetic"
+    ]
+    if real:
+        print(
+            f"refusing: {root} holds real captures for kraken:{args.symbol}; "
+            "use a separate --root for synthetic data",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
     seed_store(
         root,
         venue="kraken",

@@ -118,6 +118,9 @@ def _write_partitions(
 def _merge(
     captures: Sequence[Capture], parse: object, key: str, **kw: object
 ) -> tuple[list[dict[str, object]], int]:
+    methods = {cap.meta.capture_method for cap in captures}
+    if "synthetic" in methods and len(methods) > 1:
+        raise StoreError("refusing to mix synthetic and real captures in one series")
     merged: dict[object, dict[str, object]] = {}
     revisions = 0
     for cap in captures:  # ordered by capture time: later wins
