@@ -11,6 +11,7 @@ data:
 costs:
   commission: ibkr_tiered
   spread_model: quoted
+  spread_bps: 2             # assumed full spread for bar backtests (placeholder)
   slippage_bps: 5
   fx_conversion_bps: 3      # GBP to USD
 corporate_actions: [splits, dividends]

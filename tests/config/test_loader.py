@@ -6,9 +6,11 @@ import yaml
 from firm.core.config import (
     ConfigError,
     load_config,
+    load_fee_schedule,
     load_jurisdiction,
     load_market,
     load_risk,
+    load_verifier_config,
 )
 
 REPO_CONFIG = Path(__file__).resolve().parents[2] / "config"
@@ -193,3 +195,29 @@ def test_risk_profile_name_must_match_file(tmp_path: Path) -> None:
 def test_missing_profile(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="missing"):
         load_jurisdiction(tmp_path / "nope.yaml")
+
+
+# --- fee schedules and verifier thresholds
+
+
+def test_repo_fee_schedule_and_verifier_config_load() -> None:
+    assert load_fee_schedule(REPO_CONFIG, "exchange_taker").taker_bps > 0
+    cfg = load_verifier_config(REPO_CONFIG)
+    assert cfg.trials.method == "deflated_sharpe" and 0 < cfg.oos.fraction < 1
+
+
+def test_verifier_config_refuses_unknown_keys_and_zero_steps(tmp_path: Path) -> None:
+    good = _raw("verify/default.yaml")
+    with pytest.raises(ConfigError):
+        load_verifier_config(_write(tmp_path, "verify/default.yaml", good | {"skip_oos": True}))
+    bad = good | {"sensitivity": good["sensitivity"] | {"relative_steps": [0.0, 0.1]}}
+    with pytest.raises(ConfigError):
+        load_verifier_config(_write(tmp_path / "b", "verify/default.yaml", bad))
+
+
+def test_fee_schedule_name_must_match_file(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="file name"):
+        load_fee_schedule(
+            _write(tmp_path, "fees/other.yaml", _raw("fees/exchange_taker.yaml")).parent.parent,
+            "other",
+        )

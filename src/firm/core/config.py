@@ -12,6 +12,9 @@ Three kinds of profile:
   broker). Agents may read these (research needs costs and calendars).
 - `config/risk/<name>.yaml`: limits and caps. Agents may neither read nor
   write risk or jurisdiction profiles (firm rule 3).
+- `config/fees/<name>.yaml`: fee schedules named by a market's `costs.commission`.
+- `config/verify/<name>.yaml`: verifier thresholds. No agent may write
+  them: a lower bar would let an agent pass its own strategy.
 """
 
 from __future__ import annotations
@@ -116,8 +119,9 @@ class DataConfig(FirmModel):
 
 
 class CostsConfig(FirmModel):
-    commission: Id  # name of a fee schedule; schedules are calibrated in milestone 1
+    commission: Id  # name of a fee schedule in config/fees/
     spread_model: Literal["quoted"]
+    spread_bps: Bps  # full spread assumed when no quote data (bar backtests)
     slippage_bps: Bps
     fx_conversion_bps: Bps
 
@@ -172,6 +176,64 @@ class RiskProfile(FirmModel):
 
     risk_profile: Id
     markets: dict[Id, MarketRiskLimits]
+
+
+# --------------------------------------------------------------------------- fees
+
+
+class FeeSchedule(FirmModel):
+    """Flat percentage fees. Tiered and per-share schedules come with milestone 6."""
+
+    fee_schedule: Id
+    taker_bps: Bps
+    maker_bps: Bps
+
+
+# --------------------------------------------------------------------------- verifier
+
+
+class LookaheadThresholds(FirmModel):
+    truncation_points: int = Field(ge=1)
+    tolerance: float = Field(ge=0)
+
+
+class OosThresholds(FirmModel):
+    fraction: float = Field(gt=0, lt=1)  # last share of the window held back
+    min_sharpe: float
+    min_ratio_to_in_sample: float = Field(ge=0)
+
+
+class SensitivityThresholds(FirmModel):
+    relative_steps: tuple[float, ...] = Field(min_length=1)
+    min_ratio_to_base: float = Field(ge=0)
+
+    @field_validator("relative_steps")
+    @classmethod
+    def _no_zero_step(cls, v: tuple[float, ...]) -> tuple[float, ...]:
+        if any(step == 0 or step <= -1 for step in v):
+            raise ValueError("relative_steps must be non-zero and > -1")
+        return v
+
+
+class CostThresholds(FirmModel):
+    min_net_sharpe: float
+    stress_multiplier: float = Field(gt=1)
+    stress_min_net_sharpe: float
+
+
+class TrialThresholds(FirmModel):
+    method: Literal["deflated_sharpe"]
+    min_dsr: float = Field(gt=0, lt=1)
+
+
+class VerifierConfig(FirmModel):
+    verifier: Id
+    min_bars: int = Field(ge=10)
+    lookahead: LookaheadThresholds
+    oos: OosThresholds
+    sensitivity: SensitivityThresholds
+    costs: CostThresholds
+    trials: TrialThresholds
 
 
 # --------------------------------------------------------------------------- loader
@@ -230,6 +292,22 @@ def load_risk(path: Path) -> RiskProfile:
     if profile.risk_profile != path.stem:
         raise ConfigError(f"{path}: risk_profile {profile.risk_profile!r} must match the file name")
     return profile
+
+
+def load_fee_schedule(root: Path, name: str) -> FeeSchedule:
+    path = root / "fees" / f"{name}.yaml"
+    fees = _validate(FeeSchedule, path)
+    if fees.fee_schedule != name:
+        raise ConfigError(f"{path}: fee_schedule {fees.fee_schedule!r} must match the file name")
+    return fees
+
+
+def load_verifier_config(root: Path, name: str = "default") -> VerifierConfig:
+    path = root / "verify" / f"{name}.yaml"
+    cfg = _validate(VerifierConfig, path)
+    if cfg.verifier != name:
+        raise ConfigError(f"{path}: verifier {cfg.verifier!r} must match the file name")
+    return cfg
 
 
 def load_config(

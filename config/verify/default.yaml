@@ -1,0 +1,22 @@
+# Verifier thresholds. Read-only to every agent: lowering the bar is an
+# owner decision. All numbers are placeholders (SPEC open question:
+# "exact verifier thresholds"); see DECISIONS.md "Verifier checks".
+verifier: default
+min_bars: 250                 # refuse to judge on less history than this
+lookahead:
+  truncation_points: 250      # decision times re-run with data cut there
+  tolerance: 1.0e-12          # max |signal difference| allowed (float noise)
+oos:
+  fraction: 0.25              # last 25% of the window, never shown to authors
+  min_sharpe: 0.0             # annualised, net of costs
+  min_ratio_to_in_sample: 0.25
+sensitivity:
+  relative_steps: [-0.2, -0.1, 0.1, 0.2]
+  min_ratio_to_base: 0.5      # every perturbed Sharpe >= half the base Sharpe
+costs:
+  min_net_sharpe: 0.5         # in-sample, annualised, with profile costs
+  stress_multiplier: 2.0      # costs doubled...
+  stress_min_net_sharpe: 0.0  # ...must still not lose money
+trials:
+  method: deflated_sharpe     # Bailey & Lopez de Prado (2014)
+  min_dsr: 0.95

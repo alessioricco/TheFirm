@@ -11,6 +11,7 @@ data:
 costs:
   commission: exchange_taker  # per-venue fee schedule, calibrated in milestone 1
   spread_model: quoted
+  spread_bps: 2             # assumed full spread for bar backtests (placeholder)
   slippage_bps: 5
   fx_conversion_bps: 3      # GBP to USD
 funding_rates: false        # spot only in v1 (no leverage, no perpetuals)

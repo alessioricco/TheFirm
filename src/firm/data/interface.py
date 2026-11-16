@@ -1,23 +1,34 @@
-"""Data plane read interface. Implemented in milestone 1."""
+"""Data plane read interface (implemented by `firm.data.dataset.Dataset`).
+
+Every read takes `as_of` and returns only what was known then; bars are
+known at their close. `CappedDataset` is the research view that refuses
+reads inside a strategy's hidden out-of-sample period.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Protocol
 
+import pandas as pd
+
 
 class DataPlane(Protocol):
-    """Point-in-time reads. Nothing with a timestamp after `as_of` is ever returned.
-
-    Return types (bar/trade/book frames) are fixed in milestone 1.
-    """
-
-    def dataset_version(self) -> str: ...
+    @property
+    def version(self) -> str: ...
 
     def bars(
-        self, instrument: str, timeframe: str, *, start: datetime, as_of: datetime
-    ) -> object: ...
+        self,
+        venue: str,
+        instrument: str,
+        tf: str,
+        *,
+        as_of: datetime,
+        start: datetime | None = None,
+    ) -> pd.DataFrame: ...
 
-    def trades(self, instrument: str, *, start: datetime, as_of: datetime) -> object: ...
+    def trades(
+        self, venue: str, instrument: str, *, as_of: datetime, start: datetime | None = None
+    ) -> pd.DataFrame: ...
 
-    def book(self, instrument: str, *, as_of: datetime) -> object: ...
+    def universe(self, venue: str, *, as_of: datetime) -> dict[str, str]: ...

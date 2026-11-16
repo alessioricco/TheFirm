@@ -238,6 +238,7 @@ __marimo__/
 *.sqlite-wal
 *.sqlite-shm
 /ledger/
+/state/
 /models/
 *.gguf
 .mcp.json

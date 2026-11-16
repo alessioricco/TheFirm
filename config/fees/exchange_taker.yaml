@@ -1,0 +1,5 @@
+# Flat crypto spot fees, taker side (bar backtests assume every fill is taker).
+# Placeholder: calibrate against Kraken / Coinbase tiers for our volume.
+fee_schedule: exchange_taker
+taker_bps: 40
+maker_bps: 25
