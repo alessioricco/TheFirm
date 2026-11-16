@@ -1,6 +1,6 @@
 ---
 description: Download (or refresh) a market data series into the store and build a dataset version.
-argument-hint: "<venue> <instrument> <provider symbol> <tf> [since YYYY-MM-DD]"
+argument-hint: "<provider> <instrument> <provider symbol> <tf> [since YYYY-MM-DD]"
 ---
 
 Update the data series `$ARGUMENTS` in the git-ignored data store.
@@ -8,8 +8,9 @@ Update the data series `$ARGUMENTS` in the git-ignored data store.
 1. This uses the network (owner-approved for public market-data endpoints
    only). Tests never do. Never write synthetic data into the real store.
 2. Dry run first and show the requests:
-   `uv run python scripts/download_crypto.py --venue V --instrument I
-   --symbol S --tf T [--since D] [--listed-at D] --dry-run`.
+   `uv run python scripts/download_data.py --provider P --symbol S
+   --instrument I [--venue V] [--asset-class equity --quote USD] --tf T
+   [--since D] [--listed-at D] --dry-run` (`--providers` lists the sources).
    `--listed-at` is needed the first time an instrument is seen; if you
    don't know the listing date, ask instead of guessing.
 3. Run it for real. Transient errors are retried; report any that remain.
