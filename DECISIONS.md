@@ -373,7 +373,7 @@ environment. CI also runs gitleaks over the full history.
 ## 2026-11-16 — CI matrix
 
 GitHub Actions: Linux arm64 (`ubuntu-24.04-arm`) and macOS arm64
-(`macos-14`), Python 3.12 (floor) and 3.14 (latest), `uv sync --locked`
+(`macos-latest`; `macos-14` was refused as unsupported on the first run), Python 3.12 (floor) and 3.14 (latest), `uv sync --locked`
 so a stale lockfile fails, then guard, ruff, mypy, invariants, all tests.
 Not run yet: it becomes verified with the first push.
 
@@ -397,3 +397,13 @@ and any real-looking dataset (`ds-` + 12 hex) or verdict (`v-` + 16 hex) ID
 in committed files. The results that had already been written to TODO.md
 were moved to the private file and scrubbed from the unpushed history
 (`git filter-branch --index-filter`, TODO.md only) before the first push.
+
+## 2026-11-16 — First CI run, and a narrow gitleaks allowlist
+
+PR #1's first run: both Linux arm64 jobs (Python 3.12 and 3.14) passed.
+macOS failed before starting ("configuration 'macos-14-arm64-us-default'
+is not supported"): switched to `macos-latest`. gitleaks flagged one
+"leak": the fake API key that `tests/repo/test_no_data_in_repo.py` plants on
+purpose to test the guard. It stays in history, so `.gitleaks.toml` extends
+the default rules with an allowlist for that exact fake value only; any
+other secret still fails. `actions/checkout` moved to v5 (Node 20 deprecation).

@@ -83,8 +83,8 @@ run. Push a branch or open a PR first, let `ci` run once, then:
      of these (names as CI reports them):
      - `test (ubuntu-24.04-arm, py3.12)`
      - `test (ubuntu-24.04-arm, py3.14)`
-     - `test (macos-14, py3.12)`
-     - `test (macos-14, py3.14)`
+     - `test (macos-latest, py3.12)`
+     - `test (macos-latest, py3.14)`
      - `secret scan (full history)`
    - Optional: **Require a pull request before merging** (with 0 required
      approvals if you work alone: it still forces CI to run on the branch).
@@ -100,8 +100,8 @@ gh api -X PUT repos/{owner}/{repo}/branches/main/protection --input - <<'JSON'
     "contexts": [
       "test (ubuntu-24.04-arm, py3.12)",
       "test (ubuntu-24.04-arm, py3.14)",
-      "test (macos-14, py3.12)",
-      "test (macos-14, py3.14)",
+      "test (macos-latest, py3.12)",
+      "test (macos-latest, py3.14)",
       "secret scan (full history)"
     ]
   },
