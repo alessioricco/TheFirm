@@ -438,3 +438,16 @@ scope the owner added (incremental updates, real-data verdicts, TA
 documents, "ask the firm", web UI pages). Firm rule 3 now also covers the
 verifier thresholds, and rule 4 states the replay/refusal behaviour, both
 matching what the code already does.
+
+## 2026-11-16 — macOS informational; GitHub hardening applied
+
+macOS arm64 jobs went unstarted (GitHub capacity) on all three PRs, each
+time blocking `main` for 15 minutes until a re-run. Owner decision: macOS
+stays in the CI matrix but is informational; the required checks on `main`
+are the two Linux arm64 jobs (Python 3.12 and 3.14, so both versions stay
+gated) and the gitleaks scan. Applied with `gh` and read back: secret
+scanning and push protection enabled, Dependabot alerts enabled, default
+workflow permissions read-only. Actions are pinned to the commit SHAs of
+the newest release in each major (checkout v5.1.0, setup-uv v6.8.0,
+gitleaks-action v2.3.9; the gitleaks SHA matches the one CI had resolved
+for `@v2`), and `.github/dependabot.yml` bumps them weekly via PRs.

@@ -291,9 +291,12 @@ Public repo (do before making it public):
       acquired by Runner" is capacity, not code: re-run it.
 - [x] Secret scanning: pattern checks in the hook and CI, gitleaks over the
       full history in CI.
-- [ ] **Owner, when the repo goes public:** follow
-      `docs/github-security-setup.md` (secret scanning, push protection,
-      required CI checks on `main`, actions pinned to SHAs, Dependabot).
+- [x] GitHub hardening (2026-11-16): secret scanning + push protection,
+      Dependabot alerts, read-only workflow permissions, actions pinned to
+      SHAs + Dependabot for actions; `main` requires the Linux and
+      secret-scan checks (macOS informational).
+- [ ] **Owner:** enable push protection for your GitHub account (Settings →
+      Code security), per `docs/github-security-setup.md` step 1.
 - [x] Branch protection on `main` (2026-11-16): the five CI checks are
       required, branch must be up to date, applies to admins, no force
       pushes or deletion.

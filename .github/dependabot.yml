@@ -1,0 +1,9 @@
+# Keep the SHA-pinned GitHub Actions current: Dependabot opens a PR that
+# bumps the pins; CI must pass before it is merged. Python dependencies are
+# managed with uv and reviewed by hand (Dependabot alerts still cover them).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
