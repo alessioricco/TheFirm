@@ -220,14 +220,25 @@ __marimo__/
 .streamlit/secrets.toml
 
 # --- The firm: local data, models and machine-specific config ---
-data/
+# This repo is PUBLIC: never commit market data, datasets or models.
+# The data store ($FIRM_DATA_ROOT, default ./data/) is anchored to the repo
+# root so src/firm/data/ and src/firm/ledger/ are NOT ignored.
+/data/
 *.parquet
+*.csv
+*.feather
+*.arrow
+*.json.gz
+*.npy
+*.npz
+*.pkl
+*.safetensors
 *.duckdb
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
-ledger/
-models/
+/ledger/
+/models/
 *.gguf
 .mcp.json
 .DS_Store
