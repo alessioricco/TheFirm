@@ -334,7 +334,7 @@ The CLI stays; a web interface monitors everything, live. Builds on the
       the practical source; Kraken serves only 720 minutes, Yahoo ~7 days.
 - [ ] Storage: yearly files are fine for 1m on a few instruments; switch to
       monthly partitions if many instruments or ticks arrive.
-- [ ] **Owner decision: vault key vs re-processed data.** The OOS vault keys a
+- [x] (2026-11-16: content key, aliases for legacy entries) **Owner decision: vault key vs re-processed data.** The OOS vault keys a
       candidate by code + params + *dataset version* + window. Re-normalising
       the same bars (e.g. normaliser v2) gives a new dataset version, so
       re-verifying an unchanged strategy on it is refused as "another
