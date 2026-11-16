@@ -1,0 +1,29 @@
+# Jurisdiction profile: where the owner lives. Read-only to every agent.
+# All values are placeholders to calibrate in milestone 1 (SPEC "Configuration").
+jurisdiction: uk
+base_currency: GBP
+allowed_venues: [kraken, coinbase, ibkr]
+# Regulatory standing of each venue here. Every allowed venue needs an entry.
+# Statuses as stated in docs/SPEC.md (2026-11-15); re-check before any live use.
+venue_status:
+  kraken:
+    regulator: FCA
+    status: registered        # cryptoasset registration
+    as_of: 2026-11-15
+    review_by: 2027-10-01     # UK crypto regime changes in October 2027
+  coinbase:
+    regulator: FCA
+    status: registered
+    as_of: 2026-11-15
+    review_by: 2027-10-01
+  ibkr:
+    regulator: FCA
+    status: authorised
+    as_of: 2026-11-15
+leverage_max: 1.0          # no leverage in v1 (the loader refuses > 1.0)
+tax:
+  report: uk_cgt
+  dividend_withholding: w8ben
+notifications:
+  recipients: [owner]      # never other people
+live_trading: false         # manual switch only; the loader refuses true in v1

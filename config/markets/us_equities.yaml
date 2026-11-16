@@ -1,0 +1,19 @@
+# Market profile: US shares. Milestone 6. Numbers are placeholders to calibrate.
+market: us_equities
+calendar: XNYS             # exchange hours, holidays, early closes
+currency: USD
+universe:
+  source: eodhd
+  include_delisted: true
+data:
+  history: eodhd
+  realtime: ibkr
+costs:
+  commission: ibkr_tiered
+  spread_model: quoted
+  slippage_bps: 5
+  fx_conversion_bps: 3      # GBP to USD
+corporate_actions: [splits, dividends]
+broker:
+  paper: simulator
+  live: ibkr                # inactive while live_trading is false

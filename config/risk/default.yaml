@@ -1,0 +1,7 @@
+# Risk profile: limits and caps. Read-only to every agent (firm rule 3);
+# agents can't read it either. Placeholders to calibrate before milestone 2.
+risk_profile: default
+markets:
+  crypto:
+    exposure_cap_per_exchange_pct: 50   # max share of crypto capital at one exchange
+  us_equities: {}

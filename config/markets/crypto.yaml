@@ -1,0 +1,19 @@
+# Market profile: crypto spot. Milestone 1. Numbers are placeholders to calibrate.
+market: crypto
+calendar: 24x7
+currency: USD               # USD-quoted pairs; P&L converted to GBP at fx_conversion_bps
+universe:
+  source: exchanges         # listings from the venues below, delisted pairs kept
+  include_delisted: true
+data:
+  history: [kraken_rest, coinbase_rest]
+  realtime: [kraken_ws, coinbase_ws]
+costs:
+  commission: exchange_taker  # per-venue fee schedule, calibrated in milestone 1
+  spread_model: quoted
+  slippage_bps: 5
+  fx_conversion_bps: 3      # GBP to USD
+funding_rates: false        # spot only in v1 (no leverage, no perpetuals)
+broker:
+  paper: simulator
+  live: [kraken, coinbase]  # inactive while live_trading is false
