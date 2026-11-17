@@ -163,7 +163,22 @@ class MarketWorker:
             self._record_venue(item)
         return out
 
+    def warm_up(self, bars: list[BarRow]) -> int:
+        """Load closed history for the strategy's lookback without deciding on it."""
+        added = 0
+        for bar in sorted(bars, key=lambda b: b["open_time_ns"]):
+            if self._bars and bar["open_time_ns"] <= self._bars[-1]["open_time_ns"]:
+                continue
+            self._bars.append(bar)
+            self._last_price = Decimal(str(bar["close"]))
+            added += 1
+        return added
+
     async def on_bar(self, bar: BarRow) -> Outcome:
+        if self._bars and bar["open_time_ns"] <= self._bars[-1]["open_time_ns"]:
+            outcome = self._skip(bar, "bar already seen")  # replays never decide twice
+            self.outcomes.append(outcome)
+            return outcome
         self._bars.append(bar)
         self._last_price = Decimal(str(bar["close"]))
         outcome = await self._decide(bar)

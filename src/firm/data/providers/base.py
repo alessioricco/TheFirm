@@ -53,6 +53,16 @@ class BarRow(TypedDict):
     volume: float
 
 
+class RulesRow(TypedDict):
+    """A venue's trading rules for one instrument, as published (strings, exact)."""
+
+    tick_size: str  # price increment
+    lot_size: str  # quantity increment
+    min_quantity: str
+    min_notional: str  # in the quote currency
+    tradable: bool
+
+
 class TradeRow(TypedDict):
     time_ns: int
     trade_id: str
@@ -160,3 +170,11 @@ class Provider(ABC):
 
     def parse_trades(self, payload: bytes, *, captured_at: datetime) -> list[TradeRow]:
         raise ProviderError(f"{self.name} has no trades")
+
+    # --- instrument rules (optional): tick, lot, minimums, as the venue publishes them
+
+    def rules_url(self, symbol: str) -> str:
+        raise ProviderError(f"{self.name} publishes no instrument rules")
+
+    def parse_rules(self, payload: bytes, symbol: str) -> RulesRow:
+        raise ProviderError(f"{self.name} publishes no instrument rules")

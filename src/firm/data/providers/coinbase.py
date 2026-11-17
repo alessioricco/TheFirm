@@ -6,6 +6,9 @@
 - Trades `/products/BTC-USD/trades[?after=<id>]`:
   `[{"time":iso,"trade_id":n,"price":"p","size":"s","side":"buy|sell"}, ...]`;
   `side` is the MAKER's side, so the taker's is the opposite.
+- Rules `/products/BTC-USD`: `{"id":"BTC-USD","quote_increment":"0.01",
+  "base_increment":"0.00000001","min_market_funds":"1","status":"online",
+  "trading_disabled":false,...}` (no separate minimum size: one increment).
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from firm.data.providers.base import (
     Provider,
     ProviderError,
     Request,
+    RulesRow,
     TradeRow,
     check_bar,
     closed_only,
@@ -110,6 +114,21 @@ class Coinbase(Provider):
         ]
         out.sort(key=lambda t: (t["time_ns"], t["trade_id"]))
         return known_trades(out, captured_at)
+
+    def rules_url(self, symbol: str) -> str:
+        return f"{API}/products/{symbol}"
+
+    def parse_rules(self, payload: bytes, symbol: str) -> RulesRow:
+        p = json.loads(payload)
+        if p.get("id") != symbol:
+            raise ProviderError(f"coinbase: expected product {symbol}, got {p.get('message', p)}")
+        return RulesRow(
+            tick_size=str(p["quote_increment"]),
+            lot_size=str(p["base_increment"]),
+            min_quantity=str(p["base_increment"]),
+            min_notional=str(p["min_market_funds"]),
+            tradable=p.get("status") == "online" and not p.get("trading_disabled", False),
+        )
 
 
 PROVIDER = register(Coinbase())
