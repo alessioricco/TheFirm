@@ -1,8 +1,8 @@
 """The VenueAdapter conformance suite (SPEC "Integration layer").
 
-Tests marked `xfail(strict=True)` describe behaviour the paper simulator
-gains in milestone 2. Strict means an unexpected pass fails the run, so the
-marker must be removed the moment the behaviour exists.
+Every adapter must pass all of it before it can be enabled. Tests use only
+the adapter interface (no simulator internals), so real venues' adapters
+run the same tests against their sandboxes, with synthetic fixtures here.
 """
 
 from __future__ import annotations
@@ -13,21 +13,17 @@ from decimal import Decimal
 import pytest
 
 from factories import order_intent
-from firm.core.domain import OrderStatus, OrderType
+from firm.core.domain import ORDER_TRANSITIONS, OrderStatus, OrderType, Side
 from firm.execution.adapter import LiveTradingRefused, VenueAdapter, VenueMode
-
-M2 = pytest.mark.xfail(
-    reason="paper simulator not built yet (milestone 2)",
-    raises=NotImplementedError,
-    strict=True,
-)
 
 
 def run(coro):  # small helper; no pytest-asyncio dependency
     return asyncio.run(coro)
 
 
-# --- passes now
+def intent(**kw):
+    kw.setdefault("venue", "simulator")
+    return order_intent(**kw)
 
 
 def test_refuses_live_mode_while_live_trading_false(adapter_class: type[VenueAdapter]) -> None:
@@ -37,69 +33,74 @@ def test_refuses_live_mode_while_live_trading_false(adapter_class: type[VenueAda
 
 def test_declares_capabilities(adapter: VenueAdapter) -> None:
     caps = adapter.capabilities()
-    assert caps.order_types, "an adapter must declare at least one order type"
-    assert caps.time_in_force
-    assert adapter.mode in caps.modes
-    assert caps.rate_limit.max_requests > 0
+    assert caps.order_types and caps.time_in_force
+    assert adapter.mode in caps.modes and caps.rate_limit.max_requests > 0
 
 
 def test_mode_is_never_live_in_v1(adapter: VenueAdapter) -> None:
     assert adapter.mode is not VenueMode.LIVE
 
 
-# --- milestone 2
-
-
-@M2
 def test_submit_is_idempotent_on_client_order_id(adapter: VenueAdapter) -> None:
-    intent = order_intent()
-    first = run(adapter.submit(intent))
-    second = run(adapter.submit(intent))
-    assert first.client_order_id == second.client_order_id
-    assert len([o for o in run(adapter.open_orders()) if o.client_order_id == "c-1"]) <= 1
+    order = intent(order_type=OrderType.LIMIT, limit_price=Decimal(40_000))
+    first, second = run(adapter.submit(order)), run(adapter.submit(order))
+    assert first == second
+    assert [o.client_order_id for o in run(adapter.open_orders())].count("c-1") == 1
 
 
-@M2
-def test_lifecycle_reports_every_state(adapter: VenueAdapter) -> None:
-    update = run(adapter.submit(order_intent()))
-    assert update.status in set(OrderStatus)
+def test_reusing_a_client_order_id_for_another_order_is_refused(adapter: VenueAdapter) -> None:
+    run(adapter.submit(intent(order_type=OrderType.LIMIT, limit_price=Decimal(40_000))))
+    with pytest.raises(ValueError):
+        run(adapter.submit(intent(order_type=OrderType.LIMIT, limit_price=Decimal(39_000))))
 
 
-@M2
-def test_cancel_open_limit_order(adapter: VenueAdapter) -> None:
-    intent = order_intent(order_type=OrderType.LIMIT, limit_price=Decimal("1"))
-    run(adapter.submit(intent))
-    assert run(adapter.cancel(intent.client_order_id)).status is OrderStatus.CANCELLED
+def test_cancel_open_limit_order_and_lifecycle_is_legal(adapter: VenueAdapter) -> None:
+    order = intent(order_type=OrderType.LIMIT, limit_price=Decimal(40_000))
+    accepted = run(adapter.submit(order))
+    cancelled = run(adapter.cancel(order.client_order_id))
+    assert accepted.status is OrderStatus.ACCEPTED and cancelled.status is OrderStatus.CANCELLED
+    assert cancelled.status in ORDER_TRANSITIONS[accepted.status]
+    assert run(adapter.cancel(order.client_order_id)).status is OrderStatus.CANCELLED
 
 
-@M2
-def test_rejects_order_breaking_instrument_rules(adapter: VenueAdapter) -> None:
-    rules = run(adapter.instrument_rules("BTC-USD"))
-    tiny = order_intent(quantity=rules.min_quantity / 10)
-    assert run(adapter.submit(tiny)).status is OrderStatus.REJECTED
+@pytest.mark.parametrize(
+    "kw",
+    [
+        dict(quantity=Decimal("0.00001")),  # below the minimum quantity
+        dict(quantity=Decimal("0.00015")),  # not a lot multiple
+        dict(order_type=OrderType.LIMIT, limit_price=Decimal("40000.05")),  # off tick
+        dict(instrument="NOT-LISTED"),
+    ],
+)
+def test_rejects_orders_breaking_instrument_rules(adapter: VenueAdapter, kw) -> None:
+    assert run(adapter.submit(intent(**kw))).status is OrderStatus.REJECTED
 
 
-@M2
 def test_rejects_unsupported_order_type(adapter: VenueAdapter) -> None:
     missing = set(OrderType) - adapter.capabilities().order_types
     if not missing:
         pytest.skip("adapter supports every order type")
-    run(adapter.submit(order_intent(order_type=missing.pop())))
+    kind = missing.pop()
+    kw = {"limit_price": Decimal(40_000)} if "limit" in kind else {}
+    kw |= {"stop_price": Decimal(30_000)} if "stop" in kind else {}
+    assert run(adapter.submit(intent(order_type=kind, **kw))).status is OrderStatus.REJECTED
 
 
-@M2
 def test_venue_side_stop_rests_at_venue(adapter: VenueAdapter) -> None:
-    intent = order_intent(order_type=OrderType.STOP, stop_price=Decimal("1"))
-    run(adapter.submit(intent))
-    assert any(o.client_order_id == intent.client_order_id for o in run(adapter.open_orders()))
+    order = intent(side=Side.SELL, order_type=OrderType.STOP, stop_price=Decimal(30_000))
+    assert run(adapter.submit(order)).status is OrderStatus.ACCEPTED
+    assert any(o.client_order_id == order.client_order_id for o in run(adapter.open_orders()))
 
 
-@M2
 def test_reconcile_returns_positions_balances_open_orders(adapter: VenueAdapter) -> None:
+    run(adapter.submit(intent(order_type=OrderType.LIMIT, limit_price=Decimal(40_000))))
     snap = run(adapter.reconcile())
     assert snap.venue == adapter.capabilities().venue
+    assert [o.client_order_id for o in snap.open_orders] == ["c-1"]
+    assert snap.balances == run(adapter.balances())
+    assert snap.positions == run(adapter.positions())
 
 
-@M2
-def test_rate_limit_backs_off(adapter: VenueAdapter) -> None:
-    run(adapter.order_status("c-unknown"))
+def test_unknown_orders_are_a_lookup_error(adapter: VenueAdapter) -> None:
+    with pytest.raises(LookupError):
+        run(adapter.order_status("never-submitted"))

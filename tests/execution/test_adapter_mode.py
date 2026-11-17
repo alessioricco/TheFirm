@@ -20,6 +20,9 @@ def test_adapter_construction_refuses_live() -> None:
 
 
 def test_simulator_supports_only_paper() -> None:
-    assert PaperSimulator(VenueMode.PAPER, live_trading=False).mode is VenueMode.PAPER
+    from conformance_helpers import paper_config
+
+    sim = PaperSimulator(VenueMode.PAPER, live_trading=False, config=paper_config())
+    assert sim.mode is VenueMode.PAPER
     with pytest.raises(ValueError, match="does not support"):
-        PaperSimulator(VenueMode.SANDBOX, live_trading=False)
+        PaperSimulator(VenueMode.SANDBOX, live_trading=False, config=paper_config())

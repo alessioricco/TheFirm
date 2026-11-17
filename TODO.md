@@ -109,9 +109,14 @@ One PR per phase, test-first:
       one-off import of existing state; firm rule 6 test real.
 - [x] (2026-11-17) **B. Risk desk**: approve/shrink/reject `OrderProposal`s against
       `config/risk/` limits; kill switches per market and global; heartbeat.
-- [ ] **C. Paper simulator**: fills against market data with venue fees,
+- [x] (2026-11-17) **C. Paper simulator**: fills against market data with venue fees,
       spread, slippage, partial fills, lifecycle, resting stops,
       reconciliation; conformance suite xfails become passes.
+- [ ] Simulator follow-ups: real instrument rules (tick, lot, minimums)
+      from each venue's public API instead of passed-in rules; queue
+      position for resting limits isn't modelled (a limit fills as soon as
+      price trades through it, which is optimistic for passive orders);
+      calibrate participation and slippage from the trade journal (phase G).
 - [ ] **D. Live feeds**: streaming provider layer (Kraken, Coinbase, Binance
       WebSockets), reconnects, staleness, live data captured. Dependency
       `websockets` approved.
