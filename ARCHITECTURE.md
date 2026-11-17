@@ -160,6 +160,25 @@ Gotchas:
   ones); `Dataset.alignment(venue, instrument, tf)`;
   `Dataset.capped(hidden_from)` → `CappedDataset` raising
   `HiddenPeriodError` (the research view).
+- `streams/` (milestone 2): live data. `base.StreamProvider` (URL, subscribe
+  messages, `parse(message)` → `(symbol, TradeRow)` with the TAKER's side,
+  `parse_capture` for stored captures; no I/O) and a registry. Built in:
+  `kraken_ws` (v2 trade channel), `coinbase_ws` (`matches`; its side is the
+  maker's), `binance_ws` (aggTrade on data-stream.binance.vision; `m` true =
+  taker sold). `feed.Feed(provider, symbols, root=, sink=, on_trade=,
+  on_gap=, connect=, clock=, sleep=)` connects, resubscribes with backoff
+  (1, 2, 4 … 60 s), de-duplicates replayed trades by ID, writes one raw
+  capture per symbol every `flush_interval` (JSON lines `{received_at,
+  message}`, `via: websockets`), and emits `FEED_STATUS` events (connected /
+  disconnected / stale / fresh, on change only). `check()` reports staleness
+  (`stale_after_seconds` in the market profile). A refused subscription
+  (`StreamError`) stops the feed; garbage is logged, not fatal.
+  `bars.BarBuilder(tf, started_ns=)` makes closed bars from trades: emitted
+  only once their period is over, only if watched start to end (bars begun
+  before the stream joined or across a disconnect, via `mark_gap`, are
+  dropped and counted), late trades dropped, no invented bars.
+  `normalize_trades` reads stream captures like REST ones; the instrument
+  record needs the stream's symbol (`provider_symbols: {kraken_ws: BTC/USD}`).
 - `synthetic.py`: deterministic synthetic bars and trades in provider
   formats; `seed_store` / `seed_trades` write an instrument + overlapping
   captures. Tests use only this.
@@ -255,7 +274,9 @@ To add a venue: implement `VenueAdapter`, register a factory in
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
   --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across
   venues and kinds; legacy `--provider/--symbol/--tf` still accepted);
-  `firm state show [--json]` (read-only); `firm verify --strategy PATH:CLASS
+  `firm state show [--json]` (read-only); `firm feed watch --provider P
+  --symbol S [--seconds N] [--no-store]` (a live stream for a while: prints
+  closed bars and status changes; needs network); `firm verify --strategy PATH:CLASS
   --dataset ds-... --venue --instrument --tf --market` (exit 0 pass, 1 fail,
   2 unverified, 3 error; report to `<state>/reports/<verdict>.json`).
 
