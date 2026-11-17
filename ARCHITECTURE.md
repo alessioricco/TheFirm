@@ -296,8 +296,9 @@ execution-side check.
   saw), and ticks each second (risk heartbeat, staleness, bars closed by
   time). An exception records `MARKET_STATUS` and stops this market only,
   with no final tick.
-- `portfolio.py`: `FxBook` (latest live price per pair → rate to GBP, unusable
-  after `max_age`), `MarketAccount`, `Portfolio.risk_state(now, accounts, fx)`
+- `portfolio.py`: `FxBook` (latest live price per pair; to GBP directly or
+  through one other currency, e.g. USDT → USD → GBP; any link older than
+  `max_age` means no rate), `MarketAccount`, `Portfolio.risk_state(now, accounts, fx)`
   → the `RiskState` risk reads (equity, peak, UTC day start, P&L per market vs
   its allocation; unallocated capital counts as GBP cash), or `None` when
   anything can't be valued. `starting_cash()` from the allocation.

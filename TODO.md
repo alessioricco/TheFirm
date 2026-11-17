@@ -185,6 +185,18 @@ Still to build:
 - [ ] Scheduling (later, with the market workers): periodic updates with
       staleness alerts (SPEC "feed staleness").
 
+## Verifier: trial Sharpes on one scale (found 2026-11-17, owner decision)
+
+- [ ] **The trial-count check mixes timeframes.** Trials record their Sharpe
+      per bar, and the deflated-Sharpe benchmark takes the variance across
+      all trials, so a daily trial's per-bar Sharpe sits next to an hourly
+      one's (not comparable). Proposed fix: record each trial's timeframe and
+      calendar, and scale every trial's Sharpe to the candidate's bar
+      frequency before taking the variance (older trials: timeframe from
+      their dataset). Checked by hand on the latest real verdict: the fix
+      changes the numbers but not the outcome. Verification change: test
+      first, owner approves before it lands.
+
 ## Data quality (found 2026-11-17)
 
 - [ ] Verify and paper-trade derived bars (e.g. 4h from 1h on Coinbase,

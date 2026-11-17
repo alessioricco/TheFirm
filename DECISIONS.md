@@ -774,3 +774,17 @@ notes).
 - Alternatives not taken now: refusing without quarantine (a series would
   be unusable until hand-fixed), and cross-venue checks (more data per
   window; listed in TODO.md as a second opinion).
+
+## 2026-11-17 — Binance as a paper venue; FX chained through USD
+
+- **Binance fees** `binance_spot_regular`: 10 bps maker and taker (regular
+  user, fees in the quote asset), assumed by the owner from third-party
+  guides because Binance's fee page renders with JavaScript; the owner will
+  confirm. Binance stays a lab venue: paper only (`not_permitted` for real
+  money in the UK profile).
+- **Instrument rules** from Binance's public `exchangeInfo` (PRICE_FILTER,
+  LOT_SIZE, NOTIONAL), formatted exactly (no float, no scientific notation).
+- **FX is a list of live pairs chained to GBP.** Binance prices BTC in USDT,
+  so `execution.fx` lists GBP/USD and USDT/USD (both Kraken's live streams);
+  `FxBook` converts directly or through one currency, and every link must be
+  fresh or there is no rate. USDT is never assumed to equal USD.
