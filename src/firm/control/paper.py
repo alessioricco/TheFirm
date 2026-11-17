@@ -39,7 +39,7 @@ from firm.data import providers
 from firm.data.dataset import capture_methods
 from firm.data.fetch import Fetcher, Transport, http_get
 from firm.data.providers.base import NS, BarRow
-from firm.data.reference import latest_instruments
+from firm.data.reference import InstrumentRecord, latest_instruments
 from firm.data.streams.feed import Feed
 from firm.execution.adapter import InstrumentRules, VenueMode
 from firm.execution.deploy import DeploymentRefused, verdict_for_deployment
@@ -120,6 +120,25 @@ class RestBars:
 
 
 # --------------------------------------------------------------------------- account
+
+
+def venue_rules(
+    venue: str, instrument: str, rest_symbol: str, rec: InstrumentRecord, transport: Transport
+) -> InstrumentRules:
+    """The instrument's trading rules as the venue publishes them now (one request)."""
+    provider = providers.get(venue)
+    published = provider.parse_rules(transport(provider.rules_url(rest_symbol)), rest_symbol)
+    if not published["tradable"]:
+        raise ValueError(f"{venue} says {rest_symbol} isn't trading now")
+    return InstrumentRules(
+        instrument=instrument,
+        base_currency=rec.base,
+        quote_currency=rec.quote,
+        tick_size=Decimal(published["tick_size"]),
+        lot_size=Decimal(published["lot_size"]),
+        min_quantity=Decimal(published["min_quantity"]),
+        min_notional=Decimal(published["min_notional"]),
+    )
 
 
 def paper_account(
@@ -249,22 +268,8 @@ class PaperRun:
                 f"no {stream_provider} symbol for {self.instrument}: pass "
                 "--stream-symbol (as the stream spells it)"
             )
-        published = providers.get(self.venue).parse_rules(
-            await asyncio.to_thread(
-                self.transport, providers.get(self.venue).rules_url(rest_symbol)
-            ),
-            rest_symbol,
-        )
-        if not published["tradable"]:
-            raise ValueError(f"{self.venue} says {rest_symbol} isn't trading now")
-        rules = InstrumentRules(
-            instrument=self.instrument,
-            base_currency=rec.base,
-            quote_currency=rec.quote,
-            tick_size=Decimal(published["tick_size"]),
-            lot_size=Decimal(published["lot_size"]),
-            min_quantity=Decimal(published["min_quantity"]),
-            min_notional=Decimal(published["min_notional"]),
+        rules = await asyncio.to_thread(
+            venue_rules, self.venue, self.instrument, rest_symbol, rec, self.transport
         )
 
         ledger = Ledger(ledger_path(self.state_root))
@@ -340,7 +345,7 @@ class PaperRun:
         portfolio = Portfolio(
             capital_gbp=cfg.risk.paper_capital_gbp, allocations_pct={self.market: allocation}
         )
-        buffer = Decimal(str(fees.taker_bps + mp.costs.spread_bps / 2 + mp.costs.slippage_bps))
+        buffer = sim.taker_buffer_bps()
         worker: MarketWorker
 
         async def risk_state(now: datetime):  # type: ignore[no-untyped-def]

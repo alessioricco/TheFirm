@@ -326,6 +326,18 @@ To add a venue: implement `VenueAdapter`, register a factory in
   `deploy/` (systemd user unit `firm-paper@<name>`, settings outside the repo
   in `~/.config/firm/paper-<name>.conf`, runbook `deploy/README.md`);
   `tests/control/test_deploy_unit.py` keeps the unit in step with the CLI.
+  `venue_rules` (shared with replay) fetches the venue's published rules.
+- `replay.py`: `firm paper replay`. Feeds a dataset's closed bars through
+  the same worker, risk desk and simulator as `paper run` (each bar: the
+  simulator sees it, filling the previous order at its open; then the worker
+  decides at its close, the backtest's timing) and compares with
+  `run_backtest` on the same bars (signals masked to flat before the first
+  decided bar, as the paper account starts flat): signal mismatches per bar,
+  backtest trades without a paper order (with the worker's or risk's
+  reason), extra paper orders, return and exposure. Default window: the
+  report's hidden period; FX: the paper account's opening rate. Events go to
+  a scratch ledger (`<state>/replays/...` or `--out`), never the firm's.
+  Exit 1 if the signals disagree (lookback too short, or not causal).
 
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
   --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across

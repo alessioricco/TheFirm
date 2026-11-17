@@ -359,6 +359,68 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         return EXIT_REFUSED
 
 
+def _cmd_paper_replay(args: argparse.Namespace) -> int:
+    """Replay a verified strategy's history through the paper path; compare with the backtest."""
+    import asyncio
+    import json
+    from decimal import Decimal
+    from pathlib import Path
+
+    from firm.control.replay import ReplayRun
+    from firm.data.store import data_root
+    from firm.execution.deploy import DeploymentRefused
+    from firm.verify.state import state_root
+
+    path, _, cls = args.strategy.rpartition(":")
+    state = state_root(args.state_root)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    out = Path(args.out) if args.out else state / "replays" / f"{args.verdict}-{stamp}"
+    run = ReplayRun(
+        config_root=Path(args.config),
+        jurisdiction=args.jurisdiction,
+        market=args.market,
+        venue=args.venue,
+        instrument=args.instrument,
+        tf=args.tf,
+        strategy_path=Path(path),
+        class_name=cls,
+        params=json.loads(args.params) if args.params else None,
+        verdict_id=args.verdict,
+        data_root=data_root(args.root),
+        state_root=state,
+        out=out,
+        lookback=args.lookback,
+        start=datetime.fromisoformat(args.start).replace(tzinfo=UTC) if args.start else None,
+        gbp_per_quote=Decimal(args.gbp_per_quote) if args.gbp_per_quote else None,
+    )
+    try:
+        result = asyncio.run(run.run())
+    except DeploymentRefused as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    s = result.summary()
+    q = result.quote
+    print(
+        f"replayed {s['bars_decided']} bars, {result.bars[0].close_time:%Y-%m-%d} to "
+        f"{result.bars[-1].close_time:%Y-%m-%d}; scratch ledger and summary in {out}"
+    )
+    print(f"  signals:   {s['signal_mismatches']} bars where paper and backtest disagree")
+    print(
+        f"  trades:    backtest {s['backtest_trades']}, paper orders {s['paper_orders']} "
+        f"({s['fills']} fills); {s['missed']} backtest trades without a paper order "
+        f"{s['missed_reasons'] or ''}; {s['extra_orders']} extra paper orders"
+    )
+    print(
+        f"  return:    paper {s['paper_return']:+.1%} (from {result.start_cash} {q}), "
+        f"backtest {s['backtest_return']:+.1%}"
+    )
+    print(
+        f"  exposure:  paper {s['paper_exposure']:.0%} on average, "
+        f"backtest {s['backtest_exposure']:.0%}"
+    )
+    return 0 if s["signal_mismatches"] == 0 else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="firm", description="The firm: paper trading, v1.")
     parser.add_argument("--version", action="version", version=f"firm {__version__}")
@@ -455,6 +517,28 @@ def build_parser() -> argparse.ArgumentParser:
     prun.add_argument("--root", help="data store")
     prun.add_argument("--state-root", help="state and ledger (default $FIRM_STATE_ROOT or ./state)")
     prun.set_defaults(func=_cmd_paper_run)
+
+    prep = paper.add_parser(
+        "replay",
+        help="run a verified strategy's history through the paper path, in minutes, "
+        "and compare with the backtest (exit 1 if their signals disagree)",
+    )
+    prep.add_argument("--strategy", required=True, help="PATH:CLASS (the verified file)")
+    prep.add_argument("--params", help="JSON overrides; must equal the verified parameters")
+    prep.add_argument("--verdict", required=True, help="verdict ID (v-...) of a passing report")
+    prep.add_argument("--market", required=True)
+    prep.add_argument("--venue", required=True)
+    prep.add_argument("--instrument", required=True)
+    prep.add_argument("--tf", required=True)
+    prep.add_argument("--lookback", type=int, default=200, help="bars of history (default 200)")
+    prep.add_argument("--start", help="first decided bar, YYYY-MM-DD (default: the hidden period)")
+    prep.add_argument("--gbp-per-quote", help="FX rate (default: the paper account's opening rate)")
+    prep.add_argument("--out", help="scratch folder (default <state>/replays/<verdict>-<time>)")
+    prep.add_argument("--jurisdiction", default="uk")
+    prep.add_argument("--config", default="config")
+    prep.add_argument("--root", help="data store")
+    prep.add_argument("--state-root", help="reports and the paper ledger (read only)")
+    prep.set_defaults(func=_cmd_paper_replay)
 
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
