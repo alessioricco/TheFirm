@@ -1,0 +1,28 @@
+# One `firm paper run`, supervised by the systemd user manager.
+# Installed by scripts/install_paper_service.sh, which fills in @REPO@ and @UV@;
+# see deploy/README.md. The instance name picks the run's settings file:
+# firm-paper@crypto -> ~/.config/firm/paper-crypto.conf (outside the repo).
+
+[Unit]
+Description=The firm: paper run %i
+Documentation=file://@REPO@/deploy/README.md
+# Retry forever on errors (a network outage at boot); refusals stop it below.
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=@REPO@
+EnvironmentFile=%h/.config/firm/paper-%i.conf
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@UV@ run --frozen firm paper run --strategy ${FIRM_STRATEGY} --verdict ${FIRM_VERDICT} --market ${FIRM_MARKET} --venue ${FIRM_VENUE} --instrument ${FIRM_INSTRUMENT} --tf ${FIRM_TF} $FIRM_PAPER_EXTRA
+Restart=on-failure
+RestartSec=60
+# 4 = the deployment gate refused (EXIT_REFUSED): retrying can't change that.
+RestartPreventExitStatus=4
+# SIGTERM sets the run's stop event: feeds close and "stopped" is recorded.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

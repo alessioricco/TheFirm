@@ -1,0 +1,20 @@
+# Settings for one paper run, read by deploy/systemd/firm-paper@.service.
+# The filled-in copy lives OUTSIDE the repo, mode 600:
+#   ~/.config/firm/paper-<name>.conf
+# It names a verdict and local paths: never commit it.
+
+# Stores on this machine (see deploy/README.md for what each must hold).
+FIRM_DATA_ROOT=/path/to/firm-data
+FIRM_STATE_ROOT=/path/to/firm-state
+
+# What to trade: exactly what the verifier passed.
+FIRM_STRATEGY=examples/strategies/ma_crossover.py:MovingAverageCrossover
+FIRM_VERDICT=v-REPLACE-WITH-THE-VERDICT-ID
+FIRM_MARKET=crypto
+FIRM_VENUE=coinbase
+FIRM_INSTRUMENT=BTC/USD
+FIRM_TF=1d
+
+# Optional extra flags, split on spaces (so JSON without spaces), e.g.
+# FIRM_PAPER_EXTRA=--lookback 300
+FIRM_PAPER_EXTRA=

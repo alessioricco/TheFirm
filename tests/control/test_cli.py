@@ -129,3 +129,23 @@ def test_build_dataset_across_venues_and_kinds(
 )
 def test_build_dataset_rejects_bad_specs(tmp_path, bad: list[str]) -> None:
     assert main(["data", "build-dataset", "--root", str(tmp_path), *bad]) == 3
+
+
+def test_paper_run_refusal_has_its_own_exit_code(tmp_path, capsys) -> None:
+    """A refused deployment exits 4, not the generic error 3: the systemd unit
+    restarts on errors (a network blip at boot) but never on a refusal."""
+    from firm.control.cli import EXIT_REFUSED
+
+    rc = main(
+        [
+            "paper", "run",
+            "--strategy", "examples/strategies/ma_crossover.py:MovingAverageCrossover",
+            "--verdict", "v-no-such-report",
+            "--market", "crypto", "--venue", "coinbase",
+            "--instrument", "BTC/USD", "--tf", "1d",
+            "--root", str(tmp_path / "data"),
+            "--state-root", str(tmp_path / "state"),
+        ]
+    )  # fmt: skip
+    assert rc == EXIT_REFUSED == 4
+    assert "refused" in capsys.readouterr().err

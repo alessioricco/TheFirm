@@ -788,3 +788,28 @@ notes).
   so `execution.fx` lists GBP/USD and USDT/USD (both Kraken's live streams);
   `FxBook` converts directly or through one currency, and every link must be
   fresh or there is no rate. USDT is never assumed to equal USD.
+
+## 2026-11-17 — The unattended paper run: systemd user unit, its own ledger
+
+Phase H runs `firm paper run` on the always-on Linux box under a systemd
+**user** unit (`deploy/systemd/firm-paper@.service`, installed by
+`scripts/install_paper_service.sh`; runbook `deploy/README.md`).
+
+- **User unit, not system unit:** no root needed to run or stop it, and
+  the stores live under the owner's home; `loginctl enable-linger` keeps it
+  running when logged out.
+- **Settings outside the repo:** the verdict ID and local paths go in
+  `~/.config/firm/paper-<name>.conf` (mode 600); the repo has only a
+  placeholder example. The unit template carries `@REPO@` and `@UV@`, filled
+  in at install, so no machine path is committed.
+- **Retry errors, never refusals:** `Restart=on-failure` every 60 s with no
+  start limit (a network outage at boot must not end the run), and
+  `RestartPreventExitStatus=4`: a deployment-gate refusal (`EXIT_REFUSED`,
+  new; a missing report now counts as one) can't change by retrying.
+- **No `--hours` in the unit:** each restart would reset the timer; the run
+  is stopped by hand.
+- **The box keeps its own ledger.** Its state root starts empty except for
+  the verifier report; the research ledger (trials, out-of-sample openings)
+  stays on the machine that runs research. Paper runs record no trials, so
+  the global trial count is unaffected. Two ledgers until the bus (phase F)
+  gives the firm one writer; merging them is an open item in TODO.md.
