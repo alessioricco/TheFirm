@@ -217,6 +217,20 @@ Desks emit through `firm.core.events.EventSink` (`NULL_SINK` by default); the
 composition root (`firm.control`) wires the ledger. Use deterministic event
 IDs for facts that can be emitted twice.
 
+## risk (milestone 2)
+
+- `desk.py`: `RiskDesk(profile, sink)`. `decide(verdict, proposal, state)`
+  → `RiskDecision` (see the module doc for the order of checks);
+  `halted(market)`, `command(owner_cmd)` (KILL / RESUME), `resume()`,
+  `heartbeat(now)`. `RiskState` (equity, peak, day-start equity, holdings,
+  market P&L and peaks, FX to GBP) and `Holding` are its inputs.
+- Limits come only from `RiskProfile` (frozen); the desk has no setter.
+
+Gotchas: everything is valued in GBP via `state.fx_to_gbp`; a missing rate
+rejects. Market drawdown is measured on that market's P&L below its peak,
+as a % of current equity. `firm.core.heartbeat.HeartbeatMonitor` is the
+execution-side check.
+
 ## execution
 
 - `adapter.py`: `VenueAdapter` ABC. Constructor runs the live-mode gate and

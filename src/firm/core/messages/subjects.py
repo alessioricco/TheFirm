@@ -90,6 +90,7 @@ class RiskHeartbeat(FirmModel):
 
 class OwnerCommandKind(StrEnum):
     KILL = "kill"
+    RESUME = "resume"  # the only way to release a kill switch
 
 
 class OwnerCommand(FirmModel):
