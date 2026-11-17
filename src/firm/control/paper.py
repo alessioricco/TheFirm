@@ -265,8 +265,10 @@ class PaperRun:
         stream_symbol = self.stream_symbol or rec.provider_symbols.get(stream_provider)
         if stream_symbol is None:
             raise ValueError(
-                f"no {stream_provider} symbol for {self.instrument}: pass "
-                "--stream-symbol (as the stream spells it)"
+                f"no {stream_provider} symbol for {self.instrument}: record it once with "
+                f"`firm data add-symbol --venue {self.venue} --instrument {self.instrument} "
+                f"--provider {stream_provider} --symbol <as the stream spells it>`, "
+                "or pass --stream-symbol"
             )
         rules = await asyncio.to_thread(
             venue_rules, self.venue, self.instrument, rest_symbol, rec, self.transport

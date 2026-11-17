@@ -149,3 +149,38 @@ def test_paper_run_refusal_has_its_own_exit_code(tmp_path, capsys) -> None:
     )  # fmt: skip
     assert rc == EXIT_REFUSED == 4
     assert "refused" in capsys.readouterr().err
+
+
+def test_add_symbol_records_a_stream_spelling(tmp_path, capsys) -> None:
+    """`firm data add-symbol` writes a new version of an existing instrument
+    record; the paper run then finds the stream symbol without a flag."""
+    from datetime import UTC, datetime
+
+    from firm.data.fetch import ensure_instrument
+    from firm.data.reference import latest_instruments
+
+    ensure_instrument(
+        tmp_path,
+        provider="coinbase",
+        symbol="BTC-USD",
+        venue="coinbase",
+        instrument="BTC-USD",
+        asset_class="crypto",
+        listed_at=datetime(2015, 1, 26, tzinfo=UTC),
+    )
+    base = ["data", "add-symbol", "--root", str(tmp_path), "--venue", "coinbase"]
+    ok = [*base, "--instrument", "BTC-USD", "--provider", "coinbase_ws", "--symbol", "BTC-USD"]
+    assert main(ok) == 0
+    rec = latest_instruments(tmp_path)[("coinbase", "BTC-USD")][1]
+    assert rec.provider_symbols == {"coinbase": "BTC-USD", "coinbase_ws": "BTC-USD"}
+    assert len(list((tmp_path / "reference").rglob("*.json"))) == 2  # old version kept
+    assert main(ok) == 0  # idempotent: nothing new written
+    assert len(list((tmp_path / "reference").rglob("*.json"))) == 2
+
+    other = [*base, "--instrument", "BTC-USD", "--provider", "coinbase_ws", "--symbol", "ETH-USD"]
+    assert main(other) == 3  # never silently remaps
+    unknown = [*base, "--instrument", "ETH-USD", "--provider", "coinbase_ws", "--symbol", "X"]
+    assert main(unknown) == 3  # only existing records
+    bad = [*base, "--instrument", "BTC-USD", "--provider", "nope_ws", "--symbol", "BTC-USD"]
+    assert main(bad) == 3  # only registered providers
+    assert "unknown" in capsys.readouterr().err
