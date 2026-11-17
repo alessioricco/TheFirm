@@ -42,7 +42,7 @@ from firm.data.providers.base import NS, BarRow
 from firm.data.reference import latest_instruments
 from firm.data.streams.feed import Feed
 from firm.execution.adapter import InstrumentRules, VenueMode
-from firm.execution.deploy import verdict_for_deployment
+from firm.execution.deploy import DeploymentRefused, verdict_for_deployment
 from firm.execution.portfolio import FxBook, Portfolio, starting_cash
 from firm.execution.runner import MarketRunner
 from firm.execution.simulator import PaperSimulator, SimConfig
@@ -218,7 +218,7 @@ class PaperRun:
     def _report(self) -> bytes:
         path = self.state_root / "reports" / f"{self.verdict_id}.json"
         if not path.is_file():
-            raise FileNotFoundError(f"no verifier report {path}")
+            raise DeploymentRefused(f"no verifier report {path}")
         return path.read_bytes()
 
     async def run(self) -> int:

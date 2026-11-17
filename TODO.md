@@ -135,8 +135,14 @@ One PR per phase, test-first:
 - [ ] Paper-run follow-ups: orders still open when the process stops are
       lost (the simulator is in memory; record them as cancelled on restart);
       the average entry price isn't rebuilt on restart (balances are);
-      a supervisor (systemd unit) for the 24/7 run on the Linux box;
-      `--hours` / Ctrl-C only, no remote stop until the control API.
+      a bar that closes while the run is down is skipped, not decided late;
+      no remote stop until the control API (`systemctl --user stop` meanwhile).
+- [x] (2026-11-17) Supervisor for the 24/7 run: systemd user unit
+      `firm-paper@<name>` + `scripts/install_paper_service.sh` + runbook
+      `deploy/README.md`; gate refusals exit 4 and aren't retried.
+- [ ] The Linux box's paper ledger and the research ledger are separate
+      (DECISIONS 2026-11-17); one writer comes with the bus (F). Decide then
+      whether to merge them or keep one ledger per machine.
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).

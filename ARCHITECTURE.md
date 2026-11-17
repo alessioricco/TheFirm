@@ -24,6 +24,7 @@ config/
   jurisdictions/uk.yaml                     (agents: no access)
   markets/crypto.yaml, markets/us_equities.yaml (agents: read)
   risk/default.yaml                         (agents: no access)
+deploy/              systemd unit + runbook for the unattended paper run
 examples/strategies/  ma_crossover.py (clean), lookahead_ma.py (planted lookahead)
 scripts/
   download_data.py                 owner-run: any registered provider -> raw captures
@@ -319,7 +320,12 @@ To add a venue: implement `VenueAdapter`, register a factory in
   every missed bar after downtime); trades and FX streams; `paper_account`
   + `balances_after` (opening balances recorded once as `MARKET_STATUS
   paper_account_opened`, rebuilt from fills on restart); everything into the
-  ledger, the interesting events to the terminal (`Tee`).
+  ledger, the interesting events to the terminal (`Tee`). A refusal by the
+  gate (or a missing report) exits 4 (`EXIT_REFUSED`), apart from errors (3),
+  so a supervisor retries errors but never a refusal. Unattended runs:
+  `deploy/` (systemd user unit `firm-paper@<name>`, settings outside the repo
+  in `~/.config/firm/paper-<name>.conf`, runbook `deploy/README.md`);
+  `tests/control/test_deploy_unit.py` keeps the unit in step with the CLI.
 
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
   --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across

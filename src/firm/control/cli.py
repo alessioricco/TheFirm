@@ -15,6 +15,7 @@ from pathlib import Path
 from firm import __version__
 
 EXIT_ERROR = 3
+EXIT_REFUSED = 4  # the deployment gate said no: a supervisor must not retry
 
 
 def _cmd_version(args: argparse.Namespace) -> int:
@@ -330,6 +331,7 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
 
     from firm.control.paper import PaperRun
     from firm.data.store import data_root
+    from firm.execution.deploy import DeploymentRefused
     from firm.verify.state import state_root
 
     path, _, cls = args.strategy.rpartition(":")
@@ -350,7 +352,11 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         seconds=args.hours * 3600 if args.hours else None,
         stream_symbol=args.stream_symbol,
     )
-    return asyncio.run(run.run())
+    try:
+        return asyncio.run(run.run())
+    except DeploymentRefused as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
 
 
 def build_parser() -> argparse.ArgumentParser:
