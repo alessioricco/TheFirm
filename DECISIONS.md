@@ -681,3 +681,43 @@ placeholders are gone); a token-bucket `RateLimiter` makes adapters back off.
   paper orders on a stale feed.
 - Reconnects back off 1, 2, 4 … 60 s; replayed trades are de-duplicated by
   trade ID; a refused subscription stops the feed instead of retrying.
+
+## 2026-11-17 — The market worker (milestone 2, phase E)
+
+- **One order path, checked in code and in tests.** The worker's only inputs
+  are market data, feed status and risk heartbeats; orders exist only as
+  `build_intent(proposal, risk_decision)`. Firm rule 1's invariant test scans
+  `src/firm` and fails if any `submit()` takes anything else; rule 2's checks
+  that every order the venue receives names the verdict and a risk decision
+  that approved exactly that proposal.
+- **Sizing is execution's, limits are risk's.** The worker sizes the
+  strategy's target exposure against its market's account (with a cost
+  buffer so buys stay affordable); risk shrinks it to the limits. Lots:
+  `build_intent(lot_size=)` rounds the approved quantity DOWN to the venue's
+  lot, never up.
+- **Decide at the close, fill after it.** A trade that closes a bar is
+  handed to the venue only after the worker decided on that bar, matching
+  the backtest (decide at close, fill at the next price). A test checks the
+  worker's targets equal the strategy's signals over the full series.
+- **Deterministic IDs** from (verdict, venue, instrument, bar close): a
+  replayed bar can't create a second order. Simulator fill IDs now derive
+  from the client order ID, so they stay unique across restarts (the ledger
+  is idempotent on event IDs, and `sim-1-1` would have collided).
+- **FX is a live market price** (`execution.fx` in each market profile:
+  Kraken's GBP/USD by default), never a typed-in number; a rate older than
+  `max_age_seconds` makes the portfolio unvaluable, and the worker orders
+  nothing (risk would reject what it can't value anyway).
+- **Capital per market** is `paper_allocation_pct` in the risk profile
+  (50/50, placeholders; the sum may not exceed 100%). Unallocated capital is
+  GBP cash in the equity.
+- **`RiskState` and `Holding` moved to `firm.core.risk_state`**: they are the
+  message execution sends risk, and desks may not import each other.
+- **Deployment gate**: a report reaches paper only if it hashes to its
+  verdict ID, passed, matches the strategy file's sha256 and the parameters,
+  the venue/instrument/timeframe, and every dataset row traces to an `api`
+  capture (`capture_methods`). Synthetic data can never promote a strategy.
+- **A crash halts one market**: the runner records `MARKET_STATUS` and
+  re-raises, with no final tick (nothing may be ordered after a failure).
+- Live composition (`firm paper run`: warm-up history, REST bars for daily
+  timeframes, real instrument rules, restart-safe paper account) is left for
+  phase H prep; listed in TODO.md.

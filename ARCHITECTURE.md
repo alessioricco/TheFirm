@@ -96,6 +96,8 @@ datasets/ds-<sha12>.json
 
 - `base.py`: `FirmModel` (frozen, `extra="forbid"`), constrained types `Id`,
   `Reason`, `Sha256`, `CurrencyCode`, `Probability`.
+- `risk_state.py`: `RiskState`, `Holding`: what execution tells risk when it
+  asks for a decision (in core so execution needn't import the risk desk).
 - `domain.py`: the SPEC components' interfaces: `StrategyCandidate`
   (+`StrategySpec`, `TrialRecord`), `ModelArtifact` (+`TrainingRecord`),
   `JudgeCall` (+questions/answers, labels checked), `OpportunityNote`,
@@ -265,6 +267,33 @@ execution-side check.
   Fill model in the module doc and DECISIONS.md.
 - `ratelimit.py`: `TokenBucket(policy)`: `await acquire()` backs off when the
   venue's rate limit is reached.
+- `worker.py`: `MarketWorker(deployment, strategy, adapter, risk, risk_state,
+  heartbeat, sink=, clock=)`. Inputs only: `on_bar(BarRow)` (decides),
+  `on_market(MarketTrade | MarketBar)` (feeds the paper venue, records fills),
+  `on_feed_status(stale)`, `on_heartbeat(beat)`; no method accepts an order.
+  Per closed bar: halts (stale feed, lost heartbeat, no risk state) → target
+  from `signals` over the last `lookback_bars` (NaN = flat) → size against
+  the market account's equity with a cost buffer, lot-rounded, skip under
+  the rebalance threshold, one working order at a time → `OrderProposal` →
+  `risk.decide` → `build_intent(..., lot_size=)` → `adapter.submit`; each step
+  a ledger event. IDs derive from (verdict, venue, instrument, bar close), so
+  a replayed bar resubmits the same client order ID. `Deployment` requires a
+  passing verdict for the same strategy.
+- `runner.py`: `MarketRunner` is one market's asyncio loop: `on_trade` (the
+  feed callback) queues; `run(stop)` updates FX on the FX pair, closes bars
+  BEFORE the closing trade reaches the venue (no fill on a trade the order
+  saw), and ticks each second (risk heartbeat, staleness, bars closed by
+  time). An exception records `MARKET_STATUS` and stops this market only,
+  with no final tick.
+- `portfolio.py`: `FxBook` (latest live price per pair → rate to GBP, unusable
+  after `max_age`), `MarketAccount`, `Portfolio.risk_state(now, accounts, fx)`
+  → the `RiskState` risk reads (equity, peak, UTC day start, P&L per market vs
+  its allocation; unallocated capital counts as GBP cash), or `None` when
+  anything can't be valued. `starting_cash()` from the allocation.
+- `deploy.py`: `verdict_for_deployment(report, code_sha256=, params=, venue=,
+  instrument=, tf=, capture_methods=)`: the report must hash to its verdict
+  ID, pass, match the code and params, the venue/instrument/tf, and rest only
+  on `api` captures (`firm.data.dataset.capture_methods`).
 
 To add a venue: implement `VenueAdapter`, register a factory in
 `tests/conformance/conftest.py::ADAPTERS`, pass the suite (`/add-venue-adapter`).

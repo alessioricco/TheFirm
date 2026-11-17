@@ -126,9 +126,19 @@ One PR per phase, test-first:
       instrument records before normalising live captures; order-book
       streams (spread from quotes instead of the profile's assumed
       `spread_bps`); US-share streams come with IBKR (milestone 6).
-- [ ] **E. Execution and market workers**: one asyncio worker per market;
+- [x] (2026-11-17) **E. Execution and market workers**: one asyncio worker per market;
       bars -> signal -> proposal -> risk -> `build_intent` -> simulator; halts
       on stale feed or lost risk heartbeat; firm rules 1 and 2 tests real.
+- [ ] **`firm paper run`** (composition root for phase H), still to wire:
+      warm-up history for the strategy's lookback (seed from a dataset
+      version, then backfill closed bars from the venue's REST history up to
+      now; a 1d strategy needs ~40 days of bars before its first decision);
+      bars built from trades only cover fully-watched periods, so daily bars
+      should come from the venue's closed REST bar at each close; real
+      instrument rules (tick, lot, minimums) for the venue; the paper
+      account must survive a restart (rebuild balances from the ledger's
+      fills, since the simulator keeps state in memory); ledger through
+      `LedgerWriter`.
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).

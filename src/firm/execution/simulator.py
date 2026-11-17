@@ -487,7 +487,7 @@ class PaperSimulator(VenueAdapter):
         o.fills += 1
         at = self._now or o.accepted_at
         fill = Fill(
-            fill_id=f"{o.venue_order_id}-{o.fills}",
+            fill_id=f"{i.client_order_id}-f{o.fills}",  # unique across restarts
             client_order_id=i.client_order_id,
             intent_id=i.intent_id,
             verdict_id=i.verdict_id,

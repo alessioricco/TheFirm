@@ -27,7 +27,8 @@ from firm.core.domain import (
 from firm.core.events import CollectingSink
 from firm.core.heartbeat import HeartbeatMonitor
 from firm.core.messages.subjects import HaltScope, OwnerCommand, OwnerCommandKind
-from firm.risk.desk import Holding, RiskDesk, RiskState
+from firm.core.risk_state import Holding, RiskState
+from firm.risk.desk import RiskDesk
 
 PROFILE = load_risk(Path(__file__).resolve().parents[2] / "config" / "risk" / "default.yaml")
 D = Decimal

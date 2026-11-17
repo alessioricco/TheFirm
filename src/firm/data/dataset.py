@@ -250,3 +250,35 @@ def open_dataset(root: Path, version: str, *, verify: bool = True) -> Dataset:
     if manifest.dataset_version != version:
         raise StoreError(f"{path}: manifest says {manifest.dataset_version}")
     return Dataset(root, manifest, verify=verify)
+
+
+def capture_methods(root: Path, version: str) -> dict[str, int]:
+    """How the rows of a dataset version were captured: {method: rows}.
+
+    Every normalised row names the capture it came from (`capture_sha8`); this
+    looks each one up in `raw/`. Methods: `api` (downloaded or streamed),
+    `synthetic`, `legacy_import`, and `unknown` for a capture no longer in the
+    store. Derived bars inherit from their native source files, which are in
+    the same dataset. A gate that needs real data accepts only `api`.
+    """
+    manifest = open_dataset(root, version).manifest
+    methods: dict[str, str] = {}
+    for meta_path in sorted((root / "raw").glob("**/*.meta.json")):
+        meta = json.loads(meta_path.read_text())
+        methods[meta["sha256"][:8]] = meta["capture_method"]
+    out: dict[str, int] = {}
+    con = duckdb.connect()
+    try:
+        for f in manifest.files:
+            if f.derived_from is not None:
+                continue
+            rows = con.execute(
+                "SELECT capture_sha8, count(*) FROM read_parquet($p) GROUP BY 1",
+                {"p": str(root / f.path)},
+            ).fetchall()
+            for sha8, n in rows:
+                m = methods.get(sha8, "unknown")
+                out[m] = out.get(m, 0) + int(n)
+    finally:
+        con.close()
+    return dict(sorted(out.items()))

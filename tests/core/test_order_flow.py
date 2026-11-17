@@ -68,3 +68,26 @@ def test_decision_for_other_proposal_refused() -> None:
 def test_decision_for_other_verdict_refused() -> None:
     with pytest.raises(IntentRefused, match="different verdict"):
         _build(order_proposal(), risk_decision(verdict_id="v-other"))
+
+
+def test_lot_size_rounds_the_approved_quantity_down_never_up() -> None:
+    d = risk_decision(action=RiskAction.RESIZE, approved_quantity=Decimal("0.00456789"))
+    intent = build_intent(
+        order_proposal(),
+        d,
+        intent_id="i-1",
+        client_order_id="c-1",
+        created_at=T0,
+        lot_size=Decimal("0.0001"),
+    )
+    assert intent.quantity == Decimal("0.0045")
+    tiny = risk_decision(action=RiskAction.RESIZE, approved_quantity=Decimal("0.00005"))
+    with pytest.raises(IntentRefused, match="lot"):
+        build_intent(
+            order_proposal(),
+            tiny,
+            intent_id="i-1",
+            client_order_id="c-1",
+            created_at=T0,
+            lot_size=Decimal("0.0001"),
+        )
