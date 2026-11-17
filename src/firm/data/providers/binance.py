@@ -10,6 +10,10 @@ here; trading there is not permitted by the UK jurisdiction profile.
 - Aggregate trades `/api/v3/aggTrades?symbol=BTCUSDT&limit=1000[&fromId=<id>]`:
   `[{"a":id,"p":"price","q":"qty","f":first,"l":last,"T":ms,"m":isBuyerMaker,"M":bool},...]`;
   `m` true means the buyer was the maker, so the taker SOLD.
+- Rules `/api/v3/exchangeInfo?symbol=BTCUSDT`: `{"symbols":[{"symbol":"BTCUSDT",
+  "status":"TRADING","filters":[{"filterType":"PRICE_FILTER","tickSize":"0.01"},
+  {"filterType":"LOT_SIZE","minQty":"0.00001","stepSize":"0.00001"},
+  {"filterType":"NOTIONAL","minNotional":"5"},...]}]}`.
 - Errors: `{"code":-1121,"msg":"Invalid symbol."}`.
 """
 
@@ -17,6 +21,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urlencode
 
@@ -29,6 +34,7 @@ from firm.data.providers.base import (
     Provider,
     ProviderError,
     Request,
+    RulesRow,
     TradeRow,
     check_bar,
     closed_only,
@@ -53,6 +59,11 @@ def _list(payload: bytes) -> list[Any]:
 
 def _ms(ts: datetime) -> int:
     return int(pd.Timestamp(ts).value // 1_000_000)
+
+
+def _exact(value: object) -> str:
+    """'0.01000000' -> '0.01', '100' -> '100' (exact; never scientific notation)."""
+    return format(Decimal(str(value)).normalize(), "f")
 
 
 class Binance(Provider):
@@ -132,6 +143,26 @@ class Binance(Provider):
         ]
         out.sort(key=lambda t: (t["time_ns"], t["trade_id"]))
         return known_trades(out, captured_at)
+
+    def rules_url(self, symbol: str) -> str:
+        return f"{API}/exchangeInfo?{urlencode({'symbol': symbol})}"
+
+    def parse_rules(self, payload: bytes, symbol: str) -> RulesRow:
+        doc = json.loads(payload)
+        if "code" in doc and "msg" in doc:
+            raise ProviderError(f"binance error {doc['code']}: {doc['msg']}")
+        hits = [x for x in doc.get("symbols", []) if x.get("symbol") == symbol]
+        if len(hits) != 1:
+            raise ProviderError(f"binance: no rules for {symbol}")
+        filters = {f["filterType"]: f for f in hits[0]["filters"]}
+        notional = filters.get("NOTIONAL") or filters.get("MIN_NOTIONAL") or {}
+        return RulesRow(
+            tick_size=_exact(filters["PRICE_FILTER"]["tickSize"]),
+            lot_size=_exact(filters["LOT_SIZE"]["stepSize"]),
+            min_quantity=_exact(filters["LOT_SIZE"]["minQty"]),
+            min_notional=_exact(notional.get("minNotional", "0")),
+            tradable=hits[0].get("status") == "TRADING",
+        )
 
 
 PROVIDER = register(Binance())

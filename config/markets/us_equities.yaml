@@ -20,12 +20,9 @@ execution:
   participation: 0.1        # paper fills take at most 10% of each trade/bar's volume (placeholder)
   rebalance_threshold_pct: 2  # ignore exposure changes under 2% of the market's equity
   heartbeat_timeout_seconds: 10  # no risk heartbeat for this long: no new orders
-  fx:                       # USD -> GBP from a live market price, never a typed-in rate
-    provider: kraken_ws
-    symbol: GBP/USD
-    base: GBP
-    quote: USD
-    max_age_seconds: 3600   # older rates are unusable: risk rejects buys it can't value
+  fx:                       # to GBP from live market prices, never typed-in rates
+    - {provider: kraken_ws, symbol: GBP/USD, base: GBP, quote: USD, max_age_seconds: 3600}
+    # older rates are unusable: risk rejects buys it can't value
 broker:
   paper: simulator
   live: ibkr                # inactive while live_trading is false

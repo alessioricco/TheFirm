@@ -1,0 +1,14 @@
+# Binance spot, regular user (VIP 0), fees paid in the quote asset (no BNB discount).
+# Bar backtests assume every fill is a taker fill.
+fee_schedule: binance_spot_regular
+venue: binance
+tier: VIP0
+maker_bps: 10
+taker_bps: 10
+source: https://www.binance.com/en/fee/schedule
+as_of: 2026-11-17
+note: >-
+  Assumed by the owner on 2026-11-17 from third-party guides, which agree on
+  0.1% maker and taker for regular users; Binance's own fee page renders its
+  table with JavaScript and could not be read automatically. The owner will
+  confirm it against the official page.

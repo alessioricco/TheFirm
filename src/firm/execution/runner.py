@@ -54,7 +54,7 @@ class MarketRunner:
     builder: BarBuilder | None
     symbol: str  # the instrument as the stream spells it
     fx: FxBook
-    fx_pair: FxPair
+    fx_pair: FxPair | None  # an FX pair on the same stream, if any
     risk_heartbeat: Callable[[datetime], RiskHeartbeat]
     stale: Callable[[datetime], dict[str, bool]]  # the feed's check()
     bar_source: Callable[[datetime], Awaitable[list[BarRow]]] | None = None
@@ -73,7 +73,7 @@ class MarketRunner:
     async def handle(self, symbol: str, trade: TradeRow) -> None:
         price = Decimal(str(trade["price"]))
         at = datetime.fromtimestamp(trade["time_ns"] / NS, tz=UTC)
-        if symbol == self.fx_pair.symbol:
+        if self.fx_pair is not None and symbol == self.fx_pair.symbol:
             self.fx.update(self.fx_pair.base, self.fx_pair.quote, price, at)
             return
         if symbol != self.symbol:

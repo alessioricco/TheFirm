@@ -158,7 +158,7 @@ class ExecutionConfig(FirmModel):
     participation: Annotated[Decimal, Field(gt=0, le=1)]  # paper fills: share of event volume
     rebalance_threshold_pct: Annotated[Decimal, Field(ge=0, le=100)]  # skip smaller changes
     heartbeat_timeout_seconds: int = Field(gt=0)  # no risk heartbeat this long: stop ordering
-    fx: FxConfig
+    fx: tuple[FxConfig, ...] = Field(min_length=1)  # pairs chained to GBP (e.g. USDT/USD, GBP/USD)
 
 
 class BrokerConfig(FirmModel):

@@ -288,7 +288,7 @@ def test_fee_schedule_needs_source_and_date(tmp_path: Path) -> None:
 def test_unknown_venue_has_no_fee_schedule() -> None:
     m = load_config(REPO_CONFIG, "uk", ["crypto"]).markets["crypto"]
     with pytest.raises(ValueError, match="no fee schedule"):
-        m.costs.fee_schedule_for("binance")
+        m.costs.fee_schedule_for("bitstamp")  # not configured
 
 
 def test_every_live_venue_needs_a_fee_schedule(tmp_path: Path) -> None:
