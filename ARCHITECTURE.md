@@ -240,8 +240,12 @@ execution-side check.
   `capabilities()`. Supporting types: `VenueMode`, `VenueCapabilities`,
   `RateLimitPolicy`, `InstrumentRules`, `Position`, `Balance`,
   `ReconciliationSnapshot`, `LiveTradingRefused`.
-- `simulator.py`: `PaperSimulator`, paper mode only; trading methods raise
-  `NotImplementedError` until M2.
+- `simulator.py`: `PaperSimulator(mode, live_trading=, config=SimConfig)`,
+  paper mode only. `on_market(MarketTrade | MarketBar)` drives fills and
+  returns the updates/fills it caused; `fills()`, `history(client_order_id)`.
+  Fill model in the module doc and DECISIONS.md.
+- `ratelimit.py`: `TokenBucket(policy)`: `await acquire()` backs off when the
+  venue's rate limit is reached.
 
 To add a venue: implement `VenueAdapter`, register a factory in
 `tests/conformance/conftest.py::ADAPTERS`, pass the suite (`/add-venue-adapter`).

@@ -619,3 +619,37 @@ Kill switches are released only by an owner `RESUME` command
 (`OwnerCommandKind.RESUME` added). `OrderProposal` gained `reference_price`
 and `quote_currency` so risk can value an order. `firm.core.heartbeat`
 provides the monitor execution will use to halt when risk goes quiet.
+
+## 2026-11-17 — The paper simulator's fill model (milestone 2, phase C)
+
+The first `VenueAdapter`; paper mode only, configured by `SimConfig` (the
+venue's fee schedule, the market profile's spread and slippage, a
+participation share, instrument rules, starting balances). Rules:
+
+- Fills only on market data that arrives **after** the order (later
+  trades; bars opening at or after it): no same-instant fills.
+- Market orders and triggered stops take the next trade price or bar open,
+  moved against us by half the spread plus slippage, rounded to the tick
+  against us; **on bars** the price is clipped to the bar's range. Taker fee.
+- Resting limits fill at their limit when the market trades through it
+  (maker fee); stop-limits become limits once triggered. A gap through a
+  stop fills at the gap price, never the better stop price.
+- Each event's volume × participation (10%) is shared across our orders in
+  submission order: large orders fill partially over several events.
+- IOC / FOK / DAY (expires at 00:00 UTC) as their names say.
+- Rejected before anything else: wrong venue, unknown or untradable
+  instrument, below minimum quantity or value, off lot or tick,
+  insufficient funds. Cash for open buys and coins for open sells are
+  reserved. If prices move so a fill would overdraw, the fill shrinks or
+  the remainder is cancelled.
+- Every fill carries its order's verdict and risk decision IDs (the M2 exit
+  check's traceability). Same events, same fills.
+
+A bug caught by the tests: the price clip was applied to single trades
+too, whose "range" is one price, so it silently removed spread and slippage
+from every trade-based fill. Clipping now applies to bars only.
+
+Known optimism, to calibrate with the trade journal: queue position for
+resting limits isn't modelled, and the participation share and slippage are
+assumptions. The conformance suite is now all real tests (its 7 milestone-2
+placeholders are gone); a token-bucket `RateLimiter` makes adapters back off.
