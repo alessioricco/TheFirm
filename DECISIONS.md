@@ -653,3 +653,31 @@ Known optimism, to calibrate with the trade journal: queue position for
 resting limits isn't modelled, and the participation share and slippage are
 assumptions. The conformance suite is now all real tests (its 7 milestone-2
 placeholders are gone); a token-bucket `RateLimiter` makes adapters back off.
+
+## 2026-11-17 — Live feeds (milestone 2, phase D)
+
+- **Direct WebSockets, one module per venue**, like the REST providers: the
+  store keeps each venue's own bytes, and a parser per format is small.
+  `websockets` is the only new dependency (approved).
+- **Live data is stored as raw captures** (JSON lines of `{received_at,
+  message}`), flushed every minute per symbol, so the bars the firm trades
+  on can be rebuilt and backtested later through the same normaliser and
+  dataset versions as downloads. A capture holds only trades known by its
+  capture time.
+- **Trades are the primitive; bars are built from them** on the canonical
+  grid and emitted only after their period ends. Venue OHLC channels are
+  not used: one source of truth, and the same closed-bar rule as the store.
+- **Only bars watched from start to end count.** The first live run showed
+  why: joining mid-minute gave a first bar with a fraction of the minute's
+  volume (Kraken's subscription snapshot adds older trades too). Bars begun
+  before the stream joined, or interrupted by a disconnect, are dropped and
+  counted, never passed off as complete; filling them from REST history is
+  a TODO.
+- **Taker side normalised per venue**: Coinbase's `side` is the maker's,
+  Binance's `m` says whether the buyer was the maker.
+- **Staleness is configuration** (`data.stale_after_seconds` in each market
+  profile: 60 s crypto, 120 s US shares, placeholders) and is reported as
+  `FEED_STATUS` events on change; the market worker (phase E) blocks new
+  paper orders on a stale feed.
+- Reconnects back off 1, 2, 4 … 60 s; replayed trades are de-duplicated by
+  trade ID; a refused subscription stops the feed instead of retrying.

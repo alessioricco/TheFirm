@@ -242,6 +242,75 @@ def _cmd_ledger_import(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_feed_watch(args: argparse.Namespace) -> int:
+    """Run one live stream for a while: print closed 1m bars and feed status changes."""
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    from firm.data.store import data_root
+    from firm.data.streams.bars import BarBuilder
+    from firm.data.streams.feed import Feed
+
+    started = int(datetime.now(UTC).timestamp() * 1e9)
+    builders = {s: BarBuilder(args.tf, started_ns=started) for s in args.symbol}
+
+    def on_gap(at: datetime) -> None:
+        for b in builders.values():
+            b.mark_gap(int(at.timestamp() * 1e9))
+
+    def bar_line(symbol: str, bar) -> None:  # type: ignore[no-untyped-def]
+        t = datetime.fromtimestamp(bar["open_time_ns"] / 1e9, tz=UTC)
+        print(
+            f"{symbol:<10} {t:%H:%M} O {bar['open']} H {bar['high']} L {bar['low']} "
+            f"C {bar['close']} V {bar['volume']:.6g}"
+        )
+
+    def on_trade(symbol: str, trade) -> None:  # type: ignore[no-untyped-def]
+        for bar in builders[symbol].add(trade):
+            bar_line(symbol, bar)
+
+    class Printer:
+        def emit(self, event_type, reason, payload, event_id=None):  # type: ignore[no-untyped-def]
+            print(f"[{event_type.value}] {reason}")
+
+    feed = Feed(
+        args.provider,
+        args.symbol,
+        root=None if args.no_store else data_root(args.root),
+        sink=Printer(),
+        on_trade=on_trade,
+        on_gap=on_gap,
+        stale_after=timedelta(seconds=args.stale_after),
+    )
+
+    async def go() -> None:
+        stop = asyncio.Event()
+        task = asyncio.create_task(feed.run(stop))
+        end = asyncio.get_running_loop().time() + args.seconds
+        while asyncio.get_running_loop().time() < end and not task.done():
+            await asyncio.sleep(1)
+            feed.check()
+            now_ns = int(datetime.now(UTC).timestamp() * 1e9)
+            for symbol, b in builders.items():
+                for bar in b.close_due(now_ns):
+                    bar_line(symbol, bar)
+        stop.set()
+        try:
+            await asyncio.wait_for(task, timeout=10)
+        except TimeoutError:
+            task.cancel()
+            feed.flush()
+
+    asyncio.run(go())
+    stored = "not stored" if args.no_store else "stored as raw captures"
+    partial = sum(b.incomplete for b in builders.values())
+    print(
+        f"{feed.trades} trades over {feed.connections} connection(s); {stored}; "
+        f"{partial} partly-watched bar(s) dropped"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="firm", description="The firm: paper trading, v1.")
     parser.add_argument("--version", action="version", version=f"firm {__version__}")
@@ -302,6 +371,22 @@ def build_parser() -> argparse.ArgumentParser:
             cmd.add_argument("--tail", type=int, default=20)
         cmd.set_defaults(func=func)
 
+    feed = sub.add_parser("feed", help="live market data streams").add_subparsers(dest="feed_cmd")
+    watch = feed.add_parser("watch", help="run a live stream for a while (needs network)")
+    watch.add_argument("--provider", required=True, help="kraken_ws | coinbase_ws | binance_ws")
+    watch.add_argument(
+        "--symbol",
+        action="append",
+        required=True,
+        help="as the stream spells it (BTC/USD, BTC-USD, BTCUSDT); repeat",
+    )
+    watch.add_argument("--seconds", type=int, default=120)
+    watch.add_argument("--tf", default="1m", help="bars to print (default 1m)")
+    watch.add_argument("--stale-after", type=int, default=60, help="seconds without a trade")
+    watch.add_argument("--root", help="data store (default $FIRM_DATA_ROOT or ./data)")
+    watch.add_argument("--no-store", action="store_true", help="don't write captures")
+    watch.set_defaults(func=_cmd_feed_watch)
+
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
     ver.add_argument("--params", help="JSON object overriding default_params")
@@ -325,7 +410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state", "ledger"):
+        if args.command in ("data", "state", "ledger", "feed"):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0

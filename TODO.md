@@ -117,9 +117,15 @@ One PR per phase, test-first:
       position for resting limits isn't modelled (a limit fills as soon as
       price trades through it, which is optimistic for passive orders);
       calibrate participation and slippage from the trade journal (phase G).
-- [ ] **D. Live feeds**: streaming provider layer (Kraken, Coinbase, Binance
+- [x] (2026-11-17) **D. Live feeds**: streaming provider layer (Kraken, Coinbase, Binance
       WebSockets), reconnects, staleness, live data captured. Dependency
       `websockets` approved.
+- [ ] Feed follow-ups: backfill bars missed during a disconnect from the
+      venue's REST history (live bars across a gap are dropped, not guessed);
+      add the stream symbols (`kraken_ws: BTC/USD`, ...) to the real
+      instrument records before normalising live captures; order-book
+      streams (spread from quotes instead of the profile's assumed
+      `spread_bps`); US-share streams come with IBKR (milestone 6).
 - [ ] **E. Execution and market workers**: one asyncio worker per market;
       bars -> signal -> proposal -> risk -> `build_intent` -> simulator; halts
       on stale feed or lost risk heartbeat; firm rules 1 and 2 tests real.
