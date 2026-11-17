@@ -721,3 +721,28 @@ placeholders are gone); a token-bucket `RateLimiter` makes adapters back off.
 - Live composition (`firm paper run`: warm-up history, REST bars for daily
   timeframes, real instrument rules, restart-safe paper account) is left for
   phase H prep; listed in TODO.md.
+
+## 2026-11-17 — `firm paper run`: venue bars, live trades, a ledger-backed account
+
+- **Decisions use the venue's own closed bars (REST), not bars built from
+  live trades.** They are the bars the verifier judged the strategy on, they
+  need no partial-bar handling, and a daily strategy can start trading on its
+  first close instead of a day later. Each fetch is a raw capture in the
+  store. The bar is fetched 10 s after its close and retried every 30 s
+  until the venue publishes it. After downtime every missed bar is fetched,
+  but only the latest is decided on; the rest only fill the history (no
+  trades on stale signals). A test caught the first version fetching only
+  the last 3 bars, which would have dropped bars after longer downtime.
+- **Live trades drive the paper fills and staleness only.** FX to GBP comes
+  from a second live stream (the market profile's `execution.fx`).
+- **The paper account is opened once and rebuilt from the ledger.** The
+  first run records its opening balances (its share of paper capital at the
+  live FX rate) as a `MARKET_STATUS` event; every later run rebuilds the
+  balances from that plus every fill since, so a restart never resets P&L.
+  Rebuilt balances that would go negative are refused.
+- **Instrument rules come from the venue's published API** (Kraken
+  AssetPairs, Coinbase products) at start, never from config; a pair the
+  venue says isn't trading stops the run.
+- The run uses the strategy's verified parameters and refuses anything else.
+  Its own lookback (`--lookback`, default 200 bars) only has to cover the
+  strategy's longest window.

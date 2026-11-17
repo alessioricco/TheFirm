@@ -311,6 +311,37 @@ def _cmd_feed_watch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_paper_run(args: argparse.Namespace) -> int:
+    """Paper-trade one verified strategy on one market against live data."""
+    import asyncio
+    import json
+    from pathlib import Path
+
+    from firm.control.paper import PaperRun
+    from firm.data.store import data_root
+    from firm.verify.state import state_root
+
+    path, _, cls = args.strategy.rpartition(":")
+    run = PaperRun(
+        config_root=Path(args.config),
+        jurisdiction=args.jurisdiction,
+        market=args.market,
+        venue=args.venue,
+        instrument=args.instrument,
+        tf=args.tf,
+        strategy_path=Path(path),
+        class_name=cls,
+        params=json.loads(args.params) if args.params else None,
+        verdict_id=args.verdict,
+        data_root=data_root(args.root),
+        state_root=state_root(args.state_root),
+        lookback=args.lookback,
+        seconds=args.hours * 3600 if args.hours else None,
+        stream_symbol=args.stream_symbol,
+    )
+    return asyncio.run(run.run())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="firm", description="The firm: paper trading, v1.")
     parser.add_argument("--version", action="version", version=f"firm {__version__}")
@@ -387,6 +418,26 @@ def build_parser() -> argparse.ArgumentParser:
     watch.add_argument("--no-store", action="store_true", help="don't write captures")
     watch.set_defaults(func=_cmd_feed_watch)
 
+    paper = sub.add_parser("paper", help="paper trading").add_subparsers(dest="paper_cmd")
+    prun = paper.add_parser(
+        "run", help="paper-trade a verified strategy on live data (needs network; Ctrl-C stops)"
+    )
+    prun.add_argument("--strategy", required=True, help="PATH:CLASS (the verified file)")
+    prun.add_argument("--params", help="JSON overrides; must equal the verified parameters")
+    prun.add_argument("--verdict", required=True, help="verdict ID (v-...) of a passing report")
+    prun.add_argument("--market", required=True)
+    prun.add_argument("--venue", required=True)
+    prun.add_argument("--instrument", required=True)
+    prun.add_argument("--tf", required=True)
+    prun.add_argument("--lookback", type=int, default=200, help="bars of history (default 200)")
+    prun.add_argument("--hours", type=float, help="stop after this long (default: until Ctrl-C)")
+    prun.add_argument("--stream-symbol", help="as the live stream spells it, if not on record")
+    prun.add_argument("--jurisdiction", default="uk")
+    prun.add_argument("--config", default="config")
+    prun.add_argument("--root", help="data store")
+    prun.add_argument("--state-root", help="state and ledger (default $FIRM_STATE_ROOT or ./state)")
+    prun.set_defaults(func=_cmd_paper_run)
+
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
     ver.add_argument("--params", help="JSON object overriding default_params")
@@ -410,7 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state", "ledger", "feed"):
+        if args.command in ("data", "state", "ledger", "feed", "paper"):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0

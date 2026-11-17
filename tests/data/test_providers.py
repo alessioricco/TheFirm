@@ -178,3 +178,57 @@ def test_single_request_sources() -> None:
     # Yahoo only returns split events inside the window, and adjusts relative to
     # today: the plan must run to the far future to see every later split.
     assert int(q["period2"][0]) >= int(datetime(2099, 1, 1, tzinfo=UTC).timestamp())
+
+
+def test_instrument_rules_in_each_venues_published_format() -> None:
+    import json as _json
+
+    from firm.data import providers as _p
+
+    kraken = _p.get("kraken")
+    assert kraken.rules_url("XBTUSD").endswith("/AssetPairs?pair=XBTUSD")
+    k = kraken.parse_rules(
+        _json.dumps(
+            {
+                "error": [],
+                "result": {
+                    "XXBTZUSD": {
+                        "altname": "XBTUSD",
+                        "tick_size": "0.1",
+                        "lot_decimals": 8,
+                        "ordermin": "0.00006",
+                        "costmin": "0.5",
+                        "status": "online",
+                    }
+                },
+            }
+        ).encode(),
+        "XBTUSD",
+    )
+    assert k == {
+        "tick_size": "0.1",
+        "lot_size": "1e-8",
+        "min_quantity": "0.00006",
+        "min_notional": "0.5",
+        "tradable": True,
+    }
+
+    coinbase = _p.get("coinbase")
+    c = coinbase.parse_rules(
+        _json.dumps(
+            {
+                "id": "BTC-USD",
+                "quote_increment": "0.01",
+                "base_increment": "0.00000001",
+                "min_market_funds": "1",
+                "status": "online",
+                "trading_disabled": True,
+            }
+        ).encode(),
+        "BTC-USD",
+    )
+    assert c["lot_size"] == "0.00000001" and c["tradable"] is False  # trading disabled
+    with pytest.raises(_p.ProviderError):
+        coinbase.parse_rules(b'{"message":"NotFound"}', "NOPE-USD")
+    with pytest.raises(_p.ProviderError, match="no instrument rules"):
+        _p.get("yahoo").rules_url("AAPL")

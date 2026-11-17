@@ -276,3 +276,12 @@ def test_the_worker_sees_what_the_backtest_sees() -> None:
             seen.append((i, rig.worker._target()))
             rig.worker.on_feed_status(True)
     assert all(t == expected[i] for i, t in seen)
+
+
+def test_warm_up_fills_the_lookback_and_replayed_bars_never_decide_twice() -> None:
+    rig = Rig()
+    assert rig.worker.warm_up([bar(1, 50_000), bar(0, 50_000), bar(1, 50_000)]) == 2
+    out = rig.bar(2, 50_100)  # history loaded: decides on its first live bar
+    assert out.action == "submitted"
+    again = rig.bar(2, 50_100)
+    assert again.action == "skip" and again.reason == "bar already seen"

@@ -105,3 +105,27 @@ def test_a_crash_stops_this_market_and_is_recorded() -> None:
 
 def test_the_clock_is_utc() -> None:
     assert MarketRunner.__dataclass_fields__["clock"].default().tzinfo is UTC
+
+
+def test_the_runner_decides_only_the_latest_bar_after_downtime() -> None:
+    from test_worker import bar
+
+    rig = Rig()
+
+    async def source(now):
+        return [bar(0, 50_000), bar(1, 50_000), bar(2, 50_100)]
+
+    runner = MarketRunner(
+        worker=rig.worker,
+        builder=None,
+        symbol="BTC/USD",
+        fx=rig.fx,
+        fx_pair=FxPair("GBP/USD", "GBP", "USD"),
+        risk_heartbeat=rig.risk.heartbeat,
+        stale=lambda now: {"BTC/USD": False},
+        bar_source=source,
+        clock=lambda: T0 + timedelta(minutes=3),
+    )
+    rig.trade(2, "50100")  # the paper venue's last price
+    asyncio.run(runner.tick())
+    assert [o.action for o in rig.worker.outcomes] == ["submitted"]  # bars 0, 1: history only

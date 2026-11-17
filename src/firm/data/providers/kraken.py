@@ -7,6 +7,9 @@
 - Trades `/0/public/Trades?pair=XBTUSD[&since=<ns>]`:
   `[["price","vol",time,"b|s","m|l","misc",id],...]`, side is the taker's; the
   `last` field is the cursor for the next page.
+- Rules `/0/public/AssetPairs?pair=XBTUSD`: `{"error":[],"result":{"XXBTZUSD":
+  {"tick_size":"0.1","lot_decimals":8,"ordermin":"0.00006","costmin":"0.5",
+  "status":"online",...}}}`.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from firm.data.providers.base import (
     Provider,
     ProviderError,
     Request,
+    RulesRow,
     TradeRow,
     check_bar,
     closed_only,
@@ -104,6 +108,25 @@ class Kraken(Provider):
             for r in rows
         ]
         return known_trades(out, captured_at)
+
+    def rules_url(self, symbol: str) -> str:
+        return f"{API}/AssetPairs?{urlencode({'pair': symbol})}"
+
+    def parse_rules(self, payload: bytes, symbol: str) -> RulesRow:
+        doc = json.loads(payload)
+        if doc.get("error"):
+            raise ProviderError(f"kraken error: {doc['error']}")
+        pairs = list(doc["result"].values())
+        if len(pairs) != 1:
+            raise ProviderError(f"expected one pair for {symbol}, got {len(pairs)}")
+        p = pairs[0]
+        return RulesRow(
+            tick_size=str(p["tick_size"]),
+            lot_size=f"1e-{int(p['lot_decimals'])}",
+            min_quantity=str(p["ordermin"]),
+            min_notional=str(p["costmin"]),
+            tradable=p.get("status") == "online",
+        )
 
 
 PROVIDER = register(Kraken())
