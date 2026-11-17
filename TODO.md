@@ -122,8 +122,7 @@ One PR per phase, test-first:
       `websockets` approved.
 - [ ] Feed follow-ups: backfill bars missed during a disconnect from the
       venue's REST history (live bars across a gap are dropped, not guessed);
-      add the stream symbols (`kraken_ws: BTC/USD`, ...) to the real
-      instrument records before normalising live captures; order-book
+      order-book
       streams (spread from quotes instead of the profile's assumed
       `spread_bps`); US-share streams come with IBKR (milestone 6).
 - [x] (2026-11-17) **E. Execution and market workers**: one asyncio worker per market;
@@ -140,6 +139,12 @@ One PR per phase, test-first:
 - [x] (2026-11-17) Supervisor for the 24/7 run: systemd user unit
       `firm-paper@<name>` + `scripts/install_paper_service.sh` + runbook
       `deploy/README.md`; gate refusals exit 4 and aren't retried.
+- [x] (2026-11-17) Stream symbols in instrument records: `firm data
+      add-symbol` (a new record version; never remaps a provider); the paper
+      run finds the stream symbol without `--stream-symbol`.
+- [ ] Before giving the owner run instructions, run that exact command
+      against the real store (scratch state root). A paper run's stream
+      symbol was missing from the real records although the tests passed.
 - [ ] The Linux box's paper ledger and the research ledger are separate
       (DECISIONS 2026-11-17); one writer comes with the bus (F). Decide then
       whether to merge them or keep one ledger per machine.

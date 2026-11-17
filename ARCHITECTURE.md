@@ -330,7 +330,9 @@ To add a venue: implement `VenueAdapter`, register a factory in
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
   --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across
   venues and kinds; legacy `--provider/--symbol/--tf` still accepted);
-  `firm state show [--json]` (read-only); `firm paper run --strategy P:C
+  `firm data add-symbol --venue --instrument --provider --symbol` (how one
+  more provider, e.g. a live stream, spells an existing instrument: a new
+  record version, never a remap); `firm state show [--json]` (read-only); `firm paper run --strategy P:C
   --verdict v-... --market --venue --instrument --tf [--hours N]`; `firm feed watch --provider P
   --symbol S [--seconds N] [--no-store]` (a live stream for a while: prints
   closed bars and status changes; needs network); `firm verify --strategy PATH:CLASS

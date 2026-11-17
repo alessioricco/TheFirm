@@ -75,6 +75,35 @@ def _series(args: argparse.Namespace) -> tuple[list[tuple[str, str, str]], list[
     return bars, trades
 
 
+def _cmd_add_symbol(args: argparse.Namespace) -> int:
+    """Record how one more provider spells an existing instrument (a new version)."""
+    from firm.data import providers, streams
+    from firm.data.fetch import ensure_instrument
+    from firm.data.reference import latest_instruments
+    from firm.data.store import data_root
+
+    known = sorted(set(providers.available()) | set(streams.available()))
+    if args.provider not in known:
+        print(f"error: unknown provider {args.provider!r}; available: {known}", file=sys.stderr)
+        return EXIT_ERROR
+    root = data_root(args.root)
+    existing = latest_instruments(root).get((args.venue, args.instrument))
+    if existing is None:
+        print(f"error: no instrument record {args.venue}:{args.instrument}", file=sys.stderr)
+        return EXIT_ERROR
+    rec = ensure_instrument(
+        root,
+        provider=args.provider,
+        symbol=args.symbol,
+        venue=args.venue,
+        instrument=args.instrument,
+        asset_class=existing[1].asset_class,
+        listed_at=None,
+    )
+    print(f"{args.venue}:{args.instrument} provider symbols: {rec.provider_symbols}")
+    return 0
+
+
 def _cmd_build_dataset(args: argparse.Namespace) -> int:
     from firm.data.dataset import build_dataset
     from firm.data.normalize import normalize_bars, normalize_trades
@@ -399,6 +428,17 @@ def build_parser() -> argparse.ArgumentParser:
     bld.add_argument("--symbol", action="append", help="legacy: provider symbol; repeat")
     bld.add_argument("--tf", help="legacy: timeframe for --symbol")
     bld.set_defaults(func=_cmd_build_dataset)
+
+    sym = data.add_parser(
+        "add-symbol",
+        help="record how a provider (e.g. a live stream) spells an existing instrument",
+    )
+    sym.add_argument("--root")
+    sym.add_argument("--venue", required=True)
+    sym.add_argument("--instrument", required=True, help="firm ID, e.g. BTC-USD")
+    sym.add_argument("--provider", required=True, help="e.g. coinbase_ws")
+    sym.add_argument("--symbol", required=True, help="as that provider spells it")
+    sym.set_defaults(func=_cmd_add_symbol)
 
     state = sub.add_parser("state", help="verifier state (read-only)").add_subparsers(
         dest="state_cmd"
