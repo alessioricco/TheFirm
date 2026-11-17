@@ -129,16 +129,14 @@ One PR per phase, test-first:
 - [x] (2026-11-17) **E. Execution and market workers**: one asyncio worker per market;
       bars -> signal -> proposal -> risk -> `build_intent` -> simulator; halts
       on stale feed or lost risk heartbeat; firm rules 1 and 2 tests real.
-- [ ] **`firm paper run`** (composition root for phase H), still to wire:
-      warm-up history for the strategy's lookback (seed from a dataset
-      version, then backfill closed bars from the venue's REST history up to
-      now; a 1d strategy needs ~40 days of bars before its first decision);
-      bars built from trades only cover fully-watched periods, so daily bars
-      should come from the venue's closed REST bar at each close; real
-      instrument rules (tick, lot, minimums) for the venue; the paper
-      account must survive a restart (rebuild balances from the ledger's
-      fills, since the simulator keeps state in memory); ledger through
-      `LedgerWriter`.
+- [x] (2026-11-17) **`firm paper run`**: gate, venue REST bars (warm-up and
+      each close), venue instrument rules, live trades and FX, paper account
+      opened once and rebuilt from the ledger on restart.
+- [ ] Paper-run follow-ups: orders still open when the process stops are
+      lost (the simulator is in memory; record them as cancelled on restart);
+      the average entry price isn't rebuilt on restart (balances are);
+      a supervisor (systemd unit) for the 24/7 run on the Linux box;
+      `--hours` / Ctrl-C only, no remote stop until the control API.
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).

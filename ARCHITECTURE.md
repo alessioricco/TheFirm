@@ -299,11 +299,21 @@ To add a venue: implement `VenueAdapter`, register a factory in
 `tests/conformance/conftest.py::ADAPTERS`, pass the suite (`/add-venue-adapter`).
 
 ## control
+- `paper.py`: `PaperRun` (`firm paper run`), the composition root for one
+  market on paper: deployment gate on the stored report; instrument rules
+  from the venue (`Provider.rules_url` / `parse_rules`); `RestBars` (the
+  venue's closed REST bars, fetched into the store: warm-up for the lookback,
+  then each bar once its close + 10 s grace has passed, retried every 30 s,
+  every missed bar after downtime); trades and FX streams; `paper_account`
+  + `balances_after` (opening balances recorded once as `MARKET_STATUS
+  paper_account_opened`, rebuilt from fills on restart); everything into the
+  ledger, the interesting events to the terminal (`Tee`).
 
 - `cli.py`: `firm version`; `firm data synthetic`; `firm data build-dataset
   --bars P:S:TF [--bars ...] [--trades P:S ...]` (one dataset version across
   venues and kinds; legacy `--provider/--symbol/--tf` still accepted);
-  `firm state show [--json]` (read-only); `firm feed watch --provider P
+  `firm state show [--json]` (read-only); `firm paper run --strategy P:C
+  --verdict v-... --market --venue --instrument --tf [--hours N]`; `firm feed watch --provider P
   --symbol S [--seconds N] [--no-store]` (a live stream for a while: prints
   closed bars and status changes; needs network); `firm verify --strategy PATH:CLASS
   --dataset ds-... --venue --instrument --tf --market` (exit 0 pass, 1 fail,
