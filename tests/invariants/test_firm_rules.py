@@ -133,9 +133,27 @@ def test_rule_05_every_trial_is_counted_and_verifier_corrects_for_trial_count(
     assert _metric(searched, "trial_count", "n_trials") == 1001
 
 
-@_placeholder("milestone 2: ledger")
-def test_rule_06_ledger_is_append_only() -> None:
-    pytest.fail("placeholder")
+def test_rule_06_ledger_is_append_only(tmp_path) -> None:
+    """The database refuses UPDATE and DELETE; the hash chain exposes any edit made
+    around those guards; the Python API has no update or delete at all."""
+    import sqlite3
+
+    from firm.core.domain import LedgerEventType
+    from firm.ledger.store import Ledger
+
+    path = tmp_path / "ledger.sqlite"
+    ledger = Ledger(path)
+    for i in range(3):
+        ledger.append(LedgerEventType.VERDICT, f"event {i}", {"i": i})
+    assert not any(hasattr(ledger, m) for m in ("update", "delete", "remove", "edit"))
+    con = sqlite3.connect(path)
+    for sql in ("UPDATE events SET reason = 'x'", "DELETE FROM events"):
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            con.execute(sql)
+    con.execute("DROP TRIGGER events_no_update")
+    con.execute("UPDATE events SET reason = 'rewritten' WHERE seq = 1")
+    con.commit()
+    assert not Ledger(path).verify_chain().ok
 
 
 @_placeholder("milestone 4: web UI manual approval")

@@ -20,6 +20,7 @@ from firm.core.config import (
     load_verifier_config,
 )
 from firm.core.domain import StrategyCandidate, StrategySpec, TrialRecord
+from firm.core.events import NULL_SINK, EventSink
 from firm.data.dataset import open_dataset
 from firm.verify.backtest import metrics, run_backtest
 from firm.verify.state import OosVault, TrialRegistry
@@ -57,6 +58,7 @@ def verify_strategy_file(
     as_of: datetime | None = None,
     start: datetime | None = None,
     verifier_name: str = "default",
+    sink: EventSink = NULL_SINK,
 ) -> VerificationResult:
     loaded = load_strategy(strategy_path, class_name)
     p = dict(loaded.strategy.default_params) | dict(params or {})
@@ -74,7 +76,7 @@ def verify_strategy_file(
         raise LookupError(f"no bars for {venue}:{instrument} {tf} in {dataset_version}")
     window = [bars["open_time"].iloc[0].isoformat(), bars["close_time"].iloc[-1].isoformat()]
 
-    registry = TrialRegistry(state)
+    registry = TrialRegistry(state, sink=sink)
     # A trial is identified by code, params and the bars it read (content), so
     # re-processing the same bars into a new dataset version is not a new trial.
     # A trial recorded before 2026-11-16 (keyed by dataset version + window) is reused.
@@ -138,6 +140,7 @@ def verify_strategy_file(
         config=vcfg,
         config_sha256=vcfg_sha,
         registry=registry,
-        vault=OosVault(state),
+        vault=OosVault(state, sink=sink),
         now=now,
+        sink=sink,
     )

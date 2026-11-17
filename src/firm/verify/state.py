@@ -30,7 +30,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from firm.core.domain import TrialRecord
+from firm.core.domain import LedgerEventType, TrialRecord
+from firm.core.events import NULL_SINK, EventSink
 
 STATE_ROOT_ENV = "FIRM_STATE_ROOT"
 
@@ -83,9 +84,10 @@ class TrialRegistry:
     their new ID by an append-only alias (`trial_aliases.jsonl`); every trial is
     counted once under its canonical ID."""
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, sink: EventSink = NULL_SINK) -> None:
         self.path = root / "trials.jsonl"
         self.alias_path = root / "trial_aliases.jsonl"
+        self.sink = sink
 
     def _aliases(self) -> dict[str, str]:
         return {a["from"]: a["to"] for a in _read(self.alias_path)}
@@ -93,13 +95,17 @@ class TrialRegistry:
     def alias(self, old_id: str, new_id: str) -> None:
         """Link a legacy trial ID to its canonical ID (idempotent)."""
         if self._aliases().get(old_id) != new_id:
-            _append(self.alias_path, {"from": old_id, "to": new_id})
+            record = {"from": old_id, "to": new_id}
+            _append(self.alias_path, record)
+            emit_trial_alias(self.sink, record)
 
     def record(self, trial: TrialRecord) -> bool:
         """Count a trial. Returns False if it was already counted."""
         if trial.trial_id in self.ids():
             return False
-        _append(self.path, trial.model_dump(mode="json"))
+        record = trial.model_dump(mode="json")
+        _append(self.path, record)
+        emit_trial(self.sink, record)
         return True
 
     def all(self) -> list[TrialRecord]:
@@ -139,8 +145,13 @@ class Opening:
 
 
 class OosVault:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, sink: EventSink = NULL_SINK) -> None:
         self.path = root / "oos_openings.jsonl"
+        self.sink = sink
+
+    def _log(self, record: dict[str, Any]) -> None:
+        _append(self.path, record)
+        emit_vault_event(self.sink, record)
 
     def events(self) -> list[dict[str, Any]]:
         return _read(self.path)
@@ -182,8 +193,7 @@ class OosVault:
         else:
             opened = firsts[0]["candidate_key"]
             if canon(opened) != candidate_key and opened in legacy_keys:
-                _append(
-                    self.path,
+                self._log(
                     {
                         "event": "alias",
                         "strategy_id": strategy_id,
@@ -191,7 +201,7 @@ class OosVault:
                         "from": opened,
                         "to": candidate_key,
                         "at": at.isoformat(),
-                    },
+                    }
                 )
                 aliases[opened] = candidate_key
             if canon(opened) == candidate_key:
@@ -207,8 +217,7 @@ class OosVault:
                 sealed = seals[0]["result_sha256"] if seals else None
             else:
                 access = "refused"
-        _append(
-            self.path,
+        self._log(
             {
                 "event": access,
                 "strategy_id": strategy_id,
@@ -232,8 +241,7 @@ class OosVault:
         at: datetime,
         config_key: str = "",
     ) -> None:
-        _append(
-            self.path,
+        self._log(
             {
                 "event": "sealed",
                 "strategy_id": strategy_id,
@@ -277,3 +285,39 @@ def state_summary(root: Path) -> dict[str, Any]:
         "oos_vault": vault,
         "reports": reports,
     }
+
+
+# --------------------------------------------------------------------------- ledger mirror
+# Deterministic event IDs: emitting the same record twice (replay, import) is a
+# no-op in the ledger.
+
+
+def _digest(record: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:32]
+
+
+def emit_trial(sink: EventSink, record: dict[str, Any]) -> None:
+    sink.emit(
+        LedgerEventType.TRIAL,
+        f"trial {record['trial_id']} counted",
+        record,
+        event_id=f"trial:{record['trial_id']}",
+    )
+
+
+def emit_trial_alias(sink: EventSink, record: dict[str, Any]) -> None:
+    sink.emit(
+        LedgerEventType.TRIAL_ALIAS,
+        f"trial {record['from']} is {record['to']}",
+        record,
+        event_id=f"trial_alias:{record['from']}",
+    )
+
+
+def emit_vault_event(sink: EventSink, record: dict[str, Any]) -> None:
+    sink.emit(
+        LedgerEventType.OOS_VAULT,
+        f"oos {record['event']} for {record.get('scope', record['strategy_id'])}",
+        record,
+        event_id=f"oos:{_digest(record)}",
+    )

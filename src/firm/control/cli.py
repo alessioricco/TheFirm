@@ -122,6 +122,8 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     from firm.data.store import data_root
+    from firm.ledger.sink import LedgerSink, ledger_path
+    from firm.ledger.store import Ledger
     from firm.verify.runner import verify_strategy_file
     from firm.verify.state import state_root
 
@@ -145,6 +147,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         state=state,
         now=datetime.now(UTC),
         verifier_name=args.verifier,
+        sink=LedgerSink(Ledger(ledger_path(state_root(args.state_root)))),
     )
     out = (
         Path(args.report)
@@ -185,6 +188,57 @@ def _cmd_state_show(args: argparse.Namespace) -> int:
             f"  {r['verdict_id']}  {str(r['outcome']).upper():<10} "
             f"{r['strategy_id']} on {r['dataset_version']}"
         )
+    return 0
+
+
+def _ledger(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    from firm.ledger.sink import ledger_path
+    from firm.ledger.store import Ledger
+    from firm.verify.state import state_root
+
+    return Ledger(ledger_path(state_root(args.state_root)))
+
+
+def _cmd_ledger_show(args: argparse.Namespace) -> int:
+    ledger = _ledger(args)
+    events = list(ledger.read(max(0, ledger.count() - args.tail)))
+    for e in events:
+        when = f"{e.recorded_at:%Y-%m-%d %H:%M:%S}"
+        print(f"{e.sequence:>6}  {when}  {e.event_type.value:<14} {e.reason}")
+    print(f"{ledger.count()} events")
+    return 0
+
+
+def _cmd_ledger_verify(args: argparse.Namespace) -> int:
+    report = _ledger(args).verify_chain()
+    if report.ok:
+        print(f"OK: hash chain intact over {report.events} events")
+        return 0
+    print(f"BROKEN at sequence {report.first_bad_sequence}: {report.detail}")
+    return 1
+
+
+def _cmd_ledger_import(args: argparse.Namespace) -> int:
+    from firm.ledger.sink import LedgerSink, state_history
+    from firm.verify.state import emit_trial, emit_trial_alias, emit_vault_event, state_root
+    from firm.verify.verifier import emit_verdict
+
+    state = state_root(args.state_root)
+    ledger = _ledger(args)
+    before = ledger.count()
+    sink = LedgerSink(ledger)
+    emitters = {
+        "trial": emit_trial,
+        "trial_alias": emit_trial_alias,
+        "vault": emit_vault_event,
+        "report": emit_verdict,
+    }
+    for _, _, kind, record in state_history(state):
+        emitters[kind](sink, record)
+    print(
+        f"imported {ledger.count() - before} new events ({ledger.count()} in the ledger); "
+        "already-recorded facts were skipped"
+    )
     return 0
 
 
@@ -236,6 +290,18 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--json", action="store_true")
     show.set_defaults(func=_cmd_state_show)
 
+    led = sub.add_parser("ledger", help="the append-only ledger").add_subparsers(dest="ledger_cmd")
+    for name, func, text in (
+        ("show", _cmd_ledger_show, "the latest events"),
+        ("verify", _cmd_ledger_verify, "check the hash chain (exit 1 if broken)"),
+        ("import-state", _cmd_ledger_import, "record existing verifier state (idempotent)"),
+    ):
+        cmd = led.add_parser(name, help=text)
+        cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
+        if name == "show":
+            cmd.add_argument("--tail", type=int, default=20)
+        cmd.set_defaults(func=func)
+
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
     ver.add_argument("--params", help="JSON object overriding default_params")
@@ -259,7 +325,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state"):
+        if args.command in ("data", "state", "ledger"):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0
