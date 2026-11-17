@@ -85,9 +85,10 @@ Follow-ups from milestone 1:
       aggregation or Kraken's files (check terms). Coinbase pages fine.
 - [ ] FX conversion cost not applied in backtests (P&L in quote currency).
 - [ ] Strategy loader executes code: sandbox before agent code (M3).
-- [ ] Trial registry and OOS vault move into the ledger (M2); each verdict
-      should cite the ledger position of the trial count it used, so any
-      old report can be reproduced exactly.
+- [x] Trial registry and OOS vault are mirrored into the ledger (M2 phase
+      A); the verifier keeps its own state (rule 12: no shared databases).
+- [ ] Each verdict should cite the ledger position of the trial count it
+      used, so any old report can be reproduced exactly.
 - [ ] Legacy captures (ari CSVs: no capture time, last row may be forming)
       can't be normalised; needed only if we backtest on them.
 - [ ] mypy runs on `src/firm/core` only (CLAUDE.md); consider adding
@@ -95,6 +96,48 @@ Follow-ups from milestone 1:
 - [ ] Trades are partitioned by year; switch to daily partitions when
       tick volumes arrive.
 - [ ] `periods_per_year` supports exchange calendars only for 1d/1w (M6).
+
+## Milestone 2: paper simulator, risk desk, ledger, trade journal
+
+Plan approved 2026-11-16 (owner). Exit check (SPEC): a verified strategy
+paper-trades for 7 days unattended; every fill traces to a verdict ID.
+One PR per phase, test-first:
+
+- [x] (2026-11-16) **A. Ledger**: SQLite WAL, append-only (UPDATE/DELETE refused), hash
+      chain, single writer fed by a queue; the verifier keeps its own state
+      (trial registry, OOS vault) and mirrors every event into the ledger;
+      one-off import of existing state; firm rule 6 test real.
+- [ ] **B. Risk desk**: approve/shrink/reject `OrderProposal`s against
+      `config/risk/` limits; kill switches per market and global; heartbeat.
+- [ ] **C. Paper simulator**: fills against market data with venue fees,
+      spread, slippage, partial fills, lifecycle, resting stops,
+      reconciliation; conformance suite xfails become passes.
+- [ ] **D. Live feeds**: streaming provider layer (Kraken, Coinbase, Binance
+      WebSockets), reconnects, staleness, live data captured. Dependency
+      `websockets` approved.
+- [ ] **E. Execution and market workers**: one asyncio worker per market;
+      bars -> signal -> proposal -> risk -> `build_intent` -> simulator; halts
+      on stale feed or lost risk heartbeat; firm rules 1 and 2 tests real.
+- [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
+      Dependency `nats-py` and the `nats-server` binary approved. In-process
+      first (A–E), bus after (owner decision).
+- [ ] **G. Trade journal**: rebuilt from the ledger into DuckDB, exportable,
+      every row traced to verdict and risk decision.
+- [ ] **H. The 7-day run** on the Linux box (24/7); strategy to choose then
+      (a 1h-verified strategy trades often enough to exercise the plumbing).
+
+Owner decisions 2026-11-16:
+
+- Paper capital and risk limits are configuration (`config/risk/`, owner
+  editable, never agents). Proposed starting values (owner to adjust):
+  paper capital £10,000; max position per instrument 20%; per exchange 50%;
+  per market 60%; total exposure 100% (no leverage); max single order 10%;
+  daily loss limit 3% (halts new orders until 00:00 UTC); max drawdown 10%
+  per market and 15% total from peak (kill switches).
+- Machines: Mac, DGX and a Linux box are always on. Proposal: the Linux box
+  runs the trading stack 24/7 (no GPU needed), the DGX serves models and
+  research, the Mac is for development; the Linux box can also back up the
+  DGX's stores and act as the heartbeat watchdog.
 
 ## Data: incremental updates (owner request 2026-11-16)
 

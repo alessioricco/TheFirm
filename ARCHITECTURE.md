@@ -203,6 +203,20 @@ all the lookahead/cost/sensitivity/trial checks ever see; only `checks/oos`
 touches the tail, after the vault allows it. Changing anything that alters
 report bytes (rounding, keys) changes every verdict ID.
 
+## ledger (milestone 2)
+
+- `store.py`: `Ledger(path)`: SQLite WAL, `append(type, reason, payload,
+  event_id=)` (idempotent on event_id), `read(from_sequence)`, `head()`,
+  `count()`, `verify_chain()` → `ChainReport`. Triggers refuse UPDATE and
+  DELETE; each hash covers content + previous hash.
+- `writer.py`: `LedgerWriter`: the single writer; producers `await submit()`.
+- `sink.py`: `LedgerSink` (an `EventSink` writing to a ledger),
+  `ledger_path(state)`, `state_history(state)` for the one-off import.
+
+Desks emit through `firm.core.events.EventSink` (`NULL_SINK` by default); the
+composition root (`firm.control`) wires the ledger. Use deterministic event
+IDs for facts that can be emitted twice.
+
 ## execution
 
 - `adapter.py`: `VenueAdapter` ABC. Constructor runs the live-mode gate and

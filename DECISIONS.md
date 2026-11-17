@@ -571,3 +571,27 @@ trial recorded under the old ID is linked by `trial_aliases.jsonl`, and the
 registry counts each trial once under its canonical ID. Done on the owner's
 real state: same verdicts, trial count unchanged, replays on the rebuilt
 dataset.
+
+## 2026-11-16 — The ledger (milestone 2, phase A)
+
+SQLite in WAL mode (`state/ledger.sqlite`, git-ignored). Append-only is
+enforced three ways: the API has no update or delete; database triggers
+refuse UPDATE and DELETE; and every event's hash covers its content and the
+previous hash, so an edit made around the triggers breaks the chain and
+`firm ledger verify` names the first bad sequence. Appends are idempotent
+on `event_id` (same content: the stored event; different content:
+refused). One writer: `LedgerWriter` drains an asyncio queue, so many
+producers keep one order.
+
+**The verifier keeps its own state and mirrors it** (a change from the
+TODO's "move into the ledger"): golden rule 12 says desks never share a
+database, and the OOS vault needs an atomic check-then-append that belongs
+to the verifier. Every trial, trial alias, vault event and verdict is also
+emitted through an `EventSink` (core protocol, so `verify` doesn't import
+`ledger`); the CLI wires the real ledger. Event IDs are deterministic
+(`trial:<id>`, `oos:<hash>`, `verdict:<id>`), so a replay re-emits nothing
+new and `firm ledger import-state` (one-off history import) is idempotent.
+Verdict events carry a deterministic summary and the report's sha256, not
+the whole report. `LedgerEventType.OOS_OPENED` became `OOS_VAULT` (all vault
+events), and `TRIAL_ALIAS` was added. Firm rule 6's invariant test is real.
+Imported the owner's real state: 19 events, chain intact, re-import adds 0.

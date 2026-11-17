@@ -104,6 +104,8 @@ uv run firm data build-dataset --bars coinbase:BTC-USD:1d
 uv run firm data build-dataset --bars coinbase:BTC-USD:1d --bars kraken:XBTUSD:1d \
     --trades kraken:XBTUSD
 uv run firm state show          # trials, out-of-sample openings, reports
+uv run firm ledger show         # the append-only, hash-chained ledger
+uv run firm ledger verify       # check the hash chain
 ```
 
 ## Data never goes in this repo
