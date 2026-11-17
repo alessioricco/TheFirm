@@ -185,6 +185,24 @@ Still to build:
 - [ ] Scheduling (later, with the market workers): periodic updates with
       staleness alerts (SPEC "feed staleness").
 
+## Data quality (found 2026-11-17)
+
+- [ ] Verify and paper-trade derived bars (e.g. 4h from 1h on Coinbase,
+      which serves no 4h): `firm verify --derived-from`, and `RestBars`
+      deriving the bar at each close. Binance serves native 4h instead.
+
+- [x] (2026-11-17) **Bad ticks reach the verifier unchecked.** Owner chose
+      quarantine + refuse: the normaliser leaves implausible bars out as
+      gaps under `config/data/quality.yaml` (listed in the manifest); the
+      verifier's first check, `data_quality`, refuses (UNVERIFIED, no trial)
+      a window that still holds one. SPEC updated in the same PR.
+- [ ] Data quality for trades (a single trade at ~0 would also distort
+      fills and bars built from trades); a cross-venue check as a second
+      opinion; consider making the rule part of each verdict's config key.
+- [x] (2026-11-17) Bad data can no longer burn a trial: the verifier checks
+      quality before it records one. (A trial already spent on corrupt data
+      stays counted: the count never shrinks.)
+
 ## Strategies on real data (owner request 2026-11-16)
 
 Synthetic data stays for unit tests (public repo, no network in tests), but

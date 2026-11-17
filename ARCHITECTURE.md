@@ -181,6 +181,12 @@ Gotchas:
   dropped and counted), late trades dropped, no invented bars.
   `normalize_trades` reads stream captures like REST ones; the instrument
   record needs the stream's symbol (`provider_symbols: {kraken_ws: BTC/USD}`).
+- `quality.py`: `implausible_bars(bars, rule)`: a bar is implausible when any
+  price is more than `max_price_ratio` x away from the last ACCEPTED close
+  (point-in-time; a bad bar is never a reference). `normalize_bars(...,
+  quality=)` leaves them out and lists them in `NormalizedFile.quarantined`
+  with `quality_rule`; `firm data build-dataset` applies
+  `config/data/quality.yaml` and prints each one. Normaliser version 3.
 - `synthetic.py`: deterministic synthetic bars and trades in provider
   formats; `seed_store` / `seed_trades` write an instrument + overlapping
   captures. Tests use only this.
@@ -193,6 +199,11 @@ payload's own checksum. DuckDB queries take bound parameters (`$files`, `$as_of`
 are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 
 ## verify (milestone 1)
+
+- Checks run in order: `data_quality` first (the runner applies the rule to
+  the window; any implausible bar → every check NOT_RUN, UNVERIFIED, and the
+  runner records NO trial), then the five checks below. Reports state the
+  rule and how many bars the normaliser quarantined.
 
 - `strategy.py`: the `Strategy` protocol (`name`, `default_params`,
   `signals(bars, params)` → target in [0, 1]) and `load_strategy` (executes
