@@ -142,7 +142,7 @@ def test_paper_run_refusal_has_its_own_exit_code(tmp_path, capsys) -> None:
             "--strategy", "examples/strategies/ma_crossover.py:MovingAverageCrossover",
             "--verdict", "v-no-such-report",
             "--market", "crypto", "--venue", "coinbase",
-            "--instrument", "BTC/USD", "--tf", "1d",
+            "--instrument", "BTC-USD", "--tf", "1d",
             "--root", str(tmp_path / "data"),
             "--state-root", str(tmp_path / "state"),
         ]

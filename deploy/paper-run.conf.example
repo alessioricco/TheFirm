@@ -12,7 +12,7 @@ FIRM_STRATEGY=examples/strategies/ma_crossover.py:MovingAverageCrossover
 FIRM_VERDICT=v-REPLACE-WITH-THE-VERDICT-ID
 FIRM_MARKET=crypto
 FIRM_VENUE=coinbase
-FIRM_INSTRUMENT=BTC/USD
+FIRM_INSTRUMENT=BTC-USD
 FIRM_TF=1d
 
 # Optional extra flags, split on spaces (so JSON without spaces), e.g.
