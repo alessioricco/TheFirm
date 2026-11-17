@@ -23,7 +23,9 @@ The run needs two stores on the box, both outside the repo:
 - **Data store** (`FIRM_DATA_ROOT`). The deployment gate checks that the
   verdict's dataset is all real `api` captures, so the box needs that
   dataset's manifest, its normalised files, the raw `*.meta.json` sidecars
-  and `reference/`. The simplest way is to copy the whole store:
+  and `reference/` (whose instrument records must name the live stream's
+  symbol, e.g. `coinbase_ws`; `firm data add-symbol` records one, and the
+  run refuses to start without it). The simplest way is to copy the whole store:
   `rsync -a <mac-store>/ box:<data-root>/`. While the run is going, the
   live feeds add their own captures to it. Raw captures are write-once and
   content-named, so they can later be copied back with `rsync -a --ignore-existing`.
