@@ -171,13 +171,16 @@ def test_exposure_cap_not_allowed_in_market_profile(tmp_path: Path) -> None:
 
 
 def test_crypto_market_needs_exposure_cap_in_risk_profile(tmp_path: Path) -> None:
-    risk = {"risk_profile": "default", "markets": {"crypto": {}}}
+    risk = _raw("risk/default.yaml")
+    risk["markets"]["crypto"] = {
+        k: v for k, v in risk["markets"]["crypto"].items() if k != "exposure_cap_per_exchange_pct"
+    }
     with pytest.raises(ConfigError, match="exposure_cap"):
         load_config(_tree(tmp_path, risk=risk), "uk", ["crypto"])
 
 
 def test_every_market_needs_risk_limits(tmp_path: Path) -> None:
-    risk = {"risk_profile": "default", "markets": {}}
+    risk = _raw("risk/default.yaml") | {"markets": {}}
     with pytest.raises(ConfigError, match="no limits"):
         load_config(_tree(tmp_path, risk=risk), "uk", ["crypto"])
 
@@ -316,3 +319,34 @@ def test_binance_is_lab_only_in_the_uk_profile() -> None:
     j = load_jurisdiction(REPO_CONFIG / "jurisdictions" / "uk.yaml")
     assert "binance" not in j.allowed_venues
     assert j.venue_status["binance"].status == "not_permitted"
+
+
+# --- risk profile values (paper capital and limits are configuration)
+
+
+def test_risk_profile_carries_capital_and_limits() -> None:
+    r = load_risk(REPO_CONFIG / "risk" / "default.yaml")
+    assert r.paper_capital_gbp > 0
+    assert r.limits.max_total_exposure_pct == 100
+    assert r.markets["crypto"].exposure_cap_per_exchange_pct is not None
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d | {"paper_capital_gbp": 0},
+        lambda d: d | {"limits": d["limits"] | {"daily_loss_limit_pct": 0}},
+        lambda d: d | {"limits": d["limits"] | {"max_drawdown_pct": 120}},
+        lambda d: (
+            d
+            | {
+                "markets": d["markets"]
+                | {"crypto": d["markets"]["crypto"] | {"max_position_pct": 70}}
+            }
+        ),  # position above market exposure
+        lambda d: d | {"limits": d["limits"] | {"max_total_exposure_pct": 50}},  # below markets
+    ],
+)
+def test_risk_profile_refuses_bad_limits(tmp_path: Path, mutate) -> None:
+    with pytest.raises(ConfigError):
+        load_risk(_write(tmp_path, "risk/default.yaml", mutate(_raw("risk/default.yaml"))))

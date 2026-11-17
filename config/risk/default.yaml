@@ -1,7 +1,23 @@
-# Risk profile: limits and caps. Read-only to every agent (firm rule 3);
-# agents can't read it either. Placeholders to calibrate before milestone 2.
+# Risk profile: paper capital and limits. Owner-editable; read-only to every
+# agent, which can't read it either (firm rule 3). Percentages are of current
+# equity in GBP; drawdowns are measured from the peak. Proposed 2026-11-16;
+# change any value here, nowhere else.
 risk_profile: default
+paper_capital_gbp: 10000
+
+limits:                          # firm-wide
+  max_total_exposure_pct: 100    # no leverage (the jurisdiction caps it at 100)
+  max_order_notional_pct: 10     # one order: at most 10% of equity
+  daily_loss_limit_pct: 3        # down 3% since 00:00 UTC: no new buys until tomorrow
+  max_drawdown_pct: 15           # 15% below peak equity: global kill switch
+
 markets:
   crypto:
-    exposure_cap_per_exchange_pct: 50   # max share of crypto capital at one exchange
-  us_equities: {}
+    max_position_pct: 20         # per instrument
+    max_market_exposure_pct: 60
+    exposure_cap_per_exchange_pct: 50
+    max_drawdown_pct: 10         # market kill switch
+  us_equities:
+    max_position_pct: 20
+    max_market_exposure_pct: 60
+    max_drawdown_pct: 10

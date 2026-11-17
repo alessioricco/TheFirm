@@ -53,6 +53,8 @@ def order_proposal(**kw: Any) -> OrderProposal:
         "side": Side.BUY,
         "order_type": OrderType.MARKET,
         "quantity": Decimal("0.01"),
+        "reference_price": Decimal("50000"),
+        "quote_currency": "USD",
         "created_at": T0,
     }
     fields.update(kw)

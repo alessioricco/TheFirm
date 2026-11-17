@@ -22,6 +22,7 @@ Three kinds of profile:
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
@@ -176,17 +177,47 @@ class MarketProfile(FirmModel):
 # --------------------------------------------------------------------------- risk
 
 
-class MarketRiskLimits(FirmModel):
-    """Per-market limits. Position, exposure and drawdown limits land in milestone 2."""
+Pct = Annotated[float, Field(gt=0, le=100)]
 
-    exposure_cap_per_exchange_pct: float | None = Field(default=None, gt=0, le=100)
+
+class GlobalRiskLimits(FirmModel):
+    """Firm-wide limits, as % of current equity (drawdown: % below peak equity)."""
+
+    max_total_exposure_pct: Pct
+    max_order_notional_pct: Pct
+    daily_loss_limit_pct: Pct  # from equity at 00:00 UTC; halts new buys until next day
+    max_drawdown_pct: Pct  # trips the global kill switch
+
+
+class MarketRiskLimits(FirmModel):
+    """Per-market limits, as % of current equity."""
+
+    max_position_pct: Pct  # per instrument
+    max_market_exposure_pct: Pct
+    max_drawdown_pct: Pct  # market P&L below its peak, % of equity; trips the market kill switch
+    exposure_cap_per_exchange_pct: Pct | None = None  # crypto: max at one exchange
+
+    @model_validator(mode="after")
+    def _nested(self) -> Self:
+        if self.max_position_pct > self.max_market_exposure_pct:
+            raise ValueError("max_position_pct can't exceed max_market_exposure_pct")
+        return self
 
 
 class RiskProfile(FirmModel):
-    """Read-only to every agent-facing interface (firm rule 3)."""
+    """Capital and limits. Read-only to every agent-facing interface (firm rule 3)."""
 
     risk_profile: Id
+    paper_capital_gbp: Annotated[Decimal, Field(gt=0)]
+    limits: GlobalRiskLimits
     markets: dict[Id, MarketRiskLimits]
+
+    @model_validator(mode="after")
+    def _within_total(self) -> Self:
+        for name, m in self.markets.items():
+            if m.max_market_exposure_pct > self.limits.max_total_exposure_pct:
+                raise ValueError(f"{name}: market exposure above the total exposure limit")
+        return self
 
 
 # --------------------------------------------------------------------------- fees
@@ -318,6 +349,8 @@ class FirmConfig(FirmModel):
             limits = self.risk.markets.get(name)
             if limits is None:
                 raise ValueError(f"market {name}: no limits in risk profile")
+            if self.risk.limits.max_total_exposure_pct > 100 * self.jurisdiction.leverage_max:
+                raise ValueError("total exposure above what the jurisdiction's leverage allows")
             if m.calendar == "24x7" and limits.exposure_cap_per_exchange_pct is None:
                 raise ValueError(f"market {name}: crypto needs exposure_cap_per_exchange_pct")
         return self

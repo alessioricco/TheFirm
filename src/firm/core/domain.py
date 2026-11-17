@@ -287,6 +287,8 @@ class OrderProposal(FirmModel):
     side: Side
     order_type: OrderType
     quantity: PositiveDecimal
+    reference_price: PositiveDecimal  # the price execution sized at (for risk in GBP)
+    quote_currency: CurrencyCode  # currency of reference_price (e.g. USD, USDT)
     limit_price: PositiveDecimal | None = None
     stop_price: PositiveDecimal | None = None
     time_in_force: TimeInForce = TimeInForce.GTC
