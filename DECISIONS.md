@@ -595,3 +595,27 @@ Verdict events carry a deterministic summary and the report's sha256, not
 the whole report. `LedgerEventType.OOS_OPENED` became `OOS_VAULT` (all vault
 events), and `TRIAL_ALIAS` was added. Firm rule 6's invariant test is real.
 Imported the owner's real state: 19 events, chain intact, re-import adds 0.
+
+## 2026-11-17 — The risk desk (milestone 2, phase B)
+
+Paper capital and every limit live in `config/risk/default.yaml` (owner
+decision: configuration the owner edits, never code or agents), with the
+proposed values: £10,000; position 20%, market 60%, exchange 50% (crypto),
+total 100%, single order 10%, daily loss 3%, drawdown 10% per market and
+15% total. The schema checks the limits nest (position ≤ market ≤ total)
+and that total exposure stays within the jurisdiction's leverage cap.
+
+`RiskDesk.decide(verdict, proposal, state)` is deterministic and records
+every decision and halt in the ledger (decision ID from the proposal ID, so
+one proposal gets one decision). Order of checks: kill switch on → verdict
+mismatch or not passed → drawdown (trips the market or global kill switch)
+→ sells capped at holdings (spot, long-only; allowed after the daily loss
+limit) → daily loss limit blocks buys → buys shrink to the tightest of
+single order, position, exchange, market and total room in GBP. An order
+that can't be valued (no FX rate) is rejected, never guessed. Shrunk
+quantities round down to 1e-8; venue lot rules apply at execution.
+
+Kill switches are released only by an owner `RESUME` command
+(`OwnerCommandKind.RESUME` added). `OrderProposal` gained `reference_price`
+and `quote_currency` so risk can value an order. `firm.core.heartbeat`
+provides the monitor execution will use to halt when risk goes quiet.

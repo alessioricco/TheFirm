@@ -107,7 +107,7 @@ One PR per phase, test-first:
       chain, single writer fed by a queue; the verifier keeps its own state
       (trial registry, OOS vault) and mirrors every event into the ledger;
       one-off import of existing state; firm rule 6 test real.
-- [ ] **B. Risk desk**: approve/shrink/reject `OrderProposal`s against
+- [x] (2026-11-17) **B. Risk desk**: approve/shrink/reject `OrderProposal`s against
       `config/risk/` limits; kill switches per market and global; heartbeat.
 - [ ] **C. Paper simulator**: fills against market data with venue fees,
       spread, slippage, partial fills, lifecycle, resting stops,
