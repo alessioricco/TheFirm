@@ -302,6 +302,18 @@ class TrialThresholds(FirmModel):
     min_dsr: float = Field(gt=0, lt=1)
 
 
+class DataQualityConfig(FirmModel):
+    """When a bar is too implausible to judge a strategy on (`config/data/`)."""
+
+    quality: Id
+    rule_version: int = Field(ge=1)
+    max_price_ratio: float = Field(gt=1)  # vs the last accepted close, up or down
+
+    @property
+    def rule_id(self) -> str:
+        return f"{self.quality}-v{self.rule_version}-ratio{self.max_price_ratio:g}"
+
+
 class VerifierConfig(FirmModel):
     verifier: Id
     min_bars: int = Field(ge=10)
@@ -431,6 +443,16 @@ def load_verifier_config(root: Path, name: str = "default") -> VerifierConfig:
     cfg = _validate(VerifierConfig, path)
     if cfg.verifier != name:
         raise ConfigError(f"{path}: verifier {cfg.verifier!r} must match the file name")
+    return cfg
+
+
+def load_data_quality(root: Path, name: str = "default") -> DataQualityConfig:
+    path = root / "data" / f"{name}.yaml"
+    if name == "default":
+        path = root / "data" / "quality.yaml"
+    cfg = _validate(DataQualityConfig, path)
+    if cfg.quality != name:
+        raise ConfigError(f"{path}: quality {cfg.quality!r} must be {name!r}")
     return cfg
 
 

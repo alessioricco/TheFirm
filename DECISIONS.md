@@ -746,3 +746,31 @@ placeholders are gone); a token-bucket `RateLimiter` makes adapters back off.
 - The run uses the strategy's verified parameters and refuses anything else.
   Its own lookback (`--lookback`, default 200 bars) only has to cover the
   strategy's longest window.
+
+## 2026-11-17 — Implausible bars: quarantine and refuse (owner decision)
+
+Found on real data: a venue's own candle can be corrupt (one hourly bar
+opened at ~0). The verifier took it at face value; that one bar dominated the
+return statistics, so costs and parameters seemed not to matter. That
+verdict was meaningless and its trial is spent (details in the private
+notes).
+
+- **Raw stays raw.** Captures are never edited. The normaliser quarantines
+  bars under a versioned rule (`config/data/quality.yaml`: any price more
+  than 3x away from the last accepted close) and lists each one, with its
+  reason and the rule ID, in the dataset manifest. The rule looks only
+  backwards, so whether a bar is quarantined never depends on later data,
+  and a quarantined bar is never used as the next reference.
+- **The verifier refuses what's left.** `data_quality` runs first; an
+  implausible bar in the window means UNVERIFIED with nothing judged, and
+  the runner records no trial, so bad data can't raise the bar for later
+  strategies.
+- The threshold (3x) is a placeholder, far above any genuine hourly or
+  daily move and far below the corrupt candles; on the real series checked
+  so far it catches exactly the corrupt bars and nothing else.
+- Normaliser version 3 (manifests now record `quality_rule` and
+  `quarantined`); old dataset versions stay readable and their verdicts
+  stand.
+- Alternatives not taken now: refusing without quarantine (a series would
+  be unusable until hand-fixed), and cross-venue checks (more data per
+  window; listed in TODO.md as a second opinion).

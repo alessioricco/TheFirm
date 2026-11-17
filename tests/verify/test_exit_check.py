@@ -21,6 +21,7 @@ def test_planted_lookahead_is_rejected_by_truncation_check(dataset, tmp_path) ->
 def test_clean_moving_average_crossover_passes(dataset, tmp_path) -> None:
     r = run_verify(dataset, tmp_path, "ma_crossover.py", "MovingAverageCrossover")
     assert {c.name: c.status for c in r.verdict.checks} == {
+        "data_quality": CheckStatus.PASSED,
         "lookahead_truncation": CheckStatus.PASSED,
         "cost_realism": CheckStatus.PASSED,
         "parameter_sensitivity": CheckStatus.PASSED,

@@ -1,0 +1,12 @@
+# Data quality: when a bar is too implausible to judge a strategy on.
+# Raw captures always stay exactly as received; this decides what the
+# normaliser quarantines (leaves out as a gap, listed in the dataset manifest)
+# and what the verifier refuses to judge (UNVERIFIED, no trial counted).
+# Read by deterministic code only; agents may not change it.
+quality: default
+rule_version: 1
+# A bar is implausible when any of its prices (open, high, low, close) is
+# more than this many times above or below the last accepted close: only the
+# past is used, so the rule is point-in-time. Placeholder: far above
+# genuine moves, far below the corrupt candles seen so far.
+max_price_ratio: 3.0

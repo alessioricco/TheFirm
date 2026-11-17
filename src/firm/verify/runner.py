@@ -16,12 +16,14 @@ from typing import Any
 
 from firm.core.config import (
     load_config,
+    load_data_quality,
     load_fee_schedule,
     load_verifier_config,
 )
 from firm.core.domain import StrategyCandidate, StrategySpec, TrialRecord
 from firm.core.events import NULL_SINK, EventSink
 from firm.data.dataset import open_dataset
+from firm.data.quality import implausible_bars
 from firm.verify.backtest import metrics, run_backtest
 from firm.verify.state import OosVault, TrialRegistry
 from firm.verify.strategy import load_strategy
@@ -85,6 +87,18 @@ def verify_strategy_file(
     trial_id = "t-" + _h([name, code, p, bars_fingerprint(bars)])[:16]
     if legacy_trial in registry.raw_ids():
         registry.alias(legacy_trial, trial_id)  # same trial, now keyed by content
+    # Data quality first: on implausible bars nothing is judged and no trial is counted.
+    rule = load_data_quality(config_root)
+    issues = [
+        f"{q.as_dict()['open_time']}: {q.reason}"
+        for q in implausible_bars(bars.to_dict("records"), rule, time_key="open_time")
+    ]
+    quarantined = sum(
+        len(f.quarantined)
+        for f in ds.manifest.files
+        if (f.kind, f.venue, f.instrument, f.tf, f.derived_from)
+        == ("bars", venue, instrument, tf, None)
+    )
     split = split_in_sample(bars, vcfg.oos.fraction)
     in_sample = bars.iloc[:split].reset_index(drop=True)
     is_metrics = (
@@ -98,20 +112,21 @@ def verify_strategy_file(
             split,
             1.0,
         )
-        if split > 1
+        if split > 1 and not issues
         else {}
     )
-    registry.record(
-        TrialRecord(
-            trial_id=trial_id,
-            experiment_id="manual",
-            strategy_id=loaded.strategy.name,
-            parameters=p,
-            metrics={k: v for k, v in is_metrics.items() if k == "sharpe_per_bar"},
-            dataset_version=dataset_version,
-            recorded_at=now,
+    if not issues:
+        registry.record(
+            TrialRecord(
+                trial_id=trial_id,
+                experiment_id="manual",
+                strategy_id=loaded.strategy.name,
+                parameters=p,
+                metrics={k: v for k, v in is_metrics.items() if k == "sharpe_per_bar"},
+                dataset_version=dataset_version,
+                recorded_at=now,
+            )
         )
-    )
 
     candidate = StrategyCandidate(
         candidate_id="c-" + _h([trial_id])[:16],
@@ -143,4 +158,7 @@ def verify_strategy_file(
         vault=OosVault(state, sink=sink),
         now=now,
         sink=sink,
+        data_issues=issues,
+        quality_rule=rule.rule_id,
+        quarantined=quarantined,
     )

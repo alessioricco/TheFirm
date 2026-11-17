@@ -129,6 +129,7 @@ Every source sits behind one provider interface (`firm.data.providers`: declared
 - Raw data is stored as received, with a dataset version and checksum, so any backtest can be reproduced.
 - Delisted instruments stay in the universe forever; an instrument's status is evaluated as of the query, so a later delisting never leaks backwards.
 - Every series is keyed by timeframe (1m to 1w) and records how its bars are aligned. Sources differ (Kraken's weeks start Thursday, Binance's Monday, share data follows exchange sessions), so the store refuses bars off their source's declared grid, and coarser timeframes can be derived on one canonical grid (days 00:00 UTC, weeks Monday) from complete sets of finer bars, stored apart from native series.
+- Implausible bars are quarantined, never silently trusted. A venue's own candles can be corrupt (a bar opening at ~0), and raw captures keep them exactly as received; the normaliser leaves such bars out as gaps under a versioned rule in `config/data/` (a price too many times away from the last accepted close: point-in-time) and lists them in the dataset manifest.
 - Feed staleness raises an urgent notification and blocks new paper orders on that market.
 - Data never goes in git. The store (`$FIRM_DATA_ROOT`) is git-ignored and has fixed zones, all written once: `raw/` (exactly as received, with a sidecar describing each download), `normalized/` (Parquet in the firm's schema), `datasets/` (content-addressed versions that backtests cite), `reference/` (instrument master), `golden/` (frozen test baselines). Synthetic and real data never mix in one series.
 
@@ -347,7 +348,7 @@ Every venue sits behind one adapter interface designed for real trading from day
 
 ## How the verifier decides
 
-The verifier runs a strategy against an exact dataset version and returns **pass**, **fail** or **unverified**, never "pass" for something it could not check:
+The verifier runs a strategy against an exact dataset version and returns **pass**, **fail** or **unverified**, never "pass" for something it could not check. First it checks the data: if the window still holds an implausible bar, nothing is judged, the verdict is unverified, and no trial is counted. Then:
 
 1. **Lookahead truncation:** re-run with the data cut at many decision times; any changed past signal fails.
 2. **Cost realism:** must survive the real costs of the venue it trades on (published taker fee, half the spread, slippage), and not lose money with costs doubled.
