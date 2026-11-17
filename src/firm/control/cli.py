@@ -82,9 +82,16 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
 
     root = data_root(args.root)
     bars, trades = _series(args)
+    from pathlib import Path
+
+    from firm.core.config import load_data_quality
+
+    quality = load_data_quality(Path(args.config))
     files = []
     for provider, symbol, tf in bars:
-        files += normalize_bars(root, provider=provider, provider_symbol=symbol, tf=tf)
+        files += normalize_bars(
+            root, provider=provider, provider_symbol=symbol, tf=tf, quality=quality
+        )
     for provider, symbol in trades:
         files += normalize_trades(root, provider=provider, provider_symbol=symbol)
     for spec in args.derive or []:
@@ -116,7 +123,11 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
             f"{f'  aligned={alignment}' if alignment else ''}"
             f"{f'  derived_from={derived_from}' if derived_from else ''}"
             f"{f'  revisions={revisions}' if revisions else ''}"
+            f"{f'  quarantined={n}' if (n := sum(len(f.quarantined) for f in group)) else ''}"
         )
+        for f in group:
+            for q in f.quarantined:
+                print(f"      quarantined {q['open_time']}: {q['reason']}")
     return 0
 
 
@@ -358,6 +369,7 @@ def build_parser() -> argparse.ArgumentParser:
     syn.set_defaults(func=_cmd_synthetic)
     bld = data.add_parser("build-dataset", help="normalize captures and freeze a dataset version")
     bld.add_argument("--root")
+    bld.add_argument("--config", default="config", help="config root (data quality rule)")
     bld.add_argument(
         "--bars",
         action="append",

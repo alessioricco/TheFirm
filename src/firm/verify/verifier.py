@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -126,6 +126,9 @@ def verify(
     vault: OosVault,
     now: datetime,
     sink: EventSink = NULL_SINK,
+    data_issues: Sequence[str] = (),
+    quality_rule: str | None = None,
+    quarantined: int = 0,
 ) -> VerificationResult:
     """`bars` are the whole evaluation window from the dataset (as_of applied)."""
     params: Mapping[str, Any] = candidate.spec.parameters
@@ -156,8 +159,24 @@ def verify(
         now=now,
     )
 
-    results: list[CheckResult] = []
-    if split < config.min_bars:
+    quality = CheckResult(
+        name="data_quality",
+        status=CheckStatus.NOT_RUN if data_issues else CheckStatus.PASSED,
+        detail=(
+            f"{len(data_issues)} implausible bar(s) in the window, e.g. {data_issues[0]}; "
+            "nothing was judged and no trial was counted"
+            if data_issues
+            else f"no implausible bars; {quarantined} quarantined by the normaliser"
+            f" (rule {quality_rule})"
+        ),
+        metrics={"implausible": float(len(data_issues)), "quarantined": float(quarantined)},
+    )
+    results: list[CheckResult] = [quality]
+    if data_issues:
+        why = "data quality: the window has implausible bars; fix the data first"
+        for mod in (*IN_SAMPLE_CHECKS, oos):
+            results.append(CheckResult(name=mod.NAME, status=CheckStatus.NOT_RUN, detail=why))
+    elif split < config.min_bars:
         why = f"only {split} in-sample bars (min {config.min_bars}); nothing was judged"
         for mod in (*IN_SAMPLE_CHECKS, oos):
             results.append(CheckResult(name=mod.NAME, status=CheckStatus.NOT_RUN, detail=why))
@@ -223,6 +242,8 @@ def verify(
             "hidden_from": bars["open_time"].iloc[split].isoformat() if split < len(bars) else None,
             "bars_in_sample": split,
             "bars_hidden": len(bars) - split,
+            "quality_rule": quality_rule,
+            "quarantined": quarantined,
         },
         "costs": _round(
             {

@@ -19,13 +19,15 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from firm.core.base import FirmModel, Id, Sha256
+from firm.core.config import DataQualityConfig
 from firm.core.timeframes import is_aligned
 from firm.data import providers
 from firm.data.providers import BarRow, TradeRow
+from firm.data.quality import Implausible, implausible_bars
 from firm.data.reference import latest_instruments, resolve
 from firm.data.store import Capture, StoreError, iter_captures, partition, sha256_bytes, write_once
 
-NORMALIZER_VERSION = "2"  # 2: bar alignment checked and recorded; derived series
+NORMALIZER_VERSION = "3"  # 2: bar alignment, derived series; 3: implausible bars quarantined
 
 BAR_SCHEMA = pa.schema(
     [
@@ -63,6 +65,8 @@ class NormalizedFile(FirmModel):
     revisions: int = 0  # closed rows on which captures disagreed
     alignment: Id | None = None  # bars: "utc", "week:<day>" or "session"
     derived_from: Id | None = None  # bars built by firm.data.resample from this tf
+    quality_rule: Id | None = None  # bars: the data-quality rule applied (None: none was)
+    quarantined: tuple[dict[str, str], ...] = ()  # bars left out: {open_time, reason}
 
 
 def _parquet_bytes(table: pa.Table) -> bytes:
@@ -88,8 +92,14 @@ def _write_partitions(
     revisions: int,
     alignment: str | None = None,
     derived_from: str | None = None,
+    quality_rule: str | None = None,
+    quarantined: Sequence[Implausible] = (),
 ) -> list[NormalizedFile]:
     by_year: dict[int, list[dict[str, object]]] = {}
+    left_out: dict[int, list[dict[str, str]]] = {}
+    for q in quarantined:
+        left_out.setdefault(_utc_year(q.open_time_ns), []).append(q.as_dict())
+        by_year.setdefault(_utc_year(q.open_time_ns), [])
     for r in rows:
         t = int(r[time_key])  # type: ignore[call-overload]
         if not 0 <= t < _MAX_NS:
@@ -98,6 +108,8 @@ def _write_partitions(
     out = []
     for year in sorted(by_year):
         chunk = by_year[year]
+        if not chunk:
+            continue  # a year whose only bars were quarantined (listed nowhere else)
         table = pa.Table.from_pylist(chunk, schema=schema)
         data = _parquet_bytes(table)
         sha = sha256_bytes(data)
@@ -120,6 +132,8 @@ def _write_partitions(
                 revisions=revisions if year == max(by_year) else 0,
                 alignment=alignment,
                 derived_from=derived_from,
+                quality_rule=quality_rule,
+                quarantined=tuple(left_out.get(year, ())),
             )
         )
     return out
@@ -154,9 +168,17 @@ def _merge(
 
 
 def normalize_bars(
-    root: Path, *, provider: str, provider_symbol: str, tf: str
+    root: Path,
+    *,
+    provider: str,
+    provider_symbol: str,
+    tf: str,
+    quality: DataQualityConfig | None = None,
 ) -> list[NormalizedFile]:
-    """All bar captures for one provider symbol and timeframe -> Parquet by year."""
+    """All bar captures for one provider symbol and timeframe -> Parquet by year.
+
+    With `quality`, implausible bars (firm.data.quality) are left out as gaps
+    and listed in each file's `quarantined`; the raw captures are untouched."""
     caps = list(
         iter_captures(root, provider=provider, kind="bars", provider_symbol=provider_symbol, tf=tf)
     )
@@ -174,6 +196,10 @@ def normalize_bars(
                 f"{provider}:{provider_symbol} {tf} bar at {when} breaks the declared "
                 f"alignment {alignment!r}; fix the provider's declaration, don't mix grids"
             )
+    left_out = implausible_bars(rows, quality) if quality is not None else []
+    if left_out:
+        bad = {q.open_time_ns for q in left_out}
+        rows = [r for r in rows if r["open_time_ns"] not in bad]
     return _write_partitions(
         root,
         rows,
@@ -185,6 +211,8 @@ def normalize_bars(
         tf=tf,
         revisions=revisions,
         alignment=alignment,
+        quality_rule=quality.rule_id if quality is not None else None,
+        quarantined=left_out,
     )
 
 
