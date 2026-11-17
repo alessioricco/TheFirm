@@ -494,6 +494,7 @@ class LedgerEventType(StrEnum):
     TRIAL = "trial"
     TRIAL_ALIAS = "trial_alias"
     OOS_VAULT = "oos_vault"  # first_opening / replay / refused / sealed / alias
+    FEED_STATUS = "feed_status"  # live feed connected / disconnected / stale / fresh
     VERDICT = "verdict"
     RISK_DECISION = "risk_decision"
     RISK_HALT = "risk_halt"

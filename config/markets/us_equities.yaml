@@ -8,6 +8,7 @@ universe:
 data:
   history: [eodhd, yahoo]   # eodhd planned; yahoo available (unofficial)
   realtime: ibkr
+  stale_after_seconds: 120     # no trade for this long: stale feed, no new paper orders
 costs:
   commission: ibkr_tiered
   spread_model: quoted

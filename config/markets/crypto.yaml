@@ -8,6 +8,7 @@ universe:
 data:
   history: [coinbase, kraken, binance]   # registered providers (firm.data.providers)
   realtime: [kraken_ws, coinbase_ws]
+  stale_after_seconds: 60     # no trade for this long: stale feed, no new paper orders
 costs:
   commission:               # fee schedule per venue (config/fees/)
     kraken: kraken_pro_tier1

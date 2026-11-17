@@ -188,6 +188,18 @@ def normalize_bars(
     )
 
 
+def _trade_parser(provider: str, provider_symbol: str):  # type: ignore[no-untyped-def]
+    """REST provider's parser, or a stream provider's capture reader (live data)."""
+    from firm.data import streams
+
+    if provider in streams.available():
+        stream = streams.get(provider)
+        return lambda payload, captured_at: stream.parse_capture(
+            payload, symbol=provider_symbol, captured_at=captured_at
+        )
+    return providers.get(provider).parse_trades
+
+
 def normalize_trades(root: Path, *, provider: str, provider_symbol: str) -> list[NormalizedFile]:
     caps = list(
         iter_captures(root, provider=provider, kind="trades", provider_symbol=provider_symbol)
@@ -195,7 +207,7 @@ def normalize_trades(root: Path, *, provider: str, provider_symbol: str) -> list
     if not caps:
         raise StoreError(f"no trade captures for {provider}:{provider_symbol}")
     rec = resolve(latest_instruments(root), provider, provider_symbol)
-    rows, revisions = _merge(caps, providers.get(provider).parse_trades, "trade_id")
+    rows, revisions = _merge(caps, _trade_parser(provider, provider_symbol), "trade_id")
     rows.sort(key=lambda r: (r["time_ns"], r["trade_id"]))  # type: ignore[arg-type,return-value]
     return _write_partitions(
         root,

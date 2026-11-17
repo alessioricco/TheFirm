@@ -119,6 +119,7 @@ class UniverseConfig(FirmModel):
 class DataConfig(FirmModel):
     history: Id | tuple[Id, ...]
     realtime: Id | tuple[Id, ...]
+    stale_after_seconds: int = Field(gt=0)  # no trade for this long: the feed is stale
 
 
 class CostsConfig(FirmModel):
