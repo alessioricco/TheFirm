@@ -44,7 +44,7 @@ from firm.data.streams.feed import Feed
 from firm.execution.adapter import InstrumentRules, VenueMode
 from firm.execution.deploy import verdict_for_deployment
 from firm.execution.portfolio import FxBook, Portfolio, starting_cash
-from firm.execution.runner import FxPair, MarketRunner
+from firm.execution.runner import MarketRunner
 from firm.execution.simulator import PaperSimulator, SimConfig
 from firm.execution.worker import Deployment, MarketWorker
 from firm.ledger.sink import LedgerSink, ledger_path
@@ -269,26 +269,32 @@ class PaperRun:
 
         ledger = Ledger(ledger_path(self.state_root))
         sink = Tee(LedgerSink(ledger), self.log)
-        fx_cfg = mp.execution.fx
-        fx = FxBook(max_age=timedelta(seconds=fx_cfg.max_age_seconds))
+        fx_pairs = mp.execution.fx
+        max_age = min(p.max_age_seconds for p in fx_pairs)
+        fx = FxBook(max_age=timedelta(seconds=max_age))
+        pair_of = {(p.provider, p.symbol): (p.base, p.quote) for p in fx_pairs}
+        tasks: list[asyncio.Task[None]] = []
+        for provider in sorted({p.provider for p in fx_pairs}):
 
-        def on_fx(symbol: str, trade: Any) -> None:
-            fx.update(
-                fx_cfg.base,
-                fx_cfg.quote,
-                Decimal(str(trade["price"])),
-                datetime.fromtimestamp(trade["time_ns"] / NS, tz=UTC),
+            def on_fx(symbol: str, trade: Any, provider: str = provider) -> None:
+                base, quote = pair_of[(provider, symbol)]
+                fx.update(
+                    base,
+                    quote,
+                    Decimal(str(trade["price"])),
+                    datetime.fromtimestamp(trade["time_ns"] / NS, tz=UTC),
+                )
+
+            fx_feed = Feed(
+                provider,
+                [p.symbol for p in fx_pairs if p.provider == provider],
+                root=self.data_root,
+                sink=sink,
+                on_trade=on_fx,
+                stale_after=timedelta(seconds=max_age),
             )
-
-        fx_feed = Feed(
-            fx_cfg.provider,
-            [fx_cfg.symbol],
-            root=self.data_root,
-            sink=sink,
-            on_trade=on_fx,
-            stale_after=timedelta(seconds=fx_cfg.max_age_seconds),
-        )
-        tasks: list[asyncio.Task[None]] = [asyncio.create_task(fx_feed.run(self.stop))]
+            tasks.append(asyncio.create_task(fx_feed.run(self.stop)))
+        fx_names = ", ".join(p.symbol for p in fx_pairs)
 
         allocation = cfg.risk.markets[self.market].paper_allocation_pct
         opening, fills = paper_account(ledger, self.market, self.venue)
@@ -297,7 +303,7 @@ class PaperRun:
             while (rate := fx.to_gbp(rec.quote, _now())) is None:
                 if _now() > deadline or any(t.done() for t in tasks):
                     self.stop.set()
-                    raise RuntimeError(f"no live {fx_cfg.symbol} rate within 2 minutes")
+                    raise RuntimeError(f"no live {rec.quote}->GBP rate ({fx_names}) in 2 minutes")
                 await asyncio.sleep(0.5)
             opening = {rec.quote: starting_cash(cfg.risk.paper_capital_gbp, allocation, rate)}
             sink.emit(
@@ -377,7 +383,7 @@ class PaperRun:
             builder=None,
             symbol=stream_symbol,
             fx=fx,
-            fx_pair=FxPair(fx_cfg.symbol, fx_cfg.base, fx_cfg.quote),
+            fx_pair=None,  # FX arrives on its own streams (on_fx above)
             risk_heartbeat=desk.heartbeat,
             stale=lambda now: {},
             bar_source=bars,

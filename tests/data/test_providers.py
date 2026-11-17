@@ -232,3 +232,38 @@ def test_instrument_rules_in_each_venues_published_format() -> None:
         coinbase.parse_rules(b'{"message":"NotFound"}', "NOPE-USD")
     with pytest.raises(_p.ProviderError, match="no instrument rules"):
         _p.get("yahoo").rules_url("AAPL")
+
+
+def test_binance_rules_from_exchange_info_filters() -> None:
+    import json as _json
+
+    from firm.data import providers as _p
+
+    b = _p.get("binance")
+    payload = {
+        "symbols": [
+            {
+                "symbol": "BTCUSDT",
+                "status": "TRADING",
+                "filters": [
+                    {
+                        "filterType": "PRICE_FILTER",
+                        "minPrice": "0.01000000",
+                        "tickSize": "0.01000000",
+                    },
+                    {"filterType": "LOT_SIZE", "minQty": "0.00001000", "stepSize": "0.00001000"},
+                    {"filterType": "NOTIONAL", "minNotional": "100.00000000"},
+                ],
+            }
+        ]
+    }
+    r = b.parse_rules(_json.dumps(payload).encode(), "BTCUSDT")
+    assert r == {
+        "tick_size": "0.01",
+        "lot_size": "0.00001",
+        "min_quantity": "0.00001",
+        "min_notional": "100",
+        "tradable": True,
+    }
+    with pytest.raises(_p.ProviderError):
+        b.parse_rules(b'{"code": -1121, "msg": "Invalid symbol."}', "NOPE")

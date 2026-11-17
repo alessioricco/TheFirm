@@ -36,7 +36,7 @@ class Clock:
 
 
 def runner(rig: Rig, clock: Clock, stale: bool = False) -> MarketRunner:
-    rig.fx._rates.clear()
+    rig.fx._pairs.clear()
     return MarketRunner(
         worker=rig.worker,
         builder=BarBuilder("1m", started_ns=int(T0.timestamp()) * NS),

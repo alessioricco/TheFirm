@@ -179,7 +179,7 @@ def test_going_flat_sells_everything_held() -> None:
     [
         (lambda r: r.worker.on_feed_status(True), "feed stale"),
         (lambda r: None, "heartbeat"),
-        (lambda r: r.fx._rates.clear(), "FX"),
+        (lambda r: r.fx._pairs.clear(), "FX"),
     ],
 )
 def test_halts_stop_new_orders_before_anything_is_proposed(setup, why) -> None:

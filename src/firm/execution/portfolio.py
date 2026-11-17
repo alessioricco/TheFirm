@@ -23,29 +23,46 @@ BASE = "GBP"
 
 @dataclass
 class FxBook:
-    """Latest market price per currency pair, with the time it traded."""
+    """Latest live price per currency pair, chained to GBP.
+
+    A currency converts directly (USD via GBP/USD) or through one other
+    currency (USDT via USDT/USD, then GBP/USD). Every price in the chain must
+    be younger than `max_age`; otherwise there is no rate, never a guess."""
 
     max_age: timedelta
-    _rates: dict[str, tuple[Decimal, datetime]] = field(default_factory=dict)  # ccy -> GBP
+    _pairs: dict[tuple[str, str], tuple[Decimal, datetime]] = field(default_factory=dict)
 
     def update(self, base: str, quote: str, price: Decimal, at: datetime) -> None:
-        """A trade on base/quote at `price` (quote per 1 base)."""
+        """A trade on base/quote at `price` (units of quote per 1 base)."""
         if price <= 0:
             raise ValueError("FX price must be positive")
-        if base == BASE:
-            self._rates[quote] = (Decimal(1) / price, at)
-        elif quote == BASE:
-            self._rates[base] = (price, at)
-        else:
-            raise ValueError(f"{base}/{quote} doesn't involve {BASE}")
+        if base == quote:
+            raise ValueError("a pair needs two currencies")
+        self._pairs[(base, quote)] = (price, at)
+
+    def _direct(self, a: str, b: str, now: datetime) -> Decimal | None:
+        """Units of b per 1 a, from a fresh a/b or b/a price."""
+        for (base, quote), (price, at) in self._pairs.items():
+            if now - at > self.max_age:
+                continue
+            if (base, quote) == (a, b):
+                return price
+            if (base, quote) == (b, a):
+                return Decimal(1) / price
+        return None
 
     def to_gbp(self, currency: str, now: datetime) -> Decimal | None:
         if currency == BASE:
             return Decimal(1)
-        hit = self._rates.get(currency)
-        if hit is None or now - hit[1] > self.max_age:
-            return None
-        return hit[0]
+        direct = self._direct(currency, BASE, now)
+        if direct is not None:
+            return direct
+        via = {c for pair in self._pairs for c in pair} - {currency, BASE}
+        for x in sorted(via):
+            leg, rest = self._direct(currency, x, now), self._direct(x, BASE, now)
+            if leg is not None and rest is not None:
+                return leg * rest
+        return None
 
 
 @dataclass(frozen=True)
