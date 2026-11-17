@@ -30,10 +30,12 @@ from firm.core.config import FeeSchedule, MarketProfile, VerifierConfig
 from firm.core.domain import (
     CheckResult,
     CheckStatus,
+    LedgerEventType,
     StrategyCandidate,
     Verdict,
     VerdictOutcome,
 )
+from firm.core.events import NULL_SINK, EventSink
 from firm.core.timeframes import periods_per_year
 from firm.verify.backtest import metrics
 from firm.verify.checks import costs, lookahead, oos, sensitivity, trials
@@ -123,6 +125,7 @@ def verify(
     registry: TrialRegistry,
     vault: OosVault,
     now: datetime,
+    sink: EventSink = NULL_SINK,
 ) -> VerificationResult:
     """`bars` are the whole evaluation window from the dataset (as_of applied)."""
     params: Mapping[str, Any] = candidate.spec.parameters
@@ -247,4 +250,33 @@ def verify(
         report=f"{outcome.value}: {summary}",
         issued_at=now,
     )
+    emit_verdict(sink, json.loads(report))
     return VerificationResult(verdict=verdict, report=report)
+
+
+def emit_verdict(sink: EventSink, body: dict[str, Any]) -> None:
+    payload = verdict_event_payload(body)
+    sink.emit(
+        LedgerEventType.VERDICT,
+        f"{payload['outcome']} for {payload['strategy_id']} on {payload['dataset_version']}",
+        payload,
+        event_id=f"verdict:{payload['verdict_id']}",
+    )
+
+
+def verdict_event_payload(body: dict[str, Any]) -> dict[str, Any]:
+    """The ledger's record of a verdict: deterministic (no wall-clock time), so the
+    same verdict emitted twice is one event. The full report stays in the state store;
+    its hash ties the two together."""
+    report_bytes = (json.dumps(body, sort_keys=True, indent=1) + "\n").encode()
+    return {
+        "verdict_id": body["verdict_id"],
+        "outcome": body["outcome"],
+        "strategy_id": body["candidate"]["strategy_id"],
+        "candidate_id": body["candidate"]["candidate_id"],
+        "code_sha256": body["candidate"]["code_sha256"],
+        "dataset_version": body["data"]["dataset_version"],
+        "bars_sha256": body["data"].get("bars_sha256"),
+        "checks": {c["name"]: c["status"] for c in body["checks"]},
+        "report_sha256": hashlib.sha256(report_bytes).hexdigest(),
+    }

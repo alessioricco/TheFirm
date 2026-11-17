@@ -490,7 +490,8 @@ class LedgerEventType(StrEnum):
     OPPORTUNITY_NOTE = "opportunity_note"
     STRATEGY_CANDIDATE = "strategy_candidate"
     TRIAL = "trial"
-    OOS_OPENED = "oos_opened"
+    TRIAL_ALIAS = "trial_alias"
+    OOS_VAULT = "oos_vault"  # first_opening / replay / refused / sealed / alias
     VERDICT = "verdict"
     RISK_DECISION = "risk_decision"
     RISK_HALT = "risk_halt"
