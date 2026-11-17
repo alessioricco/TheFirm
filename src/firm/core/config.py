@@ -139,6 +139,28 @@ class CostsConfig(FirmModel):
             raise ValueError(f"no fee schedule for venue {venue!r}") from None
 
 
+class FxConfig(FirmModel):
+    """Where the rate from this market's currency to the base currency comes from.
+
+    A live market price (e.g. Kraken's GBP/USD), never a typed-in number; a rate
+    older than `max_age_seconds` is unusable and risk rejects what it can't value."""
+
+    provider: Id  # a stream provider (firm.data.streams)
+    symbol: Id  # as the stream spells it, e.g. GBP/USD
+    base: CurrencyCode  # the pair's base: price = units of quote per 1 base
+    quote: CurrencyCode
+    max_age_seconds: int = Field(gt=0)
+
+
+class ExecutionConfig(FirmModel):
+    """How the execution desk turns target exposure into orders on this market."""
+
+    participation: Annotated[Decimal, Field(gt=0, le=1)]  # paper fills: share of event volume
+    rebalance_threshold_pct: Annotated[Decimal, Field(ge=0, le=100)]  # skip smaller changes
+    heartbeat_timeout_seconds: int = Field(gt=0)  # no risk heartbeat this long: stop ordering
+    fx: FxConfig
+
+
 class BrokerConfig(FirmModel):
     paper: Literal["simulator"]
     live: Id | tuple[Id, ...]  # inactive while live_trading is false
@@ -154,6 +176,7 @@ class MarketProfile(FirmModel):
     universe: UniverseConfig
     data: DataConfig
     costs: CostsConfig
+    execution: ExecutionConfig
     broker: BrokerConfig
     # Equities
     corporate_actions: tuple[Literal["splits", "dividends"], ...] | None = None
@@ -197,6 +220,7 @@ class MarketRiskLimits(FirmModel):
     max_market_exposure_pct: Pct
     max_drawdown_pct: Pct  # market P&L below its peak, % of equity; trips the market kill switch
     exposure_cap_per_exchange_pct: Pct | None = None  # crypto: max at one exchange
+    paper_allocation_pct: Pct  # share of paper_capital_gbp this market starts with
 
     @model_validator(mode="after")
     def _nested(self) -> Self:
@@ -218,6 +242,8 @@ class RiskProfile(FirmModel):
         for name, m in self.markets.items():
             if m.max_market_exposure_pct > self.limits.max_total_exposure_pct:
                 raise ValueError(f"{name}: market exposure above the total exposure limit")
+        if sum(m.paper_allocation_pct for m in self.markets.values()) > 100:
+            raise ValueError("paper allocations add up to more than 100% of capital")
         return self
 
 

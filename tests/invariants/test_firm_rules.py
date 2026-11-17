@@ -8,9 +8,11 @@ pass: stop and ask the owner.
 
 Partial enforcement that already exists (schema-level) is tested in
 tests/core and tests/config and noted on each placeholder. Rules 4 and 5
-are enforced since milestone 1.
+are enforced since milestone 1; rule 6 since the ledger, rules 1 and 2 since
+the market worker (milestone 2).
 """
 
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,16 +38,80 @@ def _placeholder(milestone: str) -> pytest.MarkDecorator:
     return pytest.mark.xfail(reason=f"not enforced end-to-end yet ({milestone})", strict=True)
 
 
-@_placeholder("milestone 2: execution desk + bus")
+def _submit_calls() -> list[tuple[str, int, str]]:
+    """Every `.submit(...)` call in src/firm outside the adapters themselves:
+    (file, line, how its argument was made)."""
+    import ast
+
+    out = []
+    for path in sorted((REPO / "src" / "firm").rglob("*.py")):
+        if path.name in ("adapter.py", "simulator.py"):
+            continue
+        tree = ast.parse(path.read_text())
+        made: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                fn = node.value.func
+                name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "?")
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        made[t.id] = name
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "submit"
+            ):
+                arg = node.args[0] if node.args else None
+                how = made.get(arg.id, "?") if isinstance(arg, ast.Name) else "?"
+                out.append((str(path.relative_to(REPO)), node.lineno, how))
+    return out
+
+
 def test_rule_01_no_llm_output_reaches_execution_without_verdict_and_risk_approval() -> None:
-    # Partial: only EXECUTION may publish order.intent; agents cannot (tests/core/test_bus.py).
-    pytest.fail("placeholder")
+    """Orders reach a venue only as `build_intent(proposal, risk_decision)`: every
+    submit in the codebase takes a value made by build_intent, the market worker has
+    no input that accepts an order, and a rejecting risk desk means no order at all.
+    (Bus side: only EXECUTION may publish order.intent, tests/core/test_bus.py.)"""
+    import inspect
+
+    from firm.core.domain import OrderIntent, OrderProposal, RiskDecision
+    from firm.execution.worker import MarketWorker
+
+    calls = _submit_calls()
+    assert calls, "expected the execution worker to submit orders"
+    assert all(how == "build_intent" for _, _, how in calls), calls
+
+    order_types = {OrderIntent, OrderProposal, RiskDecision}
+    for name, fn in inspect.getmembers(MarketWorker, inspect.isfunction):
+        if name.startswith("_"):
+            continue
+        hints = {p.annotation for p in inspect.signature(fn).parameters.values()}
+        assert not any(
+            t in str(h) for h in hints for t in ("OrderIntent", "OrderProposal", "RiskDecision")
+        ), f"MarketWorker.{name} accepts an order from outside"
+        assert not (hints & order_types)
+
+    from tests_worker_rig import run_bars
+
+    submitted, events = run_bars(reject_all=True)
+    assert submitted == [] and "order_intent" not in {e for e, *_ in events}
 
 
-@_placeholder("milestone 2: execution desk")
 def test_rule_02_every_order_carries_verdict_id_and_risk_decision_id() -> None:
-    # Partial: OrderIntent cannot be built without both (tests/core/test_domain.py).
-    pytest.fail("placeholder")
+    """Every order the venue receives names the deployment's verdict and a risk
+    decision that approved (or shrank) exactly that proposal, recorded in the ledger.
+    (Schema side: an OrderIntent can't be built without both, tests/core.)"""
+    from tests_worker_rig import run_bars
+
+    submitted, events = run_bars(reject_all=False)
+    assert submitted, "expected some orders"
+    decisions = {p["decision_id"]: p for e, _, p, _ in events if e == "risk_decision"}
+    for intent in submitted:
+        assert intent.verdict_id == "v-1"
+        d = decisions[intent.risk_decision_id]
+        assert d["proposal_id"] == intent.proposal_id and d["action"] in ("approve", "resize")
+        assert Decimal(d["approved_quantity"]) >= intent.quantity
 
 
 @_placeholder("milestone 3/4: agent-facing interfaces")

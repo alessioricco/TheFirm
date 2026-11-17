@@ -18,7 +18,7 @@ schema refuses one without both (firm rule 2).
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from enum import StrEnum
 from typing import Annotated, Any, Self
 
@@ -342,12 +342,14 @@ def build_intent(
     intent_id: str,
     client_order_id: str,
     created_at: datetime,
+    lot_size: Decimal | None = None,
 ) -> OrderIntent:
     """The only sanctioned way to turn a proposal into a sendable order.
 
     Refuses unless the decision is for this proposal and this verdict and is
     not a rejection. `approve` must keep the proposed quantity; `resize` may
-    only shrink it. Everything else is copied from the proposal unchanged.
+    only shrink it. With `lot_size`, the approved quantity is rounded DOWN to
+    the venue's lot (never up). Everything else is copied from the proposal.
     """
     if decision.proposal_id != proposal.proposal_id:
         raise IntentRefused("risk decision is for a different proposal")
@@ -362,6 +364,12 @@ def build_intent(
         raise IntentRefused("approve must keep the proposed quantity")
     if decision.action is RiskAction.RESIZE and not qty < proposal.quantity:
         raise IntentRefused("resize may only reduce the quantity")
+    if lot_size is not None:
+        if lot_size <= 0:
+            raise IntentRefused("lot size must be positive")
+        qty = (qty / lot_size).to_integral_value(rounding=ROUND_DOWN) * lot_size
+        if qty <= 0:
+            raise IntentRefused(f"approved quantity is below one lot ({lot_size})")
     return OrderIntent(
         intent_id=intent_id,
         client_order_id=client_order_id,
@@ -495,6 +503,7 @@ class LedgerEventType(StrEnum):
     TRIAL_ALIAS = "trial_alias"
     OOS_VAULT = "oos_vault"  # first_opening / replay / refused / sealed / alias
     FEED_STATUS = "feed_status"  # live feed connected / disconnected / stale / fresh
+    MARKET_STATUS = "market_status"  # a market worker started / stopped (with why)
     VERDICT = "verdict"
     RISK_DECISION = "risk_decision"
     RISK_HALT = "risk_halt"

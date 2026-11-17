@@ -17,7 +17,9 @@ markets:
     max_market_exposure_pct: 60
     exposure_cap_per_exchange_pct: 50
     max_drawdown_pct: 10         # market kill switch
+    paper_allocation_pct: 50     # starts with half the paper capital
   us_equities:
     max_position_pct: 20
     max_market_exposure_pct: 60
     max_drawdown_pct: 10
+    paper_allocation_pct: 50

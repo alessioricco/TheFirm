@@ -238,3 +238,14 @@ def test_identical_payloads_from_different_requests_do_not_collide(tmp_path: Pat
     b = write_capture(tmp_path, b"[]", request={"url": "https://x?start=2"}, **kw)
     assert a.path != b.path and a.meta.sha256 == b.meta.sha256
     assert len(list(iter_captures(tmp_path))) == 2
+
+
+def test_capture_methods_trace_every_row_to_its_capture(tmp_path) -> None:
+    from firm.data.dataset import build_dataset, capture_methods
+    from firm.data.normalize import normalize_bars
+    from firm.data.synthetic import seed_store
+
+    seed_store(tmp_path, n=300)
+    files = normalize_bars(tmp_path, provider="kraken", provider_symbol="XBTUSD", tf="1d")
+    version = build_dataset(tmp_path, files).dataset_version
+    assert capture_methods(tmp_path, version) == {"synthetic": 300}
