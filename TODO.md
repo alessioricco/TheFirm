@@ -44,7 +44,7 @@ replay history through the real code first, live runs on short timeframes.
 - [x] (2026-11-17: merged via later PRs) **Review milestone 1** on branch `milestone-1`.
 - [ ] **Roadmap re-aligned with the owner's vision (2026-11-17)**, see
       DECISIONS.md. Order from here: finish milestone 2 as G (journal) →
-      N (minimal notifier) → F (bus) → H (7-day run); the trial-scaling fix
+      N (minimal notifier) → F (bus) → H (unattended run); the trial-scaling fix
       before milestone 3; milestone 3 designed with the owner (experiment
       agents) before any code; TA documents, "Ask the firm" and the web
       monitoring extras parked until after milestone 3.
@@ -70,15 +70,36 @@ replay history through the real code first, live runs on short timeframes.
       (`config/verify/default.yaml` `sizing`); the report records it and
       paper trades at that size. Replay on real data now agrees on return
       and exposure.
-- [ ] Owner (risk, optional): one order is capped at 10% of equity and a
-      position at 20%, so every entry takes two bars (replay: the "extra
-      paper orders"). Keep, or let one order reach the position cap?
 - [ ] After milestone 2, **milestone 3**: the research agent. Strategies
       that pass, ideally on 1h/4h bars so they trade often, go to paper
       trading through the promotion gate (SPEC "Research floor").
-- [ ] Owner (SPEC): replace "paper-trades for 7 days" in milestone 2's exit
-      check with a count of decisions and fills; define "proven on paper"
-      in trades.
+- [x] (2026-11-18, owner) Milestone 2's exit check counts bars, not days:
+      at least 7 closed bars of the strategy's timeframe (e.g. 7 hours on
+      1h), deciding on every bar. SPEC updated in the same PR.
+- [ ] Owner: define "proven on paper" (candidate for real money) in trades.
+- [ ] **The 1h exit run needs a strategy verified on 1h.** Today only the
+      daily `ma_crossover` passes; its 1h versions fail on costs. Options:
+      run the exit check on the daily pass (7 days again), or get a 1h pass
+      first (milestone 3's job, or a hand-written 1h strategy).
+- [x] (2026-11-18, owner) **Order and position size are parameters**, and
+      will later be searched by agents in simulation: keep 10% per order and
+      20% per position. Already config, not code: `config/risk/default.yaml`
+      (`max_order_notional_pct`, `max_position_pct`) and
+      `config/verify/default.yaml` (`sizing.position_pct`). Agents may tune
+      them only in simulation, never the live risk profile (firm rule 3).
+- [x] (2026-11-18, owner) Fees: keep the schedules in `config/fees/`;
+      change them there when needed.
+- [x] (2026-11-18) `firm paper run` prints each bar's decision and a status
+      line every 60 s (`--status-every`), and writes everything to
+      `<state>/logs/paper-<market>-<venue>.log` (`tail -f` it).
+- [ ] **Corrupt bar in the daily pass's dataset** (owner: "a clean dataset
+      or an interpolated one"). The clean dataset already exists; what blocks
+      a fresh verdict is the OOS vault, not the data: a candidate on another
+      dataset is a different candidate in the same sealed scope (firm rule 4),
+      so it is refused. Interpolating would put made-up prices into a series
+      the verifier judges; proposal: never for verification, at most as a
+      marked derived dataset for charts. Owner to decide whether a dataset
+      that differs only by quarantined bars may replay the sealed result.
 - [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
       pass. Its working tree has 2 modified + 2 untracked files outside the
       extracted code; commit or discard them there before archiving.
@@ -145,7 +166,8 @@ Follow-ups from milestone 1:
 ## Milestone 2: paper simulator, risk desk, ledger, trade journal
 
 Plan approved 2026-11-16 (owner). Exit check (SPEC): a verified strategy
-paper-trades for 7 days unattended; every fill traces to a verdict ID.
+paper-trades unattended for at least 7 closed bars (owner, 2026-11-18;
+was 7 days); every fill traces to a verdict ID.
 One PR per phase, test-first:
 
 - [x] (2026-11-16) **A. Ledger**: SQLite WAL, append-only (UPDATE/DELETE refused), hash
@@ -215,7 +237,7 @@ One PR per phase, test-first:
       watchdog for the Linux box from another machine. Deterministic, no
       model in the path; read-only; bot token in `.env`. Full digest,
       Hermes and two-way commands stay in milestone 4.
-- [ ] **H. The 7-day run** on the Linux box (24/7); strategy to choose then
+- [ ] **H. The unattended run** (7+ closed bars) on the Linux box (24/7); strategy to choose then
       (a 1h-verified strategy trades often enough to exercise the plumbing).
       Starts only after G, N and F (owner order, 2026-11-17).
 

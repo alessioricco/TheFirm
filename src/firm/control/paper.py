@@ -21,6 +21,7 @@ Everything goes to the ledger (`<state>/ledger.sqlite`).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import signal
 from collections.abc import Callable
@@ -30,6 +31,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from firm.control.progress import Progress
 from firm.core.config import load_config, load_fee_schedule
 from firm.core.domain import Fill, LedgerEventType, Side
 from firm.core.events import EventSink
@@ -232,6 +234,7 @@ class PaperRun:
     stream_symbol: str | None = None
     transport: Transport = http_get
     log: Callable[[str], None] = print
+    status_seconds: float = 60.0  # status line interval; 0 turns it off
     stop: asyncio.Event = field(default_factory=asyncio.Event)
 
     def _report(self) -> bytes:
@@ -397,12 +400,26 @@ class PaperRun:
             bar_source=bars,
             sink=sink,
         )
+        progress = Progress(
+            worker, self.instrument, self.tf, every_seconds=self.status_seconds, log=self.log
+        )
+
+        def on_trade(symbol: str, trade: Any) -> None:
+            progress.count_trade()
+            runner.on_trade(symbol, trade)
+
+        async def show_progress() -> None:
+            while not self.stop.is_set():
+                await progress.poll(_now())
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self.stop.wait(), timeout=1.0)
+
         trades = Feed(
             stream_provider,
             [stream_symbol],
             root=self.data_root,
             sink=sink,
-            on_trade=runner.on_trade,
+            on_trade=on_trade,
             on_gap=runner.on_gap,
             stale_after=timedelta(seconds=mp.data.stale_after_seconds),
         )
@@ -424,6 +441,7 @@ class PaperRun:
         tasks += [
             asyncio.create_task(trades.run(self.stop)),
             asyncio.create_task(runner.run(self.stop)),
+            asyncio.create_task(show_progress()),
         ]
         if self.seconds is not None:
             asyncio.get_running_loop().call_later(self.seconds, self.stop.set)

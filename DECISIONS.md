@@ -935,3 +935,15 @@ its intent, a sell above the holding) rather than guess. Fields the ledger
 can't give yet (spread paid, excursions, features, judge outputs) are NULL,
 never 0, so no analysis mistakes "unknown" for "free" or "flat". Rebuilt
 whole into a new file and swapped in, stamped with the ledger position.
+
+## 2026-11-18 — Milestone 2's exit check counts bars, not days
+
+Owner: "instead of 7 days we can keep the check to some candles, example 7
+hours with 1h candles". The exit check exercises the plumbing (decisions,
+risk, fills, ledger, alerts), and that is measured in bars decided, not in
+calendar time: at least 7 closed bars of the strategy's timeframe, deciding
+on every one. Seven days of a daily strategy still qualifies; seven hours of
+an hourly one is the intended run. Whether a strategy is *proven* on paper
+(candidate for real money) is a separate bar, still to set in trades.
+Same day, owner: order and position caps stay at 10% and 20% as parameters
+(already config); later, agents may search them in simulation only.
