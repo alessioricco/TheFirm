@@ -40,6 +40,12 @@ that was changed in transit is refused.
 
 ## 3. Install
 
+The machine running the paper service also needs the NATS server
+(`nats-server`, 2.10 or later): a release binary from
+github.com/nats-io/nats-server/releases, on the `PATH`. Check with
+`nats-server --version`.
+
+
 ```bash
 scripts/install_paper_service.sh crypto
 ```

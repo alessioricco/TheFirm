@@ -220,6 +220,15 @@ One PR per phase, test-first:
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).
+  - [x] (2026-11-18) F1: `firm.bus` (`BusClient`, `MemoryBus`, `NatsBus`),
+        contract test over every subject, `scripts/bus_smoke.py` against a
+        real server; `nats-server` documented as a requirement (README).
+  - [ ] F2: per-service NATS users generated from `PUBLISHERS` (publish
+        only own subjects, enforced by the server); `firm bus up` starts a
+        local server with that config.
+  - [ ] F3: the paper run's desks talk through the bus (risk heartbeat on
+        `risk.heartbeat`, one ledger writer subscribed to everything, alerts
+        on `alert.>`); lost-heartbeat alert; a short run on the Mac.
 - [x] (2026-11-18) **G. Trade journal**: `firm.ledger.journal`, one row per
       round trip (flat -> long -> flat), rebuilt from the ledger into
       `<state>/journal.duckdb`; `firm journal build | show | export`;

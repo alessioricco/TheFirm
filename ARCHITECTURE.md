@@ -9,6 +9,7 @@ verifier) built; later desks are interfaces only.
 ```
 src/firm/
   core/         typed domain objects, config profiles, bus messages (no deps on other desks)
+  bus/          message bus client: in-memory and NATS JetStream transports (M2, F)
   data/         data plane: store, providers, normalizer, datasets, reference  (M1)
   verify/       verification desk: backtest, 5 checks, verifier, state       (M1)
   risk/         risk desk                               (M2)
@@ -367,6 +368,35 @@ To add a venue: implement `VenueAdapter`, register a factory in
   keys from `.env` at CLI start (`FIRM_DOTENV=0` turns it off; the tests do).
   Gotcha: `scripts/check_repo.py` flags `NAME_WITH_TOKEN = "<16+ chars>"`
   as a secret, even an environment variable's name.
+
+## bus (milestone 2, phase F)
+
+Schemas, subjects and who may publish what live in `core/messages/`
+(`Envelope`, `PUBLISHERS`, `PAYLOADS`); `bus/` moves envelopes.
+
+- `client.py`: `BusClient(transport, service)`, one per desk, bound to its
+  identity. `publish(subject, payload, message_id=)` refuses a subject the
+  service does not own and wraps the typed payload. `subscribe(pattern,
+  consumer, handler)` decodes into a validated `Envelope`; a message that
+  fails its schema, is forged (sender not the subject's owner) or arrives on
+  another subject than it names is rejected (`rejected`, `on_reject`) and
+  acknowledged, never handed over; a message ID already handled is skipped
+  (bounded memory of IDs, per subscription); a handler that raises leaves it
+  unacknowledged, so it comes again. Durable name: `<service>-<consumer>`.
+- `memory.py`: `MemoryBus`, JetStream's semantics in one process (stream
+  log, publish dedupe by ID, durable cursors, no ack on raise, `*`/`>`
+  wildcards). Tests use it; no server, no socket.
+- `nats.py`: `NatsBus.connect(url, user, password)`: one file-backed stream
+  (`FIRM`) holding exactly the firm's subjects (updated when the table
+  grows); publish with `Nats-Msg-Id` (server-side dedupe window, 2 minutes
+  by default); durable push consumers with manual ack, `nak(delay)` on a
+  failing handler. Imported only where a server is used.
+- `scripts/bus_smoke.py`: starts a throwaway `nats-server -js` on a free
+  localhost port and checks the same behaviour as the tests; run it after
+  changing `bus/`. Needs `nats-server` installed (README).
+- Gotcha: the client's ID memory is in-process; after a restart a durable
+  consumer resumes after its last ack, and the ledger refuses an event ID
+  twice, so a replay still can't make a desk act twice.
 
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one

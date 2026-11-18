@@ -998,3 +998,21 @@ seconds" is measured. The bot reads nothing in v1 (no commands at all), the
 chat is one environment value, and `send` has no recipient argument (firm
 rule 10). `.env` is read by a 20-line loader (no new dependency) that fills
 only unset keys, so a systemd EnvironmentFile or the shell always wins.
+
+## 2026-11-18 — Bus (F1): one client per desk, two transports, idempotent at both ends
+
+Phase F1. Desks talk through `BusClient`, which carries the service's
+identity: it can only publish subjects that service owns (the same table the
+envelope checks, and that the server will enforce with per-service users in
+F2), and it only ever hands a desk a validated envelope. Malformed or forged
+messages are rejected and acknowledged rather than retried, since they can
+never become valid. Idempotency at both ends: publishers set `Nats-Msg-Id`
+so a retried publish lands once, and consumers skip message IDs they
+handled, with durable consumers so a restart resumes rather than replays.
+A failing handler is not acknowledged and the message comes again, in
+order. An in-memory transport with the same semantics keeps the test suite
+off the network; `scripts/bus_smoke.py` checks the real server. One stream
+holds every firm subject (a short, explicit list from `Subject`), not `>`,
+so nothing outside the table is stored. Everything runs on the Mac for now
+(owner, 2026-11-18); moving a service is a `NATS_URL` change.
+
