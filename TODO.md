@@ -24,8 +24,13 @@ versions, verdict IDs, metrics, download history) goes in the git-ignored
 
 ## Now
 
-- [ ] **Review milestone 1** on branch `milestone-1` (built on
-      `step-0-skeleton`; neither pushed). Merge to `main` when reviewed.
+- [x] (2026-11-17: merged via later PRs) **Review milestone 1** on branch `milestone-1`.
+- [ ] **Roadmap re-aligned with the owner's vision (2026-11-17)**, see
+      DECISIONS.md. Order from here: finish milestone 2 as G (journal) →
+      N (minimal notifier) → F (bus) → H (7-day run); the trial-scaling fix
+      before milestone 3; milestone 3 designed with the owner (experiment
+      agents) before any code; TA documents, "Ask the firm" and the web
+      monitoring extras parked until after milestone 3.
 - [x] Data store backup: `data/` (and `state/`) are covered by the owner's
       Time Machine backup of the Mac (2026-11-16). The DGX or any other host
       running the firm will need its own backup.
@@ -153,8 +158,15 @@ One PR per phase, test-first:
       first (A–E), bus after (owner decision).
 - [ ] **G. Trade journal**: rebuilt from the ledger into DuckDB, exportable,
       every row traced to verdict and risk decision.
+- [ ] **N. Minimal notifier** (owner, 2026-11-17): urgent alerts to the owner
+      on a private Telegram bot (feed stale, venue disconnected, kill switch,
+      drawdown halt, worker crash, lost risk heartbeat), plus a heartbeat
+      watchdog for the Linux box from another machine. Deterministic, no
+      model in the path; read-only; bot token in `.env`. Full digest,
+      Hermes and two-way commands stay in milestone 4.
 - [ ] **H. The 7-day run** on the Linux box (24/7); strategy to choose then
       (a 1h-verified strategy trades often enough to exercise the plumbing).
+      Starts only after G, N and F (owner order, 2026-11-17).
 
 Owner decisions 2026-11-16:
 
@@ -164,7 +176,7 @@ Owner decisions 2026-11-16:
   per market 60%; total exposure 100% (no leverage); max single order 10%;
   daily loss limit 3% (halts new orders until 00:00 UTC); max drawdown 10%
   per market and 15% total from peak (kill switches).
-- Machines: Mac, DGX and a Linux box are always on. Proposal: the Linux box
+- Machines (in the SPEC since 2026-11-17): Mac, DGX and a Linux box are always on. The Linux box
   runs the trading stack 24/7 (no GPU needed), the DGX serves models and
   research, the Mac is for development; the Linux box can also back up the
   DGX's stores and act as the heartbeat watchdog.
@@ -198,6 +210,9 @@ Still to build:
 
 ## Verifier: trial Sharpes on one scale (found 2026-11-17, owner decision)
 
+Owner approved the proposed fix (2026-11-17); it must land before
+milestone 3, when agents start running many trials across timeframes.
+
 - [ ] **The trial-count check mixes timeframes.** Trials record their Sharpe
       per bar, and the deflated-Sharpe benchmark takes the variance across
       all trials, so a daily trial's per-bar Sharpe sits next to an hourly
@@ -207,6 +222,72 @@ Still to build:
       their dataset). Checked by hand on the latest real verdict: the fix
       changes the numbers but not the outcome. Verification change: test
       first, owner approves before it lands.
+
+## Milestone 3: research floor and dashboard v1
+
+Design agreed with the owner 2026-11-17: SPEC "Research floor".
+Plan the build as phases (one PR each, test-first) and get the owner's
+go-ahead before starting, as for milestone 2.
+
+- [x] (2026-11-17) **Design session with the owner**: autonomous
+      researchers, one strategy each (dossier); inspiration from published
+      methods; rules, ML, LLM and the ari indicators; research loop on the
+      research view with walk-forward; verifier opens OOS once; deterministic
+      promotion gate to paper (owner notified, can veto); live stays manual.
+- [ ] `config/research.yaml` + strict loader: concurrent researchers
+      (default 2), per-dossier budgets (trials, hours, tokens, GPU memory,
+      cloud spend = 0), promotion gate (max paper strategies, max
+      correlation, paper allocation). Agents can't read-write it (rule 3).
+- [ ] Dossier store in the private store; dossier schema; every trial and
+      submission recorded in the ledger.
+- [ ] Researcher agent loop on Certo and local models: idea (with written
+      rationale) → prototype → research loop → submit; budgets enforced by
+      the manager, not the agent.
+- [ ] Knowledge base of published methods (papers, books, public talks) the
+      researchers search; method families out of scope listed.
+- [ ] Research manager: runs N researchers, queues the rest, pauses or
+      unloads when the trading stack needs resources; owner briefs.
+- [ ] ML jobs on the DGX for researchers (training, model artifacts with
+      their training record); capped memory.
+- [ ] Promotion gate (deterministic) + owner veto; invariant test that no
+      agent-facing interface can promote or change the gate.
+- [ ] **Dashboard v1** (owner request 2026-11-17): one web page, two views.
+      Research floor: researchers, dossiers, stage, trials vs budget,
+      results, live activity log; start, pause, redirect, close, briefs.
+      Paper trading in real time: positions, fills, P&L per strategy and in
+      GBP, risk use and halts, feed health, kill switches with confirmation.
+      Minimal control API (REST + WebSocket), private network only,
+      authenticated. Stack decided 2026-11-17 (SPEC "Dashboard stack"):
+      FastAPI + plain JS modules, Lightweight Charts (keep TradingView
+      attribution), ECharts, GridStack panels with saved layouts.
+      Dependencies `fastapi`, `uvicorn` and the three vendored JS libraries
+      approved by the owner.
+- [ ] CLI equivalents: `firm research start|list|show|pause|close`,
+      `firm research brief`, `firm paper status`.
+- [ ] Prerequisite: trial Sharpes on one scale (section above).
+- [ ] Prerequisite: **agent-written strategies live in the private store**,
+      never in git; only hand-written examples are public. `check_repo.py`
+      refuses strategy files outside `examples/`.
+- [ ] Prerequisite: **data-egress gate enforced in code** (today it is only
+      configuration): every model call tagged public/private; private calls
+      to a cloud model refused without a per-run opt-in; every cloud call
+      logged with tag and cost; invariant test.
+- [ ] Prerequisite: strategy loader sandboxed before it runs agent code
+      (Milestone 1 follow-up).
+- [ ] Global trial count across all experiments, in the ledger (exists for
+      hand verifications; extend to experiments).
+
+## Milestone 7: opportunity scout (after milestone 3)
+
+- [ ] Sandboxed scout service: news and filings (official feeds first),
+      time-series scans through the data plane, headless browser on chart
+      pages; d3 classifies headlines and still images.
+- [ ] Outputs only typed `notes.opportunity` messages; no tool that changes
+      state; web content is data, never instructions (golden rule 11).
+- [ ] Everything captured stored with its capture time, so a note can be
+      backtested point-in-time.
+- [ ] Budgets per day (sources, frequency, browser sessions, tokens); site
+      terms and rate limits respected.
 
 ## Data quality (found 2026-11-17)
 
@@ -285,6 +366,8 @@ strategies are judged on real past data whenever we can download it.
 
 ## Technical analysis documents on demand (owner request 2026-11-16)
 
+**Parked until after milestone 3** (owner, 2026-11-17).
+
 Generate a technical-analysis document for any instrument from a dataset
 version, using the ported ari feature library. Depends on the ari
 extraction (steps 1–3 and the `compute_ari_features` wrapper).
@@ -308,6 +391,8 @@ extraction (steps 1–3 and the `compute_ari_features` wrapper).
       linked from the daily digest (milestone 4).
 
 ## Ask the firm: an LLM over our data and reports (owner request 2026-11-16)
+
+**Parked until after milestone 3** (owner, 2026-11-17).
 
 A model that answers questions ("how did ma_crossover do out of sample?",
 "what does the TA say for BTC-USD today?", "why was v-0ef9... rejected?")
@@ -376,6 +461,12 @@ state (SPEC "Control and notifications").
       main flows (the `webapp-testing` skill in SKILLS.md, milestone 4).
 
 ## Web monitoring and real-time instruments (owner request 2026-11-16)
+
+The core of it (research floor + live paper trading) moved into milestone
+3 as **dashboard v1** (owner, 2026-11-17). The rest (multi-instrument
+watchlists, full system page, TA and "Ask the firm" pages) stays in
+milestone 4. The streaming data layer below is already built (milestone 2,
+phase D).
 
 The CLI stays; a web interface monitors everything, live. Builds on the
 "Web UI" section above (milestone 4) and the control API.

@@ -813,3 +813,67 @@ Phase H runs `firm paper run` on the always-on Linux box under a systemd
   stays on the machine that runs research. Paper runs record no trials, so
   the global trial count is unaffected. Two ledgers until the bus (phase F)
   gives the firm one writer; merging them is an open item in TODO.md.
+
+## 2026-11-17 — Roadmap re-aligned with the owner's vision
+
+Owner review of the docs and TODO against the original design. The
+foundation matched; the order of work had drifted toward plumbing while the
+research side (the reason for the firm) was barely planned. Decisions:
+
+- **Milestone 2 finishes in this order:** trade journal (G), a minimal
+  notifier (N, new: urgent alerts to the owner on Telegram, plus a heartbeat
+  watchdog), the bus (F), then the 7-day run (H). An unattended run with no
+  alerts would fail silently; the bus comes before the run because the
+  Linux box and the DGX already run separate parts of the firm.
+- **The trial-scaling fix is approved** and lands before milestone 3:
+  agents will run many trials across timeframes, and mixed-scale Sharpes
+  would distort every verdict.
+- **Milestone 3 gets prerequisites:** agent-written strategies live in the
+  private store (the repo is public), the egress gate is enforced in code,
+  the strategy loader is sandboxed. Its design (experiment agents) is done
+  with the owner before any code.
+- **The opportunity scout becomes milestone 7**, after milestone 3, numbered
+  last so existing milestone references stay valid.
+- **Parked until after milestone 3:** TA documents on demand, "Ask the
+  firm", and the web-monitoring extras.
+- **SPEC hardware roles updated:** the Linux box runs the trading stack
+  24/7; the DGX serves models and research.
+
+## 2026-11-17 — Research floor design: autonomous researchers, automatic paper promotion
+
+Owner design session for milestone 3 (SPEC "Research floor").
+
+- **Each agent is a researcher owning one strategy dossier**, autonomous
+  from idea to verdict: invents (from published methods: papers, books,
+  public talks by firms such as Jane Street; rules, ML, LLM, the ari
+  indicators), backtests and optimises on the research view with
+  walk-forward, then submits to the verifier, which opens the out-of-sample
+  period once. Every run counts in the global trial count.
+- **Promotion to paper is automatic** (owner choice): a deterministic gate
+  promotes a verified strategy when it is not too correlated with strategies
+  already in paper and the paper-strategy cap is not reached. The owner is
+  notified and can veto. Paper is fake money; live stays a manual decision
+  (firm rule 7 unchanged). This replaces "verified finalists wait for your
+  approval".
+- **Everything is a parameter** in `config/research.yaml`, owner-editable,
+  never agents: concurrent researchers (start with 2), per-dossier budgets,
+  promotion-gate limits.
+- **Dashboard v1 comes with milestone 3** (owner request): one web page to
+  inspect and run the researchers and to watch paper trading in real time,
+  on a minimal control API. The rest of the web UI stays in milestone 4.
+
+## 2026-11-17 — Dashboard stack
+
+Owner had no preference; requirements: charts and configurable panels, runs
+on any host on a private network.
+
+- **FastAPI + uvicorn** for the control API: Python like the rest of the
+  firm, REST plus WebSocket, typed with pydantic (already a dependency).
+- **Plain JavaScript modules, no build step:** nothing to compile on the
+  Linux box or the DGX; libraries vendored at pinned versions, no CDN.
+- **TradingView Lightweight Charts** (Apache-2.0) for price charts. Its
+  licence requires naming TradingView as the creator: its attribution logo
+  stays on and its NOTICE is kept with the vendored file.
+- **Apache ECharts** (Apache-2.0) for everything that is not a price chart.
+- **GridStack.js** (MIT) for drag-and-resize panels; layouts saved
+  server-side per named view, not in the browser.
