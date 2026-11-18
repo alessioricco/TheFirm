@@ -877,3 +877,20 @@ on any host on a private network.
 - **Apache ECharts** (Apache-2.0) for everything that is not a price chart.
 - **GridStack.js** (MIT) for drag-and-resize panels; layouts saved
   server-side per named view, not in the browser.
+
+## 2026-11-17 — Replay through the paper path; buys sized as the simulator reserves
+
+`firm paper replay` runs history through the live trading path (worker,
+risk desk, simulator) and compares it with the verifier's backtest, because
+paper results can only confirm a verdict if both engines make the same
+decisions. It answers in seconds what a live run answers in weeks (owner:
+tests are sized by decisions per hour, not days). It is a check, not a
+verification: it needs a passing verdict (the same deployment gate as
+`paper run`), records no trial and writes to a scratch ledger.
+
+Its first test found a sizing bug: the worker sized a full buy with fees and
+costs added (`taker + half spread + slippage`), while the simulator reserves
+them compounded (`(1 + costs) x (1 + taker)`), so a 100% target was always a
+few cents short and rejected. `PaperSimulator.taker_buffer_bps()` now gives
+the exact figure and both `paper run` and replay size with it. The live run
+was unaffected only because the risk caps keep each buy far below the cash.

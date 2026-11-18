@@ -12,6 +12,23 @@ Why things were decided goes in `DECISIONS.md`; how modules work goes in
 versions, verdict IDs, metrics, download history) goes in the git-ignored
 `private/TODO.md` instead; `scripts/check_repo.py` refuses real IDs here.
 
+## Mission (owner, 2026-11-17)
+
+The firm exists to find strategies that make money: a research agent builds
+strategies, sets up experiments and trains ML models, with the mission of
+writing the strategy that pays the bills. Every strategy goes through one
+pipeline, and each stage is a gate:
+
+1. **Built** by the research agent (milestone 3; hand-written until then).
+2. **Historical test**: the verifier's protocol on real data (milestone 1).
+3. **Paper trading** on live data, for strategies that pass (milestone 2).
+4. **Candidate for real trading** once proven on paper; the bar is to be
+   set by the owner in trades, not days (SPEC open question: drift
+   tolerance). Real money stays off in v1.
+
+Tests are sized by decisions per hour of wall-clock, not calendar days:
+replay history through the real code first, live runs on short timeframes.
+
 ## Status
 
 - [x] Step 0: repository skeleton (2026-11-16)
@@ -31,6 +48,9 @@ versions, verdict IDs, metrics, download history) goes in the git-ignored
       before milestone 3; milestone 3 designed with the owner (experiment
       agents) before any code; TA documents, "Ask the firm" and the web
       monitoring extras parked until after milestone 3.
+      **Conflict to settle (owner):** the mission note below (also
+      2026-11-17, later) puts milestone 3 next and lets the bus (F) and
+      journal (G) wait until something trades. Which order holds?
 - [x] Data store backup: `data/` (and `state/`) are covered by the owner's
       Time Machine backup of the Mac (2026-11-16). The DGX or any other host
       running the firm will need its own backup.
@@ -39,6 +59,29 @@ versions, verdict IDs, metrics, download history) goes in the git-ignored
       `ma_crossover` opened its OOS on Coinbase BTC-USD, verifying it on
       another venue or instrument would be refused. Per strategy (strict,
       current) or per strategy × instrument?
+- [x] (2026-11-17) **Replay** (`firm paper replay`): history through the
+      real trading path (worker -> risk -> simulator -> ledger) in seconds,
+      compared with the verifier's backtest on the same bars. With the risk
+      caps off the two agree (tests: same trades, returns within 0.5%).
+- [ ] **Owner decision (risk): what a kill switch does to an open position.**
+      Today a tripped kill switch rejects every order, sells included, until
+      the owner's RESUME: the position is frozen at the worst moment. A
+      replay of the verified daily strategy showed it (market drawdown >10%
+      in a crash, then 2+ years halted while holding). Options: (a) keep
+      (block everything); (b) allow only orders that reduce exposure;
+      (c) flatten when it trips.
+- [ ] **Owner decision: the verifier judges a strategy fully invested; risk
+      lets it hold 20% per instrument, in orders of at most 10%.** Paper
+      results can't match the verdict's numbers by design. Options: the
+      verifier sizes like the risk desk; or replay becomes a gate after the
+      verifier (pass = paper path reproduces the trades under the real caps).
+- [ ] Then **milestone 3**: the research agent. Strategies that pass,
+      ideally on 1h/4h bars so they trade often, go to paper trading after
+      owner approval. Bus (F) and trade journal (G) wait until something
+      trades.
+- [ ] Owner (SPEC): replace "paper-trades for 7 days" in milestone 2's exit
+      check with a count of decisions and fills; define "proven on paper"
+      in trades.
 - [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
       pass. Its working tree has 2 modified + 2 untracked files outside the
       extracted code; commit or discard them there before archiving.
