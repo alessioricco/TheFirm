@@ -62,6 +62,18 @@ and are still placeholders.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). Tested on macOS
 and Linux arm64; no GPU needed.
 
+The desks talk over a message bus, so running the firm (not the tests) also
+needs the [NATS server](https://nats.io) (`nats-server`, 2.10 or later, with
+JetStream):
+
+```bash
+brew install nats-server          # macOS
+# Linux: a release binary from github.com/nats-io/nats-server/releases
+nats-server --version
+```
+
+The test suite never needs it: tests use an in-memory bus.
+
 ```bash
 uv sync --extra dev
 git config core.hooksPath .githooks    # enable the pre-commit guard (once per clone)
