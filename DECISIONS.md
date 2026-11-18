@@ -921,3 +921,15 @@ Two owner decisions after the first replay of the daily pass.
   replays its sealed out-of-sample result under a new seal, as for fees.
   Rejected: replay as a second gate (slower, and it would still compare
   against a fully invested backtest).
+
+## 2026-11-18 — Milestone 2's exit check counts bars, not days
+
+Owner: "instead of 7 days we can keep the check to some candles, example 7
+hours with 1h candles". The exit check exercises the plumbing (decisions,
+risk, fills, ledger, alerts), and that is measured in bars decided, not in
+calendar time: at least 7 closed bars of the strategy's timeframe, deciding
+on every one. Seven days of a daily strategy still qualifies; seven hours of
+an hourly one is the intended run. Whether a strategy is *proven* on paper
+(candidate for real money) is a separate bar, still to set in trades.
+Same day, owner: order and position caps stay at 10% and 20% as parameters
+(already config); later, agents may search them in simulation only.

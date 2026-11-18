@@ -331,7 +331,11 @@ To add a venue: implement `VenueAdapter`, register a factory in
   every missed bar after downtime); trades and FX streams; `paper_account`
   + `balances_after` (opening balances recorded once as `MARKET_STATUS
   paper_account_opened`, rebuilt from fills on restart); everything into the
-  ledger, the interesting events to the terminal (`Tee`). A refusal by the
+  ledger, the interesting events to the terminal (`Tee`). `progress.py`
+  (display only) prints each bar's outcome as it happens and a status line
+  every `--status-every` seconds (price, holding, cash, equity, trades
+  received, time to the next close); the CLI tees every line to
+  `<state>/logs/paper-<market>-<venue>.log`. A refusal by the
   gate (or a missing report) exits 4 (`EXIT_REFUSED`), apart from errors (3),
   so a supervisor retries errors but never a refusal. Unattended runs:
   `deploy/` (systemd user unit `firm-paper@<name>`, settings outside the repo
