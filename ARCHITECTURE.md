@@ -210,7 +210,12 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
   `signals(bars, params)` → target in [0, 1]) and `load_strategy` (executes
   the file: hand-written code only until a sandbox exists).
 - `backtest.py`: `run_backtest` (decide at close, fill at next open,
-  cost per unit traded), `metrics`, `SignalError`.
+  cost per unit traded; `position=` scales a target of 1 to that share of
+  equity), `metrics`, `SignalError`. The verifier sizes at
+  `config/verify/*.yaml` `sizing.position_pct` (20, the risk profile's
+  per-instrument cap; a test keeps them equal) and records it in the report
+  as `sizing`. Sharpe-based checks are unchanged by the size; returns,
+  drawdowns and exposure are not.
 - `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
 - `state.py`: `state_root()`, `TrialRegistry` (counts canonical IDs; legacy
   IDs linked via `trial_aliases.jsonl`), `OosVault` (JSON lines; `alias`
@@ -258,6 +263,9 @@ IDs for facts that can be emitted twice.
   `heartbeat(now)`. `RiskState` (equity, peak, day-start equity, holdings,
   market P&L and peaks, FX to GBP) and `Holding` are its inputs.
 - Limits come only from `RiskProfile` (frozen); the desk has no setter.
+- A kill switch (owner KILL or a drawdown trip) rejects every buy until the
+  owner's RESUME, but a sell still goes through, capped at what is held: it
+  can only reduce exposure. It still needs its passing verdict.
 
 Gotchas: everything is valued in GBP via `state.fx_to_gbp`; a missing rate
 rejects. Market drawdown is measured on that market's P&L below its peak,
@@ -290,7 +298,8 @@ execution-side check.
   `risk.decide` → `build_intent(..., lot_size=)` → `adapter.submit`; each step
   a ledger event. IDs derive from (verdict, venue, instrument, bar close), so
   a replayed bar resubmits the same client order ID. `Deployment` requires a
-  passing verdict for the same strategy.
+  passing verdict for the same strategy; its `position_fraction` (from the
+  report's `sizing`) is the share of equity a target of 1 asks for.
 - `runner.py`: `MarketRunner` is one market's asyncio loop: `on_trade` (the
   feed callback) queues; `run(stop)` updates FX on the FX pair, closes bars
   BEFORE the closing trade reaches the venue (no fill on a trade the order
@@ -307,6 +316,8 @@ execution-side check.
   instrument=, tf=, capture_methods=)`: the report must hash to its verdict
   ID, pass, match the code and params, the venue/instrument/tf, and rest only
   on `api` captures (`firm.data.dataset.capture_methods`).
+  `position_fraction(report)`: the size the verdict was judged at (1 for
+  reports from before 2026-11-18, which were judged fully invested).
 
 To add a venue: implement `VenueAdapter`, register a factory in
 `tests/conformance/conftest.py::ADAPTERS`, pass the suite (`/add-venue-adapter`).

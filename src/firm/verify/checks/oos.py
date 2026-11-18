@@ -39,7 +39,9 @@ def run(ctx: VerifyContext, in_sample_sharpe: float) -> CheckResult:
             detail=f"out-of-sample already opened for another version of "
             f"{ctx.strategy_id} in scope {ctx.scope}; it can't be reused",
         )
-    result = run_backtest(ctx.full, ctx.signals(ctx.full), cost_bps=ctx.cost_bps)
+    result = run_backtest(
+        ctx.full, ctx.signals(ctx.full), cost_bps=ctx.cost_bps, position=ctx.position
+    )
     m = metrics(result, ctx.oos_start, len(ctx.full), ctx.periods_per_year)
     digest = hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
     if opening.access == "replay" and opening.sealed_hash is None:

@@ -18,9 +18,10 @@ and checks it against `run_backtest` on the same bars:
   the strategy needs more history than the lookback, or isn't causal);
 - **trades**: every change of the backtest's position has an order at the
   same bar, or a recorded reason why not (risk caps, minimum order);
-- **returns and exposure**: side by side. Risk caps make the paper account
-  hold less than the backtest's 100%, so returns differ by design; the report
-  shows by how much.
+- **returns and exposure**: side by side. Both size a target of 1 at the
+  verdict's position size (the risk desk's per-instrument cap); what is left
+  between them is the single-order cap (entries take several bars), fills
+  and the other risk limits.
 
 Nothing here touches the firm's ledger: events go to the sink the caller
 gives (a scratch ledger for `firm paper replay`).
@@ -49,14 +50,14 @@ from firm.data.fetch import Transport, http_get
 from firm.data.providers.base import NS, BarRow
 from firm.data.reference import latest_instruments
 from firm.execution.adapter import InstrumentRules, VenueMode
-from firm.execution.deploy import DeploymentRefused, verdict_for_deployment
+from firm.execution.deploy import DeploymentRefused, position_fraction, verdict_for_deployment
 from firm.execution.portfolio import FxBook, Portfolio, starting_cash
 from firm.execution.simulator import MarketBar, PaperSimulator, SimConfig
 from firm.execution.worker import Deployment, MarketWorker, Outcome, SignalSource
 from firm.ledger.sink import LedgerSink, ledger_path
 from firm.ledger.store import Ledger
 from firm.risk.desk import RiskDesk
-from firm.verify.backtest import run_backtest
+from firm.verify.backtest import clean_targets, run_backtest
 from firm.verify.runner import FAR_FUTURE
 from firm.verify.strategy import load_strategy
 from firm.verify.verifier import cost_bps
@@ -246,7 +247,8 @@ async def replay(
     signals = strategy.signals(bars.copy(), deployment.params)
     masked = signals.copy()
     masked.iloc[:decide_from] = 0.0  # the paper account starts flat at decide_from
-    bt = run_backtest(bars, masked, cost_bps=cost_bps)
+    wanted = clean_targets(masked, len(bars))  # the strategy's targets, before sizing
+    bt = run_backtest(bars, masked, cost_bps=cost_bps, position=float(deployment.position_fraction))
 
     result = ReplayResult(start_cash=cash, quote=quote)
     for i, bar in enumerate(rows):
@@ -272,7 +274,7 @@ async def replay(
                 action=outcome.action,
                 reason=outcome.reason,
                 target=outcome.target,
-                backtest_target=float(bt.targets[i]),
+                backtest_target=float(wanted[i]),
                 equity=equity,
                 exposure=float(value / equity) if equity else 0.0,
             )
@@ -388,6 +390,7 @@ class ReplayRun:
                 lookback_bars=self.lookback,
                 rebalance_threshold_pct=profile.execution.rebalance_threshold_pct,
                 cost_buffer_bps=D(0),  # replaced by the simulator's own
+                position_fraction=position_fraction(report),
             ),
             strategy=loaded.strategy,
             profile=profile,

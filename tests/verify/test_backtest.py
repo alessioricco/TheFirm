@@ -52,3 +52,24 @@ def test_metrics() -> None:
     m = metrics(res, 0, 4, 365)
     assert m["total_return"] == pytest.approx(1.10 * 0.90 - 1)
     assert m["max_drawdown"] == pytest.approx(0.10)
+
+
+def test_position_scales_returns_and_costs_but_not_sharpe() -> None:
+    """The verifier sizes like the risk desk (owner, 2026-11-18: positions are
+    capped at 20%, never 100%): a target of 1 holds `position` of equity."""
+    rng = np.random.default_rng(3)
+    closes = 100 * np.cumprod(1 + rng.normal(0, 0.02, 300))
+    opens = np.concatenate([[100.0], closes[:-1]]) * (1 + rng.normal(0, 0.001, 300))
+    bars = _bars(opens, closes)
+    sig = pd.Series(rng.uniform(0, 1, 300))
+    full = run_backtest(bars, sig, cost_bps=20.0)
+    fifth = run_backtest(bars, sig, cost_bps=20.0, position=0.2)
+    assert np.allclose(fifth.net, 0.2 * full.net)
+    assert np.allclose(fifth.turnover, 0.2 * full.turnover)
+    assert sharpe_per_bar(fifth.net) == pytest.approx(sharpe_per_bar(full.net))
+    m_full, m_fifth = metrics(full, 0, 300, 365), metrics(fifth, 0, 300, 365)
+    assert m_fifth["exposure"] == pytest.approx(0.2 * m_full["exposure"])
+    assert m_fifth["max_drawdown"] < m_full["max_drawdown"]
+    for bad in (0.0, -0.1, 1.5):
+        with pytest.raises(ValueError):
+            run_backtest(bars, sig, cost_bps=0, position=bad)

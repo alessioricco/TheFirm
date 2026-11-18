@@ -894,3 +894,30 @@ them compounded (`(1 + costs) x (1 + taker)`), so a 100% target was always a
 few cents short and rejected. `PaperSimulator.taker_buffer_bps()` now gives
 the exact figure and both `paper run` and replay size with it. The live run
 was unaffected only because the risk caps keep each buy far below the cash.
+
+## 2026-11-18 — Kill switch lets exposure come down; the verifier sizes like the risk desk
+
+Two owner decisions after the first replay of the daily pass.
+
+- **A tripped kill switch blocks buys, not sells** (owner chose this of
+  three options: block everything, allow only exposure-reducing orders,
+  flatten on trip). Before, a market kill switch rejected every order and
+  froze an open position for as long as the owner took to RESUME: in the
+  replay, from a crash in 2024 to the end of the data. A sell is capped at
+  what is held (spot, long-only), so it can only reduce exposure; it still
+  needs its passing verdict. Not "flatten": selling is the strategy's
+  decision, the switch only stops new risk.
+- **The verifier backtests at the risk desk's position size** (owner: "we
+  never risk 100%, so 20% is ok"): a target of 1 holds
+  `sizing.position_pct` of equity (20, equal to the risk profile's
+  per-instrument cap; a test keeps them equal). It lives in the verifier
+  config, not read from the risk profile, so the verifier never reads risk
+  config and changing it is an owner edit of a verifier threshold like any
+  other. The report records the size and paper trades at it; reports from
+  before carry no size and mean fully invested. Every check is Sharpe-based
+  and a Sharpe ratio doesn't change when positions scale, so no pass/fail
+  changes: only returns, drawdowns and exposure become what paper can earn.
+  The config change gives a new `config_key`, so an unchanged candidate
+  replays its sealed out-of-sample result under a new seal, as for fees.
+  Rejected: replay as a second gate (slower, and it would still compare
+  against a fully invested backtest).

@@ -60,3 +60,20 @@ def test_report_identical_after_rebuilding_dataset_from_captures(tmp_path) -> No
             ).report
         )
     assert reports[0] == reports[1]
+
+
+def test_report_states_the_position_size_it_was_judged_at(dataset, tmp_path) -> None:
+    """Owner, 2026-11-18: the verifier sizes like the risk desk. The report
+    records the size, so paper trades the strategy at the size it was judged at."""
+    from pathlib import Path
+
+    from firm.core.config import load_risk, load_verifier_config
+
+    config = Path(__file__).resolve().parents[2] / "config"
+    pct = load_verifier_config(config).sizing.position_pct
+    assert pct == load_risk(config / "risk" / "default.yaml").markets["crypto"].max_position_pct
+    r = run_verify(dataset, tmp_path, "ma_crossover.py", "MovingAverageCrossover")
+    body = json.loads(r.report)
+    assert body["sizing"] == {"position_pct": pct}
+    oos = _check(r, "hidden_out_of_sample").metrics
+    assert 0 < oos["exposure"] <= pct / 100

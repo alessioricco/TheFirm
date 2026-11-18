@@ -3,6 +3,11 @@
 # "exact verifier thresholds"); see DECISIONS.md "Verifier checks".
 verifier: default
 min_bars: 250                 # refuse to judge on less history than this
+sizing:
+  position_pct: 20            # a target of 1 holds 20% of equity: the risk
+                              # profile's per-instrument cap (owner, 2026-11-18).
+                              # Sharpe-based checks don't change with it; returns,
+                              # drawdowns and exposure do.
 lookahead:
   truncation_points: 250      # decision times re-run with data cut there
   tolerance: 1.0e-12          # max |signal difference| allowed (float noise)

@@ -107,6 +107,7 @@ def verify_strategy_file(
                 in_sample,
                 loaded.strategy.signals(in_sample.copy(), p),
                 cost_bps=cost_bps(profile, fees),
+                position=vcfg.sizing.position_pct / 100,
             ),
             0,
             split,

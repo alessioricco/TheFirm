@@ -7,15 +7,19 @@ can't be computed (no FX rate) is rejected.
 
 Order of checks, each with its own reason:
 
-1. a kill switch is on (global or this market)        -> reject
+1. buys: a kill switch is on (global or this market)  -> reject
 2. the verdict is not this proposal's, or didn't pass  -> reject
-3. drawdown beyond the limit (global / market)         -> kill switch, reject
+3. drawdown beyond the limit (global / market)         -> kill switch; buys rejected
 4. sells: capped at what is held (spot, long-only)     -> approve / shrink / reject
 5. buys: daily loss limit reached                      -> reject
 6. buys: shrink to the tightest of single order, position, exchange,
    market and total exposure; nothing left             -> reject
 
-Kill switches are released only by an owner `RESUME` command.
+Kill switches are released only by an owner `RESUME` command. A tripped
+switch blocks every buy but still lets a position be sold (owner, 2026-11-18):
+freezing an open position at the worst moment is the opposite of safe. A sell
+still needs its passing verdict, and is capped at what is held, so it can
+only reduce exposure (spot, long-only: no sell can open a short).
 """
 
 from __future__ import annotations
@@ -139,9 +143,12 @@ class RiskDesk:
         self, verdict: Verdict, p: OrderProposal, s: RiskState
     ) -> tuple[RiskAction, Decimal, str]:
         reject = RiskAction.REJECT
+        halt: str | None = None
         if self.halted(p.market):
             which = "global" if None in self._halts else p.market
-            return reject, Decimal(0), f"halted: {which} kill switch is on"
+            halt = f"halted: {which} kill switch is on"
+            if p.side is Side.BUY:
+                return reject, Decimal(0), halt
         if (verdict.verdict_id, verdict.strategy_id) != (p.verdict_id, p.strategy_id):
             return reject, Decimal(0), "verdict does not belong to this proposal"
         if verdict.outcome is not VerdictOutcome.PASS:
@@ -151,23 +158,25 @@ class RiskDesk:
             return reject, Decimal(0), f"no risk limits for market {p.market}"
 
         dd_total = (s.peak_equity_gbp - s.equity_gbp) / s.peak_equity_gbp * 100
-        if dd_total >= Decimal(str(self.profile.limits.max_drawdown_pct)):
-            reason = (
-                f"total drawdown {dd_total:.1f}% >= "
-                f"{self.profile.limits.max_drawdown_pct}%: global kill switch"
-            )
-            self._halt(HaltScope.GLOBAL, None, reason, s.as_of)
-            return reject, Decimal(0), reason
         pnl = s.market_pnl_gbp.get(p.market, Decimal(0))
         peak = max(s.market_peak_pnl_gbp.get(p.market, Decimal(0)), pnl)
         dd_market = (peak - pnl) / s.equity_gbp * 100
-        if dd_market >= Decimal(str(limits.max_drawdown_pct)):
-            reason = (
+        if halt is not None:
+            pass  # already halted: a sell goes on to the holdings check
+        elif dd_total >= Decimal(str(self.profile.limits.max_drawdown_pct)):
+            halt = (
+                f"total drawdown {dd_total:.1f}% >= "
+                f"{self.profile.limits.max_drawdown_pct}%: global kill switch"
+            )
+            self._halt(HaltScope.GLOBAL, None, halt, s.as_of)
+        elif dd_market >= Decimal(str(limits.max_drawdown_pct)):
+            halt = (
                 f"{p.market} drawdown {dd_market:.1f}% of equity >= "
                 f"{limits.max_drawdown_pct}%: market kill switch"
             )
-            self._halt(HaltScope.MARKET, p.market, reason, s.as_of)
-            return reject, Decimal(0), reason
+            self._halt(HaltScope.MARKET, p.market, halt, s.as_of)
+        if halt is not None and p.side is Side.BUY:
+            return reject, Decimal(0), halt
 
         held = sum(
             (
@@ -178,11 +187,12 @@ class RiskDesk:
             Decimal(0),
         )
         if p.side is Side.SELL:
+            note = f"; {halt}, a sell reduces exposure" if halt else ""
             if held <= 0:
-                return reject, Decimal(0), "nothing to sell (spot, long-only)"
+                return reject, Decimal(0), "nothing to sell (spot, long-only)" + note
             if p.quantity > held:
-                return RiskAction.RESIZE, held, f"sell capped at the {held} held"
-            return RiskAction.APPROVE, p.quantity, "sell within holdings"
+                return RiskAction.RESIZE, held, f"sell capped at the {held} held" + note
+            return RiskAction.APPROVE, p.quantity, "sell within holdings" + note
 
         day_loss = (s.day_start_equity_gbp - s.equity_gbp) / s.day_start_equity_gbp * 100
         if day_loss >= Decimal(str(self.profile.limits.daily_loss_limit_pct)):

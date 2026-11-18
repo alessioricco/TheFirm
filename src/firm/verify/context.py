@@ -28,6 +28,7 @@ class VerifyContext:
     in_sample: pd.DataFrame  # bars before the hidden period: all an author may see
     full: pd.DataFrame  # in-sample + hidden period; only the OOS check touches the tail
     cost_bps: float
+    position: float  # fraction of equity a target of 1 holds (verifier sizing)
     periods_per_year: float
     config: VerifierConfig
     registry: TrialRegistry
@@ -55,5 +56,6 @@ class VerifyContext:
                 self.in_sample,
                 self.signals(self.in_sample, params),
                 cost_bps=self.cost_bps * cost_multiplier,
+                position=self.position,
             )
         return self._cache[key]  # type: ignore[return-value]
