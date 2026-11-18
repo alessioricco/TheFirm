@@ -467,6 +467,7 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         seconds=args.hours * 3600 if args.hours else None,
         stream_symbol=args.stream_symbol,
         status_seconds=args.status_every,
+        notifier=_owner_notifier(args.no_notify),
         log=_tee_log(state_root(args.state_root), f"paper-{args.market}-{args.venue}.log"),
     )
     try:
@@ -474,6 +475,83 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
     except DeploymentRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+
+
+def _owner_notifier(off: bool):  # type: ignore[no-untyped-def]
+    """The owner's Telegram notifier from the environment, or None (and why, printed)."""
+    import os
+
+    from firm.notify.telegram import telegram_from_env
+
+    if off:
+        print("notifications: off (--no-notify)", flush=True)
+        return None
+    notifier, why = telegram_from_env(os.environ)
+    print(
+        "notifications: Telegram, to the owner's chat"
+        if notifier
+        else f"notifications: OFF ({why})",
+        flush=True,
+    )
+    return notifier
+
+
+def _cmd_notify_chat_id(args: argparse.Namespace) -> int:
+    import os
+
+    from firm.notify.telegram import TOKEN_ENV, TelegramError, chat_ids
+
+    token = os.environ.get(TOKEN_ENV, "").strip()
+    if not token:
+        print(f"{TOKEN_ENV} is not set (put it in .env)", file=sys.stderr)
+        return 2
+    try:
+        chats = chat_ids(token)
+    except TelegramError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if not chats:
+        print("no messages yet: open your bot in Telegram, send it any message, run this again")
+        return 1
+    for cid, kind, name in chats:
+        print(f"{cid}  {kind}  {name}")
+    print("put your own private chat's ID in .env as TELEGRAM_OWNER_CHAT_ID=<id>")
+    return 0
+
+
+def _cmd_notify_test(args: argparse.Namespace) -> int:
+    import asyncio
+    import os
+    import uuid
+
+    from firm.core.config import load_notify
+    from firm.core.domain import Notification, NotificationLevel
+    from firm.ledger.sink import LedgerSink
+    from firm.notify.alerts import Outbox
+    from firm.notify.telegram import telegram_from_env
+
+    notifier, why = telegram_from_env(os.environ)
+    if notifier is None:
+        print(f"notifications are off: {why}", file=sys.stderr)
+        return 2
+    sink = LedgerSink(_ledger(args))
+    outbox = Outbox(notifier, sink, load_notify(Path(args.config)))
+    outbox.put(
+        Notification(
+            notification_id=f"n-test-{uuid.uuid4().hex[:12]}",
+            level=NotificationLevel.URGENT,
+            text="test alert from the firm: if you can read this, urgent alerts reach you",
+            created_at=datetime.now(UTC),
+        )
+    )
+    asyncio.run(outbox.drain())
+    last = _ledger(args).head()
+    payload = last.payload if last else {}
+    if payload.get("delivered"):
+        print(f"delivered in {payload['latency_seconds']}s (recorded in the ledger)")
+        return 0
+    print(f"NOT delivered: {payload.get('error')}", file=sys.stderr)
+    return 1
 
 
 def _tee_log(state: Path, name: str) -> Callable[[str], None]:
@@ -630,6 +708,16 @@ def build_parser() -> argparse.ArgumentParser:
             cmd.add_argument("--tail", type=int, default=20)
         cmd.set_defaults(func=func)
 
+    nt = sub.add_parser("notify", help="alerts to the owner (Telegram)").add_subparsers(
+        dest="notify_cmd"
+    )
+    ncid = nt.add_parser("chat-id", help="list chats that wrote to the bot (to find yours)")
+    ncid.set_defaults(func=_cmd_notify_chat_id)
+    ntest = nt.add_parser("test", help="send a test urgent alert; prints its delay")
+    ntest.add_argument("--config", default="config")
+    ntest.add_argument("--state-root", help="ledger (default $FIRM_STATE_ROOT or ./state)")
+    ntest.set_defaults(func=_cmd_notify_test)
+
     jr = sub.add_parser(
         "journal", help="trade journal: one row per paper trade, rebuilt from the ledger"
     ).add_subparsers(dest="journal_cmd")
@@ -675,6 +763,7 @@ def build_parser() -> argparse.ArgumentParser:
     prun.add_argument("--lookback", type=int, default=200, help="bars of history (default 200)")
     prun.add_argument("--hours", type=float, help="stop after this long (default: until Ctrl-C)")
     prun.add_argument("--stream-symbol", help="as the live stream spells it, if not on record")
+    prun.add_argument("--no-notify", action="store_true", help="no alerts to the owner")
     prun.add_argument(
         "--status-every",
         type=float,
@@ -733,11 +822,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from firm.core.env import load_dotenv_unless_disabled
+
+    load_dotenv_unless_disabled()  # fills only unset keys; never printed
     parser = build_parser()
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state", "ledger", "feed", "paper"):
+        if args.command in ("data", "state", "ledger", "journal", "feed", "paper", "notify"):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0

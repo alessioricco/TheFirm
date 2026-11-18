@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from firm.control.progress import Progress
-from firm.core.config import load_config, load_fee_schedule
+from firm.core.config import load_config, load_fee_schedule, load_notify
 from firm.core.domain import Fill, LedgerEventType, Side
 from firm.core.events import EventSink
 from firm.core.heartbeat import HeartbeatMonitor
@@ -51,6 +51,7 @@ from firm.execution.simulator import PaperSimulator, SimConfig
 from firm.execution.worker import Deployment, MarketWorker
 from firm.ledger.sink import LedgerSink, ledger_path
 from firm.ledger.store import Ledger
+from firm.notify.alerts import AlertingSink, Outbox, Sender
 from firm.risk.desk import RiskDesk
 from firm.verify.strategy import load_strategy
 
@@ -196,6 +197,7 @@ class Tee:
             LedgerEventType.FILL,
             LedgerEventType.FEED_STATUS,
             LedgerEventType.MARKET_STATUS,
+            LedgerEventType.NOTIFICATION,
         }
     )
 
@@ -235,6 +237,7 @@ class PaperRun:
     transport: Transport = http_get
     log: Callable[[str], None] = print
     status_seconds: float = 60.0  # status line interval; 0 turns it off
+    notifier: Sender | None = None  # alerts to the owner (None: off)
     stop: asyncio.Event = field(default_factory=asyncio.Event)
 
     def _report(self) -> bytes:
@@ -278,12 +281,20 @@ class PaperRun:
         )
 
         ledger = Ledger(ledger_path(self.state_root))
-        sink = Tee(LedgerSink(ledger), self.log)
+        recorded: EventSink = Tee(LedgerSink(ledger), self.log)
+        sink: EventSink = recorded
+        outbox: Outbox | None = None
+        if self.notifier is not None:
+            notify_cfg = load_notify(self.config_root)
+            outbox = Outbox(self.notifier, recorded, notify_cfg)
+            sink = AlertingSink(recorded, outbox, notify_cfg)
         fx_pairs = mp.execution.fx
         max_age = min(p.max_age_seconds for p in fx_pairs)
         fx = FxBook(max_age=timedelta(seconds=max_age))
         pair_of = {(p.provider, p.symbol): (p.base, p.quote) for p in fx_pairs}
         tasks: list[asyncio.Task[None]] = []
+        if outbox is not None:
+            tasks.append(asyncio.create_task(outbox.run(self.stop)))
         for provider in sorted({p.provider for p in fx_pairs}):
 
             def on_fx(symbol: str, trade: Any, provider: str = provider) -> None:
@@ -472,4 +483,6 @@ class PaperRun:
                 "at": _now().isoformat(),
             },
         )
+        if outbox is not None:
+            await outbox.drain()  # the owner hears how it ended
         return 1 if failed else 0

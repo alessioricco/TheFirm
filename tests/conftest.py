@@ -20,6 +20,14 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket, "create_connection", refuse)
 
 
+@pytest.fixture(autouse=True)
+def _no_owner_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests never read the repo's .env nor a developer's Telegram settings."""
+    monkeypatch.setenv("FIRM_DOTENV", "0")
+    for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_OWNER_CHAT_ID"):
+        monkeypatch.delenv(key, raising=False)
+
+
 # --------------------------------------------------------------------------- shared data
 
 

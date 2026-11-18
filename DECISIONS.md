@@ -981,3 +981,20 @@ interpolated one", then "apply the best solution".
   by hand only to shorten the run would spend trials the research agents
   will be judged against. The daily pass runs 7 bars unattended while
   milestone 3 is built; a 1h pass, if one exists first, takes its place.
+
+## 2026-11-18 — Minimal notifier: alerts from ledger events, delivered off the trading path
+
+Phase N1. Alerts are derived from the events the desks already write (feed
+status, risk halts, market status) by fixed rules, so no desk learns about
+Telegram and no model is anywhere in the path. The wrapper sink records
+first and alerts second: the ledger never depends on the channel. Sending
+happens in a background task with a few retries; a dead channel is recorded
+and never raised, because an alert outage must not stop trading (the
+watchdog, N2, covers a silent box). Throttling per alert key keeps a
+flapping feed from flooding the owner; a "recovered" message is sent only
+for an alert the owner actually received. Every send is a NOTIFICATION
+event with its delay from the event, which is how milestone 2's "within 60
+seconds" is measured. The bot reads nothing in v1 (no commands at all), the
+chat is one environment value, and `send` has no recipient argument (firm
+rule 10). `.env` is read by a 20-line loader (no new dependency) that fills
+only unset keys, so a systemd EnvironmentFile or the shell always wins.

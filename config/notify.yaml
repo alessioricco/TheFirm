@@ -1,0 +1,9 @@
+# Alerts to the owner (firm rule 10: owner only; the chat is TELEGRAM_OWNER_CHAT_ID
+# in .env, and there is no way to name another recipient). Deterministic rules,
+# no model in the path. Owner-editable; agents may not change it.
+notify: default
+throttle_seconds: 300      # the same alert (e.g. one feed going stale) at most every 5 min
+attempts: 3                # delivery attempts per message
+retry_seconds: 5
+drain_seconds: 20          # at shutdown, time to send what is still queued
+announce_start_stop: true  # also tell the owner when a paper run starts or stops
