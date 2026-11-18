@@ -347,6 +347,27 @@ execution-side check.
 To add a venue: implement `VenueAdapter`, register a factory in
 `tests/conformance/conftest.py::ADAPTERS`, pass the suite (`/add-venue-adapter`).
 
+## notify (milestone 2: minimal notifier)
+
+- `telegram.py`: `TelegramNotifier(token, chat_id)`: `send(notification)`
+  posts to the one owner chat (no recipient argument, firm rule 10);
+  `chat_ids(token)` (getUpdates, the owner's one-off helper);
+  `telegram_from_env(env)` -> notifier or None and why. Errors are rebuilt
+  without the token (it sits in the API URL); the repr hides it.
+- `alerts.py`: `alert_for(event_type, reason, payload, cfg)` (urgent: feed
+  stale/disconnected, risk halt, market crash; action: run started/stopped,
+  feed recovered); `AlertingSink` (an `EventSink`: records first, then
+  queues; throttles the same urgent key to once per `throttle_seconds`; a
+  recovery is sent only if its alert was); `Outbox` (async worker `run(stop)`,
+  sends in a thread with retries, `drain()` at shutdown; every send is a
+  `NOTIFICATION` ledger event with `delivered`, `attempts`,
+  `latency_seconds`, `error`). A dead channel never raises into trading.
+- Config: `config/notify.yaml` (`load_notify`). Secrets: `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_OWNER_CHAT_ID` from the environment; `firm.core.env` fills unset
+  keys from `.env` at CLI start (`FIRM_DOTENV=0` turns it off; the tests do).
+  Gotcha: `scripts/check_repo.py` flags `NAME_WITH_TOKEN = "<16+ chars>"`
+  as a secret, even an environment variable's name.
+
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one
   market on paper: deployment gate on the stored report; instrument rules

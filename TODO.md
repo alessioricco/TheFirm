@@ -100,7 +100,7 @@ replay history through the real code first, live runs on short timeframes.
       proves when a candidate differs from an opened one only by quarantined
       bars and replays it instead of refusing (`firm verify --as-of` to match
       the opening's window); the trial isn't counted twice.
-- [ ] After merge: re-verify the daily pass on the real state (command in
+- [x] (2026-11-18, done) After merge: re-verify the daily pass on the real state (command in
       private/TODO.md) and use the new verdict for H.
 - [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
       pass. Its working tree has 2 modified + 2 untracked files outside the
@@ -233,12 +233,22 @@ One PR per phase, test-first:
       (milestone 3); regime label; fees charged in a currency other than the
       quote (refused for now; matters for live venues); calibrating the
       simulator's slippage from the journal (needs live fills).
-- [ ] **N. Minimal notifier** (owner, 2026-11-17): urgent alerts to the owner
-      on a private Telegram bot (feed stale, venue disconnected, kill switch,
-      drawdown halt, worker crash, lost risk heartbeat), plus a heartbeat
-      watchdog for the Linux box from another machine. Deterministic, no
-      model in the path; read-only; bot token in `.env`. Full digest,
-      Hermes and two-way commands stay in milestone 4.
+- [x] (2026-11-18) **N1. Alerts to the owner on Telegram** (owner,
+      2026-11-17): `firm.notify` (alert rules, throttle, outbox off the
+      trading path, every send in the ledger with its delay); `firm paper
+      run` alerts unless `--no-notify`; `firm notify chat-id | test`.
+      Deterministic, no model, sends only to `TELEGRAM_OWNER_CHAT_ID`, reads
+      no commands. Full digest, Hermes and two-way commands: milestone 4.
+- [ ] Owner: put `TELEGRAM_OWNER_CHAT_ID` in `.env` (`firm notify chat-id`),
+      then `firm notify test`; on the Linux box, both values in
+      `~/.config/firm/paper-<name>.conf`.
+- [ ] **N2. Heartbeat watchdog** for the Linux box from another machine (it
+      alerts when the box itself goes silent, which the box can't report).
+      Design to agree: the run writes a heartbeat (file or tiny HTTP status)
+      and the watchdog on the Mac/DGX polls it over the private network
+      (Tailscale), alerting through the same Telegram bot.
+- [ ] Alert on a lost risk heartbeat: in-process it can't be lost; add the
+      rule with the bus (F), where it can.
 - [ ] **H. The unattended run** (7+ closed bars) on the Linux box (24/7); strategy to choose then
       (a 1h-verified strategy trades often enough to exercise the plumbing).
       Starts only after G, N and F (owner order, 2026-11-17).

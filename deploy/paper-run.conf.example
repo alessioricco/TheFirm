@@ -18,3 +18,9 @@ FIRM_TF=1d
 # Optional extra flags, split on spaces (so JSON without spaces), e.g.
 # FIRM_PAPER_EXTRA=--lookback 300
 FIRM_PAPER_EXTRA=
+
+# Alerts to the owner (Telegram, milestone 2's minimal notifier). Empty: the
+# run goes on without alerts and says so at start. Find the chat ID once with
+# `uv run firm notify chat-id`, then check delivery with `uv run firm notify test`.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_OWNER_CHAT_ID=

@@ -314,6 +314,17 @@ class DataQualityConfig(FirmModel):
         return f"{self.quality}-v{self.rule_version}-ratio{self.max_price_ratio:g}"
 
 
+class NotifyConfig(FirmModel):
+    """How alerts reach the owner (`config/notify.yaml`). Owner-editable."""
+
+    notify: Id
+    throttle_seconds: int = Field(ge=0)  # the same alert at most once per this
+    attempts: int = Field(ge=1)  # delivery attempts per notification
+    retry_seconds: float = Field(ge=0)
+    drain_seconds: float = Field(gt=0)  # at shutdown, time left to send what's queued
+    announce_start_stop: bool  # tell the owner when a run starts or stops
+
+
 class SizingConfig(FirmModel):
     """How much of equity a target of 1 holds in the verifier's backtest. It
     matches the risk profile's per-instrument cap, so a verdict's returns and
@@ -462,6 +473,14 @@ def load_data_quality(root: Path, name: str = "default") -> DataQualityConfig:
     cfg = _validate(DataQualityConfig, path)
     if cfg.quality != name:
         raise ConfigError(f"{path}: quality {cfg.quality!r} must be {name!r}")
+    return cfg
+
+
+def load_notify(root: Path, name: str = "default") -> NotifyConfig:
+    path = root / "notify.yaml" if name == "default" else root / f"notify-{name}.yaml"
+    cfg = _validate(NotifyConfig, path)
+    if cfg.notify != name:
+        raise ConfigError(f"{path}: notify {cfg.notify!r} must be {name!r}")
     return cfg
 
 
