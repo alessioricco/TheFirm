@@ -250,6 +250,91 @@ def _cmd_ledger_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _journal_summary(db: Path) -> list[str]:
+    import duckdb
+
+    con = duckdb.connect(str(db), read_only=True)
+    try:
+        closed, wins, net, fees, slip = con.execute(
+            "SELECT count(*), count(*) FILTER (net_pnl > 0), sum(net_pnl), sum(fees), "
+            "avg(entry_slippage_bps) FROM trades WHERE status = 'closed'"
+        ).fetchall()[0]
+        open_ = con.execute("SELECT count(*) FROM trades WHERE status = 'open'").fetchall()[0][0]
+        seq, built = con.execute(
+            "SELECT ledger_sequence, strftime(built_at, '%Y-%m-%d %H:%M') FROM journal_meta"
+        ).fetchall()[0]
+        quotes = [
+            r[0] for r in con.execute("SELECT DISTINCT quote_currency FROM trades").fetchall()
+        ]
+    finally:
+        con.close()
+    q = quotes[0] if len(quotes) == 1 else "(mixed currencies)"
+    lines = [f"journal {db}: built from ledger up to event {seq} ({built} UTC)"]
+    lines.append(f"  {closed} closed trades, {open_} open")
+    if closed:
+        lines.append(
+            f"  closed: {wins}/{closed} won; net P&L {net:.2f} {q} after {fees:.2f} {q} fees; "
+            f"entry slippage {slip:.1f} bps on average"
+        )
+    return lines
+
+
+def _cmd_journal_build(args: argparse.Namespace) -> int:
+    from firm.ledger.journal import build_journal, journal_path
+    from firm.verify.state import state_root
+
+    db = journal_path(state_root(args.state_root))
+    build_journal(_ledger(args), db)
+    print("\n".join(_journal_summary(db)))
+    return 0
+
+
+def _cmd_journal_show(args: argparse.Namespace) -> int:
+    import duckdb
+
+    from firm.ledger.journal import journal_path
+    from firm.verify.state import state_root
+
+    db = journal_path(state_root(args.state_root))
+    if not db.is_file():
+        print(f"no journal at {db}: run `firm journal build` first", file=sys.stderr)
+        return 2
+    print("\n".join(_journal_summary(db)))
+    con = duckdb.connect(str(db), read_only=True)
+    con.execute("SET TimeZone = 'UTC'")
+    try:
+        rows = con.execute(
+            "SELECT * FROM (SELECT strftime(decision_time, '%Y-%m-%d %H:%M') AS t, "
+            "instrument, quantity, entry_price, exit_price, net_pnl, net_return, verdict_id "
+            "FROM trades "
+            "ORDER BY decision_time DESC LIMIT ?) ORDER BY t",
+            [args.tail],
+        ).fetchall()
+    finally:
+        con.close()
+    for at, inst, qty, entry, exit_, net, ret, verdict in rows:
+        result = f"net {net:+.2f} ({ret:+.2%})" if net is not None else "open"
+        price = f"{entry:.2f} -> {exit_:.2f}" if exit_ is not None else f"{entry:.2f}"
+        print(f"  {at}  {inst} {qty.normalize()} at {price}  {result}  {verdict}")
+    return 0
+
+
+def _cmd_journal_export(args: argparse.Namespace) -> int:
+    from firm.ledger.journal import export_journal, journal_path
+    from firm.verify.state import state_root
+
+    def day(s: str | None) -> datetime | None:
+        return datetime.fromisoformat(s).replace(tzinfo=UTC) if s else None
+
+    db = journal_path(state_root(args.state_root))
+    if not db.is_file():
+        print(f"no journal at {db}: run `firm journal build` first", file=sys.stderr)
+        return 2
+    n = export_journal(db, Path(args.out), fmt=args.format, start=day(args.from_), end=day(args.to))
+    print(f"wrote {n} trades to {args.out}")
+    return 0
+
+
 def _cmd_ledger_verify(args: argparse.Namespace) -> int:
     report = _ledger(args).verify_chain()
     if report.ok:
@@ -447,6 +532,12 @@ def _cmd_paper_replay(args: argparse.Namespace) -> int:
         f"  exposure:  paper {s['paper_exposure']:.0%} on average, "
         f"backtest {s['backtest_exposure']:.0%}"
     )
+    from firm.ledger.journal import build_journal, journal_path
+    from firm.ledger.sink import ledger_path
+    from firm.ledger.store import Ledger
+
+    build_journal(Ledger(ledger_path(out)), journal_path(out))
+    print("\n".join(_journal_summary(journal_path(out))))
     return 0 if s["signal_mismatches"] == 0 else 1
 
 
@@ -520,6 +611,21 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
         if name == "show":
             cmd.add_argument("--tail", type=int, default=20)
+        cmd.set_defaults(func=func)
+
+    jr = sub.add_parser(
+        "journal", help="trade journal: one row per paper trade, rebuilt from the ledger"
+    ).add_subparsers(dest="journal_cmd")
+    jb = jr.add_parser("build", help="rebuild the journal from the whole ledger")
+    js = jr.add_parser("show", help="summary and the latest trades")
+    js.add_argument("--tail", type=int, default=20)
+    je = jr.add_parser("export", help="trades decided in [--from, --to) to CSV or Parquet")
+    je.add_argument("--from", dest="from_", help="YYYY-MM-DD (UTC), inclusive")
+    je.add_argument("--to", help="YYYY-MM-DD (UTC), exclusive")
+    je.add_argument("--format", choices=["csv", "parquet"], default="csv")
+    je.add_argument("--out", required=True, help="output file (keep it out of the repo)")
+    for cmd, func in ((jb, _cmd_journal_build), (js, _cmd_journal_show), (je, _cmd_journal_export)):
+        cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
         cmd.set_defaults(func=func)
 
     feed = sub.add_parser("feed", help="live market data streams").add_subparsers(dest="feed_cmd")

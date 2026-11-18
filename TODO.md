@@ -196,8 +196,19 @@ One PR per phase, test-first:
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).
-- [ ] **G. Trade journal**: rebuilt from the ledger into DuckDB, exportable,
-      every row traced to verdict and risk decision.
+- [x] (2026-11-18) **G. Trade journal**: `firm.ledger.journal`, one row per
+      round trip (flat -> long -> flat), rebuilt from the ledger into
+      `<state>/journal.duckdb`; `firm journal build | show | export`;
+      `firm paper replay` builds one in its scratch folder. Every row carries
+      its verdict, risk decisions and the ledger position it was built from.
+- [ ] Journal follow-ups (unknown today, stored as empty, never zero):
+      max adverse/favourable excursion (needs the bar path from the store);
+      spread paid (the simulator folds spread into the fill price: record it
+      on the fill); feature snapshot and version (strategies don't expose
+      features yet: milestone 3); judge outputs (milestone 5); experiment ID
+      (milestone 3); regime label; fees charged in a currency other than the
+      quote (refused for now; matters for live venues); calibrating the
+      simulator's slippage from the journal (needs live fills).
 - [ ] **N. Minimal notifier** (owner, 2026-11-17): urgent alerts to the owner
       on a private Telegram bot (feed stale, venue disconnected, kill switch,
       drawdown halt, worker crash, lost risk heartbeat), plus a heartbeat
