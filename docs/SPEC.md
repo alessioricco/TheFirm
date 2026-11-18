@@ -45,7 +45,7 @@ Eleven components, split by one rule: AI may only produce candidates, features a
 | Data plane | Deterministic | Ingests, versions and serves point-in-time market data; feature library (ari\_signals Level 0 generator, \~30 indicators → JSON, behind a fixed-lookback, closed-bar wrapper) | Serves data from after the requested timestamp | `bars()`, `trades()`, `book()`, `universe()` with an `as_of` time, on an exact dataset version |
 | Ledger | Deterministic store | Records every proposal, verdict, decision, order and fill | Lets anything be edited or deleted | Append-only events, replayable |
 | Notifier | Deterministic | Urgent alerts, actions, daily digest to the owner | Accepts commands other than status and kill switch | `Notification(level, text, links)` |
-| Control API | Deterministic | Serves the web UI, CLI and a read-only MCP endpoint | Lets agents promote strategies or edit risk | REST + WebSocket, authenticated |
+| Control API | Deterministic | Serves the web UI, CLI and a read-only MCP endpoint | Lets agents promote strategies, change the promotion gate or edit risk | REST + WebSocket, authenticated |
 
 A strategy moves through fixed stages: idea → verified backtest → paper trading → (later) small live → (later) scaled. Live drifting from the backtest demotes it automatically.
 
@@ -159,9 +159,10 @@ The DGX Spark runs the whole firm 24/7 on mixture-of-experts models; the Mac is 
 
 **Roles of each machine**
 
-- **DGX Spark:** model server, ML training, data plane, verifier, risk, paper simulator, execution, ledger, control API, notifier.
+- **DGX Spark:** model server, research and experiment agents, ML training, the research data store, the verifier and the research ledger.
+- **Linux box (always on):** the trading stack 24/7: market workers, risk, paper simulator, execution, its own ledger, notifier. No GPU needed. It can also back up the DGX's stores.
 - **Mac:** Claude Code and Certo for building the harness; web UI and CLI for approvals and monitoring.
-- **Cloud watchdog:** a tiny server that only checks the DGX heartbeat and alerts on Telegram if it goes silent. A UPS for the DGX is recommended.
+- **Watchdog:** a small service off the trading machine (the Linux box for the DGX, a tiny cloud server for the Linux box) that only checks heartbeats and alerts on Telegram if one goes silent. A UPS for each always-on machine is recommended.
 
 This is the v1 deployment, not a requirement: hosts are configuration, and any service can move to another machine. Whatever runs the data and state stores needs its own backup.
 
@@ -174,7 +175,8 @@ One control API on the DGX serves both the web UI and the CLI, so anything you c
 | Area | Web UI and CLI |
 | --- | --- |
 | Agents | Start, pause, stop; assign research tasks; set budgets and model ladders; watch runs and verdicts |
-| Strategies | See each strategy's stage and verification report; approve promotions |
+| Research floor | Researchers and their dossiers: stage, hypothesis, trials used vs budget, backtest results, live log of what each is doing; start, pause, redirect, close; write briefs |
+| Strategies | Each strategy's stage and verification report; veto a paper promotion; approve live (later) |
 | Markets | Watchlists, live prices and charts, market hours, judge regime labels |
 | Paper portfolio | Positions, fills, P&L per strategy and total, live-versus-backtest drift |
 | Ledger | Search any decision or order and replay why it happened |
@@ -198,28 +200,43 @@ firm kill --confirm
 - **Channels:** a private Telegram bot first; [Hermes Agent's gateway](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/) for WhatsApp and others, using its direct webhook delivery so no LLM sits in the alert path. Prefer the official WhatsApp Cloud API route.
 - **Urgent:** kill switch, drawdown limit, feed stale, venue disconnected, strategy demoted.
 - **Actions (optional per strategy):** paper orders and fills with reason and verdict ID.
-- **Digest:** after the US close and daily for crypto: P&L, drift, strategies awaiting approval.
+- **Digest:** after the US close and daily for crypto: P&L, drift, new strategies promoted to paper (with a veto link).
 - **Two-way, read-only:** ask status and P&L from chat; the only command is the kill switch, with confirmation.
+
+**Dashboard stack** (owner: no preference; must show charts and configurable panels):
+
+- **Backend:** the control API in Python (FastAPI with uvicorn): REST for actions, one WebSocket for live updates; it reads the ledger, journal and stores, and sends owner commands as bus messages.
+- **Frontend:** plain HTML and JavaScript modules, no build step; libraries vendored into the repo at pinned versions (no CDN, works on a private network).
+- **Price charts:** TradingView Lightweight Charts (Apache-2.0, candlesticks, live updates, several panes). Its licence requires crediting TradingView: keep its attribution logo on and the NOTICE in the repo.
+- **Other charts** (P&L curves, drawdown, trials vs budget, distributions): Apache ECharts (Apache-2.0).
+- **Configurable panels:** a drag-and-resize grid (GridStack.js, MIT). Each panel is a type (price chart, positions, fills, P&L, risk use, feed health, researcher list, dossier view, activity log, alerts) with its own settings; layouts are saved server-side per named view (for example "Trading", "Research"), so they follow the owner to any browser.
 
 **Access:** private network only (for example Tailscale), authenticated, never on the public internet. An MCP endpoint lets Claude Code read state while building; it is read-only by default.
 
-## Experiment agents
+## Research floor (experiment agents)
 
-Experiment agents search for efficient strategies on the DGX, overnight or on demand, and only their best verified candidates reach paper trading. An experiment manager runs them as a queue with hard budgets, so a search can never starve the trading stack.
+Autonomous researcher agents invent, test and optimise new strategies on the DGX; each researcher owns one strategy from idea to verdict, and a deterministic gate promotes verified strategies to paper trading by itself. The owner steers with research briefs and can pause, redirect, close or veto at any time; live trading stays a manual decision.
 
-**How an experiment runs**
+**A researcher's dossier.** One strategy per researcher: the hypothesis and why the edge should exist (written before any backtest), the code or model, every trial, results, and notes. Dossiers live in the private store, never in git.
 
-1. You (or a research agent) define an experiment: market profile, hypothesis family, data window, budget, model ladder.
-2. Agents generate variants: new strategy code from hypotheses, plus parameter search (for example Bayesian optimisation) with walk-forward validation.
-3. Every variant is a counted trial in the ledger. The count is global across all experiments, so running more searches makes the bar higher, not lower.
-4. Survivors go to the verifier, which opens the locked out-of-sample period once per finalist, and only after its in-sample checks pass.
-5. Verified finalists wait for your approval to start paper trading; results arrive in the digest.
+**How a researcher works**
 
-**Budgets per experiment:** wall-clock time, trials, GPU memory, tokens, and cloud spend (zero by default). The manager pauses or unloads experiments when the trading stack needs resources.
+1. **Idea:** from a published method family, an owner brief, or (milestone 7) a scout note. Sources of inspiration are published methods: academic papers, books and public talks by firms such as Jane Street, AQR, Two Sigma and Man, and well-known families (momentum, mean reversion, pairs and stat arb, funding-rate carry, cross-exchange basis, volatility regimes, order flow). These give methods, not answers; firms do not publish their strategies, and well-known effects are often weaker today. Families the paper simulator cannot test honestly (market making, high frequency) are out of scope.
+2. **Prototype:** rules, machine learning, or both, built on the data plane and the ari feature library; code written with local models and Certo.
+3. **Research loop:** backtest, tune, change features, retrain, with walk-forward validation on the research view only. Every run is a trial in the global count. The loop ends when the dossier's budget is spent or the researcher submits.
+4. **Submit:** the verifier runs its checks and opens the hidden out-of-sample period once. A failed version is closed; a changed strategy is a new candidate, and both count as trials.
+5. **Promotion gate (deterministic):** a verified strategy goes to paper trading automatically if its correlation with strategies already in paper is below the limit and fewer than the maximum number of paper strategies are running. It gets a small paper allocation, behind the risk desk like every strategy. The owner is notified and can veto.
+6. **Live:** never automatic; the owner decides (live readiness gate).
 
-**Model routing:** experiments run on local models by default. A frontier model can be added to an experiment's ladder for work with no private data (writing harness code, summarising public papers), or for private work only with your per-run opt-in.
+**What researchers can never do:** see the hidden out-of-sample data (the data plane refuses it); change risk limits, the promotion gate or their own budgets; place orders; push strategy code to git; send private data to a cloud model without the owner's per-run opt-in.
 
-**Example:** `firm experiment start momentum-crypto --market crypto --window 2021-2025 --trials 500 --hours 8 --ladder local`
+**Owner direction:** research briefs (market, timeframes, themes, data to use or avoid, strategies to stay uncorrelated with), assigned to one researcher or to the whole floor; pause, redirect, close or veto from the dashboard and the CLI.
+
+**Parameters** (`config/research.yaml`, owner-editable, never agents): number of concurrent researchers (start: 2), per-dossier budgets (trials, wall-clock hours, tokens, GPU memory, cloud spend, zero by default), promotion gate (maximum paper strategies at once, maximum correlation with paper strategies, paper allocation per new strategy). The manager pauses or unloads researchers when the trading stack needs resources.
+
+**Model routing:** local models by default; a frontier model only for work with no private data, or with the owner's per-run opt-in, logged with cost.
+
+**Example:** `firm research start --brief briefs/crypto-carry.md --market crypto --tf 1h,1d`
 
 ## Certo on the DGX
 
@@ -379,16 +396,18 @@ The first build target is milestone 1 on crypto: a data plane and a verifier tha
 
 1. **Data plane and verifier (crypto).** *Done Nov 16, 2026.* Ingest Kraken and Coinbase bars and trades; point-in-time queries; lookahead truncation, hidden out-of-sample, sensitivity, cost and trial-count checks.
    - Exit: a strategy with planted lookahead is rejected; a clean moving-average strategy passes; results reproduce byte for byte from a dataset version (with the same candidate and global trial count).
-2. **Paper simulator, risk desk, ledger, trade journal.** Fills against live data with fees, spread, slippage and partial fills; limits and kill switch; append-only ledger; trade data for fills (live feeds plus recent trades). The trial registry and out-of-sample log move into the ledger.
-   - Exit: a verified strategy paper-trades for 7 days unattended; every fill traces to a verdict ID.
-3. **Research agents on Certo.** Research and ML desks propose and train strategies; the verifier gates them.
-   - Exit: agents produce at least one strategy that passes verification without human code changes.
+2. **Paper simulator, risk desk, ledger, trade journal.** Fills against live data with fees, spread, slippage and partial fills; limits and kill switch; append-only ledger; trade data for fills (live feeds plus recent trades). The trial registry and out-of-sample log move into the ledger. Before the 7-day run: the trade journal, a minimal notifier (urgent alerts to the owner on Telegram), and the bus, so the run is observed and the Linux box and the DGX already talk as services.
+   - Exit: a verified strategy paper-trades for 7 days unattended; every fill traces to a verdict ID; an urgent alert raised during the run reaches the owner within 60 seconds.
+3. **Research agents on Certo.** The experiment manager runs budgeted searches on the DGX; research and ML desks propose and train strategies; the verifier gates them. Prerequisites: trial Sharpes on one scale in the trial-count check; agent-written strategies stored in the private store, never in git (only hand-written examples are public); the data-egress gate enforced in code, not only configured; agent strategy code run in a sandbox. Design agreed with the owner Nov 17, 2026 (see "Research floor"). Delivered with **dashboard v1**: one web page for the research floor (inspect, start, pause, redirect, close researchers) and live paper trading (positions, fills, P&L, risk use, updated in real time), on a minimal control API.
+   - Exit: agents produce at least one strategy that passes verification without human code changes; every trial they ran is in the global count; no private data left the machines without a logged opt-in.
 4. **Control and notifications.** Control API, CLI, first web UI pages, Telegram bot.
    - Exit: urgent alerts arrive within 60 seconds; the daily digest lands after the close.
 5. **Judge.** Local decision model added as features; measured against the same strategies without it.
    - Exit: keep it only if verified paper results improve.
 6. **US shares.** Second market profile: XNYS calendar, IBKR data, EODHD universe with delistings, FX costs.
    - Exit: milestone 1 and 2 checks pass on US shares.
+7. **Opportunity scout.** Sandboxed agent over news, time series and chart pages; outputs only typed opportunity notes that become research hypotheses (see "Opportunity scout"). Can start any time after milestone 3, since its notes feed the research desk.
+   - Exit: a note captured with its time becomes an experiment that the verifier judges point-in-time; nothing the scout reads can change state.
 
 **How it gets built:** each milestone is written as task files for Certo and Claude Code, with tests as the checks. Agents build the harness; the harness's own verifier and tests decide when a milestone is done.
 
@@ -400,13 +419,13 @@ The first build target is milestone 1 on crypto: a data plane and a verifier tha
 - [ ] Paper-to-live drift tolerance that triggers a demotion.
 - [x] Name of the system and its CLI: "the firm", CLI `firm`.
 - [x] The harness lives in its own (public) repo and uses Certo.
-- [ ] Web UI stack (Certo's server mode plus a light frontend, or something else)?
+- [x] Web UI stack (decided Nov 17, 2026): see "Dashboard stack" under "Control and notifications".
 
 * [ ] Indicator code reviewed (ari\_signals, timeseries\_info): code moves into the firm repo and gets fixed there (lookback skew, unfinished candle, weekly mode, pivot confirmation, as-of time); golden baseline first, then archive the old repo. The baseline is frozen; the port adapts to current library versions.
 
 ## Planned additions (owner requests, Nov 2026)
 
-Tracked in `TODO.md`; listed here because they widen what v1 is.
+Tracked in `TODO.md`; listed here because they widen what v1 is. Technical-analysis documents and "Ask the firm" are parked until after milestone 3 (owner, Nov 17, 2026), so the research side is built first.
 
 - **Incremental data updates:** downloading a series again extends the store (only new bars, gap detection, dataset lineage) instead of starting over.
 - **Strategies judged on real data:** synthetic data is for tests only; every verdict states what data it rests on, and a verdict on synthetic data can never promote a strategy.
