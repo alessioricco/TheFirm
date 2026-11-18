@@ -1016,3 +1016,25 @@ holds every firm subject (a short, explicit list from `Subject`), not `>`,
 so nothing outside the table is stored. Everything runs on the Mac for now
 (owner, 2026-11-18); moving a service is a `NATS_URL` change.
 
+## 2026-11-18 — Bus (F2): the server enforces the org chart
+
+Phase F2. The NATS server config is generated from `PUBLISHERS`, so the
+permission table has one source and the server refuses what the code
+refuses: each service logs in as its own user and may publish only the
+subjects it owns. Even a client that skips `BusClient`'s check can't put an
+order on the bus from an agent's login (checked against a real server by
+`scripts/bus_smoke.py`). Services get only the JetStream calls a client
+needs, scoped to the firm's stream; creating or changing the stream is an
+admin login used by `firm bus up`, and the stream refuses deletes and purges
+(the ledger is the record; the bus only ages messages out). Each login
+receives only under its own inbox prefix (`_INBOX.<user>.>`), so nothing
+reads firm subjects around JetStream and no desk can take another's
+deliveries. Durable consumer names can't be restricted per service (NATS
+matches whole tokens), so a service could create a consumer under another's
+name first and block it (detectable, not silent); F3 closes that by having
+the admin create the desks' consumers at `firm bus up`. Passwords are random,
+kept in the state folder (600) and never printed, rather than bcrypt hashes
+(no new dependency; the conf file is private too). Plain user/password, not
+NKeys or JWT accounts, while everything runs on one machine; each machine
+will later get only its own services' logins.
+

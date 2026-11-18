@@ -223,9 +223,16 @@ One PR per phase, test-first:
   - [x] (2026-11-18) F1: `firm.bus` (`BusClient`, `MemoryBus`, `NatsBus`),
         contract test over every subject, `scripts/bus_smoke.py` against a
         real server; `nats-server` documented as a requirement (README).
-  - [ ] F2: per-service NATS users generated from `PUBLISHERS` (publish
-        only own subjects, enforced by the server); `firm bus up` starts a
-        local server with that config.
+  - [x] (2026-11-18) F2: per-service NATS users generated from
+        `PUBLISHERS` (publish only own subjects, enforced by the server,
+        checked by `scripts/bus_smoke.py`); `firm bus up | status`;
+        `config/bus.yaml`.
+  - [ ] F3 detail: `firm bus up` creates the desks' durable consumers as
+        admin, and services lose `CONSUMER.CREATE` (today any login could
+        squat another desk's consumer name: a block, not a leak).
+  - [ ] Later (more than one machine): NKeys or JWT accounts instead of
+        passwords; TLS between machines; each machine gets only its own
+        services' logins.
   - [ ] F3: the paper run's desks talk through the bus (risk heartbeat on
         `risk.heartbeat`, one ledger writer subscribed to everything, alerts
         on `alert.>`); lost-heartbeat alert; a short run on the Mac.

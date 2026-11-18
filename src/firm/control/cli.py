@@ -554,6 +554,97 @@ def _cmd_notify_test(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_bus_up(args: argparse.Namespace) -> int:
+    """Start the local message bus in the foreground (Ctrl-C stops it)."""
+    import asyncio
+    import signal
+
+    from firm.bus.auth import ADMIN
+    from firm.bus.nats import NatsBus
+    from firm.bus.server import BusServerError, start
+    from firm.core.config import load_bus
+    from firm.verify.state import state_root
+
+    cfg = load_bus(Path(args.config))
+    state = state_root(args.state_root)
+    log_file = state / "logs" / "bus.log"
+    try:
+        proc = start(cfg, state, log_file)
+    except BusServerError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    async def ready() -> int:
+        bus = await NatsBus.for_service(cfg, state, ADMIN)
+        try:
+            info = await bus.ensure_stream()
+            return len(info.config.subjects or [])
+        finally:
+            await bus.close()
+
+    def stop_on_term(signum: int, frame: object) -> None:
+        raise KeyboardInterrupt  # SIGTERM (kill, systemd) stops the server too
+
+    signal.signal(signal.SIGTERM, stop_on_term)
+    try:
+        n = asyncio.run(ready())
+        print(f"bus up: {cfg.url}, stream {cfg.stream} ({n} subjects), one login per service")
+        print(f"log: {log_file}  (follow it with: tail -f {log_file})")
+        print("Ctrl-C stops it; `firm bus status` shows the stream and its consumers", flush=True)
+        proc.wait()
+    except KeyboardInterrupt:
+        pass
+    except Exception as exc:
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=15)
+        print("bus stopped", flush=True)
+    return 0 if proc.returncode in (0, -15) else 1
+
+
+def _cmd_bus_status(args: argparse.Namespace) -> int:
+    import asyncio
+
+    from firm.bus.auth import ADMIN
+    from firm.bus.nats import NatsBus
+    from firm.core.config import load_bus
+    from firm.verify.state import state_root
+
+    cfg = load_bus(Path(args.config))
+    state = state_root(args.state_root)
+
+    async def show() -> int:
+        try:
+            bus = await asyncio.wait_for(NatsBus.for_service(cfg, state, ADMIN), timeout=3)
+        except FileNotFoundError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        except Exception:
+            print(f"bus is not running at {cfg.url}: start it with `firm bus up`", file=sys.stderr)
+            return 1
+        try:
+            info = await bus.js.stream_info(cfg.stream)
+            s = info.state
+            print(f"bus: {cfg.url}, stream {cfg.stream}")
+            print(f"  messages {s.messages}, bytes {s.bytes}, sequence {s.first_seq}..{s.last_seq}")
+            consumers = await bus.js.consumers_info(cfg.stream)
+            print(f"  consumers {len(consumers)}")
+            for c in sorted(consumers, key=lambda c: c.name):
+                filt = c.config.filter_subject or ">"
+                print(
+                    f"    {c.name:<24} {filt:<20} pending {c.num_pending}, "
+                    f"unacknowledged {c.num_ack_pending}, redelivered {c.num_redelivered}"
+                )
+            return 0
+        finally:
+            await bus.close()
+
+    return asyncio.run(show())
+
+
 def _tee_log(state: Path, name: str) -> Callable[[str], None]:
     """Print a line and append it to `<state>/logs/<name>` (follow with `tail -f`)."""
     path = state / "logs" / name
@@ -718,6 +809,18 @@ def build_parser() -> argparse.ArgumentParser:
     ntest.add_argument("--state-root", help="ledger (default $FIRM_STATE_ROOT or ./state)")
     ntest.set_defaults(func=_cmd_notify_test)
 
+    bs = sub.add_parser("bus", help="the message bus between desks (NATS)").add_subparsers(
+        dest="bus_cmd"
+    )
+    for name, func, text in (
+        ("up", _cmd_bus_up, "start the local bus in the foreground (Ctrl-C stops it)"),
+        ("status", _cmd_bus_status, "the stream and its consumers"),
+    ):
+        cmd = bs.add_parser(name, help=text)
+        cmd.add_argument("--config", default="config")
+        cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
+        cmd.set_defaults(func=func)
+
     jr = sub.add_parser(
         "journal", help="trade journal: one row per paper trade, rebuilt from the ledger"
     ).add_subparsers(dest="journal_cmd")
@@ -829,7 +932,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state", "ledger", "journal", "feed", "paper", "notify"):
+        if args.command in ("data", "state", "ledger", "journal", "feed", "paper", "notify", "bus"):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0

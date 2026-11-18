@@ -72,7 +72,13 @@ brew install nats-server          # macOS
 nats-server --version
 ```
 
-The test suite never needs it: tests use an in-memory bus.
+The test suite never needs it: tests use an in-memory bus. To start the bus
+(foreground; Ctrl-C stops it) and check it:
+
+```bash
+uv run firm bus up        # local server from config/bus.yaml, one login per desk
+uv run firm bus status    # in another terminal: the stream and its consumers
+```
 
 ```bash
 uv sync --extra dev
