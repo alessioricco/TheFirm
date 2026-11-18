@@ -314,9 +314,18 @@ class DataQualityConfig(FirmModel):
         return f"{self.quality}-v{self.rule_version}-ratio{self.max_price_ratio:g}"
 
 
+class SizingConfig(FirmModel):
+    """How much of equity a target of 1 holds in the verifier's backtest. It
+    matches the risk profile's per-instrument cap, so a verdict's returns and
+    drawdowns are what paper can actually earn (owner, 2026-11-18)."""
+
+    position_pct: float = Field(gt=0, le=100)
+
+
 class VerifierConfig(FirmModel):
     verifier: Id
     min_bars: int = Field(ge=10)
+    sizing: SizingConfig
     lookahead: LookaheadThresholds
     oos: OosThresholds
     sensitivity: SensitivityThresholds

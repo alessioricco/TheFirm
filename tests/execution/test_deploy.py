@@ -78,3 +78,19 @@ def test_a_failing_verdict_is_refused(dataset, tmp_path) -> None:
     params = json.loads(result.report)["candidate"]["parameters"]
     with pytest.raises(DeploymentRefused, match="not pass"):
         gate(result.report, sha, params)
+
+
+def test_the_report_names_the_position_size_paper_trades_at(passing) -> None:
+    from decimal import Decimal
+
+    from firm.execution.deploy import position_fraction
+
+    report = passing[0]
+    assert position_fraction(report) == Decimal(json.loads(report)["sizing"]["position_pct"]) / 100
+    # a report from before sizing was recorded was judged fully invested
+    body = json.loads(report)
+    body.pop("sizing"), body.pop("verdict_id")
+    body["verdict_id"] = (
+        "v-" + hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
+    )
+    assert position_fraction(json.dumps(body).encode()) == Decimal(1)

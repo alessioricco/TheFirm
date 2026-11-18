@@ -63,18 +63,17 @@ replay history through the real code first, live runs on short timeframes.
       real trading path (worker -> risk -> simulator -> ledger) in seconds,
       compared with the verifier's backtest on the same bars. With the risk
       caps off the two agree (tests: same trades, returns within 0.5%).
-- [ ] **Owner decision (risk): what a kill switch does to an open position.**
-      Today a tripped kill switch rejects every order, sells included, until
-      the owner's RESUME: the position is frozen at the worst moment. A
-      replay of the verified daily strategy showed it (market drawdown >10%
-      in a crash, then 2+ years halted while holding). Options: (a) keep
-      (block everything); (b) allow only orders that reduce exposure;
-      (c) flatten when it trips.
-- [ ] **Owner decision: the verifier judges a strategy fully invested; risk
-      lets it hold 20% per instrument, in orders of at most 10%.** Paper
-      results can't match the verdict's numbers by design. Options: the
-      verifier sizes like the risk desk; or replay becomes a gate after the
-      verifier (pass = paper path reproduces the trades under the real caps).
+- [x] (2026-11-18, owner: option b) **Kill switch and an open position:**
+      a tripped kill switch blocks buys; sells (capped at holdings) still go
+      through, so exposure can only come down.
+- [x] (2026-11-18, owner: "we never risk 100%, so 20% is ok") **The
+      verifier sizes like the risk desk:** a target of 1 holds 20% of equity
+      (`config/verify/default.yaml` `sizing`); the report records it and
+      paper trades at that size. Replay on real data now agrees on return
+      and exposure.
+- [ ] Owner (risk, optional): one order is capped at 10% of equity and a
+      position at 20%, so every entry takes two bars (replay: the "extra
+      paper orders"). Keep, or let one order reach the position cap?
 - [ ] Then **milestone 3**: the research agent. Strategies that pass,
       ideally on 1h/4h bars so they trade often, go to paper trading after
       owner approval. Bus (F) and trade journal (G) wait until something

@@ -18,6 +18,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from firm.core.domain import CheckResult, Verdict, VerdictOutcome
@@ -25,6 +26,14 @@ from firm.core.domain import CheckResult, Verdict, VerdictOutcome
 
 class DeploymentRefused(ValueError):
     """The report can't put this strategy on paper."""
+
+
+def position_fraction(report: bytes) -> Decimal:
+    """The share of equity a target of 1 held when the verifier judged the
+    strategy; paper trades it at that size. Reports from before sizing was
+    recorded (2026-11-18) were judged fully invested."""
+    sizing = json.loads(report).get("sizing") or {}
+    return Decimal(str(sizing.get("position_pct", 100))) / 100
 
 
 def verdict_for_deployment(

@@ -285,3 +285,23 @@ def test_warm_up_fills_the_lookback_and_replayed_bars_never_decide_twice() -> No
     assert out.action == "submitted"
     again = rig.bar(2, 50_100)
     assert again.action == "skip" and again.reason == "bar already seen"
+
+
+def test_a_target_of_one_holds_the_verified_position_size() -> None:
+    """The verifier judged the strategy at `position_fraction` of equity
+    (owner, 2026-11-18); paper asks for exactly that, so risk needn't shrink it."""
+    rig = Rig(position_fraction=D("0.05"))
+    rig.bar(0, 50_000)
+    rig.bar(1, 50_000)
+    out = rig.bar(2, 50_100)
+    assert out.action == "submitted" and out.target == 1.0
+    assert out.decision.action is RiskAction.APPROVE  # 5% is inside every limit
+    # 5% of the $6,250 account, less the 0.88% cost buffer, rounded down to a lot
+    exact = D("0.05") * D(6250) / (D(50_100) * D("1.0088"))
+    assert exact - RULES.lot_size < out.intent.quantity <= exact
+
+
+def test_the_position_fraction_is_a_fraction() -> None:
+    for bad in (D(0), D("-0.1"), D("1.01")):
+        with pytest.raises(ValueError):
+            Rig(position_fraction=bad)

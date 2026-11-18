@@ -317,3 +317,48 @@ def test_heartbeat_and_monitor() -> None:
     assert not mon.alive(T0 + timedelta(seconds=8))
     with pytest.raises(ValueError):
         mon.beat(beats[0])  # going backwards is refused
+
+
+# --- a kill switch blocks buys but lets exposure come down (owner, 2026-11-18)
+
+
+def test_a_tripped_kill_switch_still_lets_the_position_be_sold(desk) -> None:
+    hurt = state(
+        holdings=(btc("0.04"),),
+        market_pnl_gbp={"crypto": D(-600)},
+        market_peak_pnl_gbp={"crypto": D(500)},
+    )
+    sell = desk.decide(verdict(), proposal("0.04", side=Side.SELL), hurt)  # trips it
+    assert desk.halted("crypto")
+    assert sell.action is RiskAction.APPROVE and sell.approved_quantity == D("0.04")
+    assert "kill switch" in sell.reason and "reduces exposure" in sell.reason
+    held = state(holdings=(btc("0.04"),))
+    buy = desk.decide(verdict(), proposal("0.001", proposal_id="p-2"), held)
+    assert buy.action is RiskAction.REJECT and "kill switch" in buy.reason
+    big = desk.decide(verdict(), proposal("0.09", side=Side.SELL, proposal_id="p-3"), held)
+    assert big.action is RiskAction.RESIZE and big.approved_quantity == D("0.04")
+    none = desk.decide(verdict(), proposal("0.01", side=Side.SELL, proposal_id="p-4"), state())
+    assert none.action is RiskAction.REJECT  # nothing held: nothing to reduce
+
+
+@pytest.mark.parametrize("scope", [HaltScope.GLOBAL, HaltScope.MARKET])
+def test_owner_kill_lets_sells_through_but_never_an_unverified_one(desk, scope) -> None:
+    desk.command(
+        OwnerCommand(
+            command_id="k",
+            kind=OwnerCommandKind.KILL,
+            scope=scope,
+            market="crypto" if scope is HaltScope.MARKET else None,
+            reason="owner",
+            issued_at=T0,
+        )
+    )
+    held = state(holdings=(btc("0.02"),))
+    ok = desk.decide(verdict(), proposal("0.02", side=Side.SELL), held)
+    assert ok.action is RiskAction.APPROVE
+    failed = verdict(
+        outcome=VerdictOutcome.FAIL,
+        checks=(CheckResult(name="x", status=CheckStatus.FAILED, detail="d"),),
+    )
+    no = desk.decide(failed, proposal("0.02", side=Side.SELL, proposal_id="p-2"), held)
+    assert no.action is RiskAction.REJECT

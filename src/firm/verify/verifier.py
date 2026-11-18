@@ -152,6 +152,7 @@ def verify(
         in_sample=bars.iloc[:split].reset_index(drop=True),
         full=bars.reset_index(drop=True),
         cost_bps=cost_bps(market, fees),
+        position=config.sizing.position_pct / 100,
         periods_per_year=periods_per_year(market.calendar, candidate.spec.timeframe),
         config=config,
         registry=registry,
@@ -254,6 +255,7 @@ def verify(
                 "cost_bps_per_unit_traded": ctx.cost_bps,
             }
         ),
+        "sizing": {"position_pct": config.sizing.position_pct},
         "checks": [r.model_dump(mode="json") for r in results],
         "outcome": outcome.value,
     }

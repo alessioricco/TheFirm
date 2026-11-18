@@ -42,7 +42,7 @@ from firm.data.providers.base import NS, BarRow
 from firm.data.reference import InstrumentRecord, latest_instruments
 from firm.data.streams.feed import Feed
 from firm.execution.adapter import InstrumentRules, VenueMode
-from firm.execution.deploy import DeploymentRefused, verdict_for_deployment
+from firm.execution.deploy import DeploymentRefused, position_fraction, verdict_for_deployment
 from firm.execution.portfolio import FxBook, Portfolio, starting_cash
 from firm.execution.runner import MarketRunner
 from firm.execution.simulator import PaperSimulator, SimConfig
@@ -366,6 +366,7 @@ class PaperRun:
                 lookback_bars=self.lookback,
                 rebalance_threshold_pct=mp.execution.rebalance_threshold_pct,
                 cost_buffer_bps=buffer,
+                position_fraction=position_fraction(report),
             ),
             loaded.strategy,
             sim,

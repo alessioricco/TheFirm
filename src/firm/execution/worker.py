@@ -87,6 +87,8 @@ class Deployment:
     lookback_bars: int
     rebalance_threshold_pct: Decimal
     cost_buffer_bps: Decimal  # taker fee + half spread + slippage: keeps buys affordable
+    # share of equity a target of 1 holds: the size the verifier judged it at
+    position_fraction: Decimal = Decimal(1)
 
     def __post_init__(self) -> None:
         if self.verdict.outcome is not VerdictOutcome.PASS:
@@ -95,6 +97,8 @@ class Deployment:
             raise ValueError("the verdict is for another strategy")
         if self.lookback_bars < 2:
             raise ValueError("lookback_bars must be at least 2")
+        if not 0 < self.position_fraction <= 1:
+            raise ValueError(f"position_fraction {self.position_fraction} outside (0, 1]")
 
 
 @dataclass(frozen=True)
@@ -268,7 +272,7 @@ class MarketWorker:
         )
         equity = cash + held * price
         buffer = 1 + self.d.cost_buffer_bps / 10_000
-        want = Decimal(str(target)) * equity / (price * buffer)
+        want = Decimal(str(target)) * self.d.position_fraction * equity / (price * buffer)
         want = (want / rules.lot_size).to_integral_value(rounding=ROUND_DOWN) * rules.lot_size
         delta = want - held
         if delta == 0:
