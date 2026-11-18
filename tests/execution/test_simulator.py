@@ -275,6 +275,20 @@ def test_cash_is_reserved_for_open_buys() -> None:
     assert usd.available < usd.total
 
 
+def test_a_buy_sized_with_the_taker_buffer_is_affordable() -> None:
+    """The worker sizes a full buy as cash / (price x (1 + buffer)); the buffer
+    must cover what submit reserves, or a 100% target is always rejected."""
+    s = sim(balances={"USD": D(10_000)})
+    buffer = s.taker_buffer_bps()
+    assert buffer == (D(1) + D(6) / 10_000) * (D(1) + D(80) / 10_000) * 10_000 - 10_000
+    q = D(10_000) / (D(50_000) * (1 + buffer / 10_000))
+    q = (q / RULES.lot_size).to_integral_value(rounding="ROUND_DOWN") * RULES.lot_size
+    up = run(s.submit(intent(quantity=q)))
+    assert up.status is OrderStatus.ACCEPTED, up.reason
+    additive = D(80 + 1 + 5)  # fees and costs added, not compounded: too little
+    assert additive < buffer
+
+
 # --- lifecycle, idempotency, traceability, determinism
 
 

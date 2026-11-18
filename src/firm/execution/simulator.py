@@ -194,6 +194,12 @@ class PaperSimulator(VenueAdapter):
     def _available(self, currency: str) -> Decimal:
         return self._cash.get(currency, Decimal(0)) - self._reserved(currency)
 
+    def taker_buffer_bps(self) -> Decimal:
+        """What a market buy reserves above the last price, in bps: half the
+        spread plus slippage, then the taker fee on top (compounded, as submit
+        reserves it). Size buys with this, or a 100% target never fits the cash."""
+        return ((1 + self._costs()) * (1 + self.config.taker_bps / BPS) - 1) * BPS
+
     def _costs(self) -> Decimal:
         return (self.config.spread_bps / 2 + self.config.slippage_bps) / BPS
 
