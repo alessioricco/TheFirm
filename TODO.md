@@ -239,10 +239,13 @@ One PR per phase, test-first:
       run` alerts unless `--no-notify`; `firm notify chat-id | test`.
       Deterministic, no model, sends only to `TELEGRAM_OWNER_CHAT_ID`, reads
       no commands. Full digest, Hermes and two-way commands: milestone 4.
-- [ ] Owner: put `TELEGRAM_OWNER_CHAT_ID` in `.env` (`firm notify chat-id`),
-      then `firm notify test`; on the Linux box, both values in
-      `~/.config/firm/paper-<name>.conf`.
-- [ ] **N2. Heartbeat watchdog** for the Linux box from another machine (it
+- [x] (2026-11-18) Owner set `TELEGRAM_OWNER_CHAT_ID` and `firm notify test`
+      delivered. When the run moves to another machine, both values go in
+      its `~/.config/firm/paper-<name>.conf`.
+- Deployment today (owner, 2026-11-18): everything runs on the Mac; the DGX
+  and the Linux box come later (hosts stay configuration). Long runs on the
+  laptop need `caffeinate -i` so sleep doesn't stop them.
+- [ ] **N2. Heartbeat watchdog** (deferred while everything runs on the Mac: it needs a second machine) for the Linux box from another machine (it
       alerts when the box itself goes silent, which the box can't report).
       Design to agree: the run writes a heartbeat (file or tiny HTTP status)
       and the watchdog on the Mac/DGX polls it over the private network
