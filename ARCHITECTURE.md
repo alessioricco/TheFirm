@@ -219,7 +219,10 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
 - `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
 - `state.py`: `state_root()`, `TrialRegistry` (counts canonical IDs; legacy
   IDs linked via `trial_aliases.jsonl`), `OosVault` (JSON lines; `alias`
-  events link pre-content keys to content keys;
+  events link pre-content keys to content keys, and, with a `reason`, an
+  opened candidate to the same candidate on cleaned bars; aliases resolve
+  along whole chains (`resolve`), and a new link always starts at a chain's
+  end, so each key is linked at most once;
   openings keyed by `oos_scope(strategy, instruments, tf)`, seals per
   `config_key`; `opening_trial_id()` for openings counted as trials),
   `STATE_SCHEMA_VERSION` (stamped in `STATE_VERSION` on first write; other
@@ -235,6 +238,14 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
   schedule, its source and date.
 - `runner.py`: `verify_strategy_file(...)` wires files, config, dataset,
   trial recording and the verifier (used by the CLI and tests).
+  `quarantine_equivalents(...)`: for each opening in the scope, rebuilds the
+  bars it saw from the dataset it cited (up to its hidden period's end; they
+  must hash to the opened key) and drops the bars today's quality rule finds
+  implausible; if that equals the bars read now, the opening is the same
+  candidate: the vault links it (`equivalent_keys`) and its trial is linked
+  too, so the count doesn't grow. A longer window is a different candidate:
+  pass `firm verify --as-of <end of the opening>`. A missing old dataset
+  proves nothing (refused as before).
 
 Gotchas: the in-sample frame is everything before the hidden period and is
 all the lookahead/cost/sensitivity/trial checks ever see; only `checks/oos`

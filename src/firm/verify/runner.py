@@ -10,11 +10,15 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from firm.core.config import (
+    DataQualityConfig,
     load_config,
     load_data_quality,
     load_fee_schedule,
@@ -25,12 +29,14 @@ from firm.core.events import NULL_SINK, EventSink
 from firm.data.dataset import open_dataset
 from firm.data.quality import implausible_bars
 from firm.verify.backtest import metrics, run_backtest
-from firm.verify.state import OosVault, TrialRegistry
+from firm.verify.state import OosVault, TrialRegistry, oos_scope
 from firm.verify.strategy import load_strategy
 from firm.verify.verifier import (
     VerificationResult,
     bars_fingerprint,
+    candidate_key,
     cost_bps,
+    legacy_candidate_key,
     split_in_sample,
     verify,
 )
@@ -93,6 +99,32 @@ def verify_strategy_file(
         f"{q.as_dict()['open_time']}: {q.reason}"
         for q in implausible_bars(bars.to_dict("records"), rule, time_key="open_time")
     ]
+    # The same candidate on cleaned bars (see quarantine_equivalents) is the same
+    # experiment: its trial is linked to the opened one's, not counted again.
+    equivalents = (
+        quarantine_equivalents(
+            OosVault(state),
+            strategy_id=name,
+            scope=oos_scope(name, (instrument,), tf),
+            code_sha256=code,
+            params=p,
+            bars=bars,
+            data_root=data_root,
+            venue=venue,
+            instrument=instrument,
+            tf=tf,
+            rule=rule,
+        )
+        if not issues
+        else {}
+    )
+    for eq in equivalents.values():
+        for old_trial in (
+            "t-" + _h([name, code, p, eq.fingerprint])[:16],
+            "t-" + _h([name, code, p, eq.dataset_version, eq.window])[:16],
+        ):
+            if old_trial in registry.raw_ids():
+                registry.alias(old_trial, trial_id)
     quarantined = sum(
         len(f.quarantined)
         for f in ds.manifest.files
@@ -162,4 +194,83 @@ def verify_strategy_file(
         data_issues=issues,
         quality_rule=rule.rule_id,
         quarantined=quarantined,
+        equivalent_keys={k: eq.reason for k, eq in equivalents.items()},
     )
+
+
+@dataclass(frozen=True)
+class Equivalent:
+    """An opened candidate proved equal to this one but for quarantined bars."""
+
+    reason: str
+    fingerprint: str  # of the bars the opening saw
+    dataset_version: str
+    window: list[str]
+
+
+def quarantine_equivalents(
+    vault: OosVault,
+    *,
+    strategy_id: str,
+    scope: str,
+    code_sha256: str,
+    params: Mapping[str, Any],
+    bars: pd.DataFrame,
+    data_root: Path,
+    venue: str,
+    instrument: str,
+    tf: str,
+    rule: DataQualityConfig,
+) -> dict[str, Equivalent]:
+    """Opened candidates in `scope` that differ from this one only by quarantined bars.
+
+    For each first opening, the bars it saw are rebuilt from the dataset it
+    cited, up to the end of its hidden period; they must hash to the opened
+    key (else nothing is proved). Dropping the bars `rule` finds implausible
+    must then give exactly `bars`, the bars this run reads. Same code and
+    parameters, the same hidden period, minus bars nobody should trust: the
+    same candidate, so the vault may link it instead of refusing (firm rule 4
+    still refuses everything else)."""
+    events = vault.events()
+    aliases = {e["from"]: e["to"] for e in events if e["event"] == "alias"}
+    target = bars_fingerprint(bars)
+    out: dict[str, Equivalent] = {}
+    for e in events:
+        if (
+            e["event"] != "first_opening"
+            or e["strategy_id"] != strategy_id
+            or e.get("scope", scope) != scope
+        ):
+            continue
+        opened = e["candidate_key"]
+        try:
+            old = open_dataset(data_root, e["dataset_version"]).bars(
+                venue, instrument, tf, as_of=datetime.fromisoformat(e["window"][1])
+            )
+        except (FileNotFoundError, LookupError, KeyError, ValueError):
+            continue  # the opening's data is gone or unreadable: can't prove anything
+        if old.empty:
+            continue
+        old_window = [old["open_time"].iloc[0].isoformat(), old["close_time"].iloc[-1].isoformat()]
+        seen = {
+            candidate_key(code_sha256, params, bars_fingerprint(old)),
+            legacy_candidate_key(code_sha256, params, e["dataset_version"], old_window),
+        }
+        if opened not in seen and aliases.get(opened) not in seen:
+            continue
+        bad = implausible_bars(old.to_dict("records"), rule, time_key="open_time")
+        if not bad:
+            continue
+        drop = {pd.Timestamp(q.open_time_ns, unit="ns", tz="UTC") for q in bad}
+        cleaned = old[~old["open_time"].isin(drop)].reset_index(drop=True)
+        if bars_fingerprint(cleaned) == target:
+            when = ", ".join(q.as_dict()["open_time"][:10] for q in bad)
+            out[opened] = Equivalent(
+                reason=f"same code and parameters; the opened bars ({e['dataset_version']}) "
+                f"minus {len(bad)} bar(s) quarantined under rule {rule.rule_id} ({when}) are "
+                "exactly the bars read now",
+                fingerprint=bars_fingerprint(old),
+                dataset_version=e["dataset_version"],
+                window=old_window,
+            )
+    return out

@@ -947,3 +947,37 @@ an hourly one is the intended run. Whether a strategy is *proven* on paper
 (candidate for real money) is a separate bar, still to set in trades.
 Same day, owner: order and position caps stay at 10% and 20% as parameters
 (already config); later, agents may search them in simulation only.
+
+## 2026-11-18 — Cleaned data: proved equal, never interpolated; the exit run's strategy
+
+Owner: "if one bar is corrupted, we can have a clean dataset or an
+interpolated one", then "apply the best solution".
+
+- **No interpolation for verification.** An interpolated bar is a price
+  nobody could trade at; a verdict resting on it would be judging made-up
+  data. The quarantine already leaves a corrupt bar out as a gap, which the
+  backtest handles like any missing bar.
+- **The vault recognises the same candidate on cleaned data.** The daily
+  pass opened its hidden period on a dataset holding a corrupt 2017 bar
+  (before the quality check existed). On the clean dataset its bars differ,
+  so its content key differs and the vault refused it: the strategy could
+  never get a verdict on trustworthy data. Firm rule 4 protects the hidden
+  period from a second look by a *different* candidate. Here the code, the
+  parameters and the hidden-period bars are identical; only bars nobody
+  should trust are gone. So the verifier rebuilds the opened bars from the
+  dataset the opening cited, drops the bars today's rule quarantines, and
+  links the two only if the rest is byte-for-byte what it reads now. The link
+  is an append-only `alias` with its reason, and the trial is linked too (the
+  same experiment, not a new one). Anything else (another changed bar, a
+  longer window, a missing old dataset) is still refused. Rejected: letting
+  any dataset "derived from" the opened one replay (a revision could change
+  the hidden period's bars), and opening a new scope (a second look).
+- **Alias chains resolve to their end.** Found on the real state: the daily
+  pass's trial and opening were already linked once (old-style key ->
+  content key); aliases were resolved one level only, and a second link from
+  the same key collided in the ledger. Both the registry and the vault now
+  follow chains, and a new link starts at a chain's end.
+- **Exit run (H) on the daily pass.** No strategy passes on 1h; writing one
+  by hand only to shorten the run would spend trials the research agents
+  will be judged against. The daily pass runs 7 bars unattended while
+  milestone 3 is built; a 1h pass, if one exists first, takes its place.

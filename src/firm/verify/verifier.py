@@ -129,6 +129,7 @@ def verify(
     data_issues: Sequence[str] = (),
     quality_rule: str | None = None,
     quarantined: int = 0,
+    equivalent_keys: Mapping[str, str] | None = None,
 ) -> VerificationResult:
     """`bars` are the whole evaluation window from the dataset (as_of applied)."""
     params: Mapping[str, Any] = candidate.spec.parameters
@@ -158,6 +159,7 @@ def verify(
         registry=registry,
         vault=vault,
         now=now,
+        equivalent_keys=dict(equivalent_keys or {}),
     )
 
     quality = CheckResult(
