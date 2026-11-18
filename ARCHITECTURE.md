@@ -250,6 +250,20 @@ report bytes (rounding, keys) changes every verdict ID.
 - `writer.py`: `LedgerWriter`: the single writer; producers `await submit()`.
 - `sink.py`: `LedgerSink` (an `EventSink` writing to a ledger),
   `ledger_path(state)`, `state_history(state)` for the one-off import.
+- `journal.py`: the trade journal. `trades_from_ledger(ledger)` walks the
+  ledger once: proposals and intents are indexed, and each fill is traced
+  fill -> intent -> proposal (a missing link raises `JournalError`, as does a
+  sell larger than the holding or a fee not in the quote currency). A trade
+  is one round trip per (venue, instrument): it opens on the buy from flat and
+  closes when sells bring it back to flat; every fill in between belongs to it.
+  Prices are quantity-weighted; slippage is in bps against the proposal's
+  `reference_price`, positive when it cost us. `build_journal` writes a new
+  DuckDB file (`trades` + `journal_meta`) and `os.replace`s it in: never
+  edited. Each row has `ledger_sequence` / `ledger_hash`. `export_journal`
+  filters on decision time ([from, to)), CSV or Parquet. Fields not yet
+  known are NULL (see TODO "Journal follow-ups"). Gotcha: fetching a
+  TIMESTAMPTZ into Python needs `pytz`, which we don't depend on; format
+  timestamps in SQL (`strftime`) or export instead.
 
 Desks emit through `firm.core.events.EventSink` (`NULL_SINK` by default); the
 composition root (`firm.control`) wires the ledger. Use deterministic event

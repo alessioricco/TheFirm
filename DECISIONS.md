@@ -922,6 +922,20 @@ Two owner decisions after the first replay of the daily pass.
   Rejected: replay as a second gate (slower, and it would still compare
   against a fully invested backtest).
 
+## 2026-11-18 — Trade journal: a trade is a round trip, unknowns stay empty
+
+Phase G. A journal row is one **round trip** on one venue account and
+instrument (flat -> long -> flat), not one order or one fill: entries come in
+steps (the 10% order cap under a 20% position cap) and orders fill in parts,
+and what we want to learn from is the whole position's result. Spot and
+long-only in v1, so position tracking per (venue, instrument) is exact; a
+short side would need its own rule. The journal reads only the ledger (no
+second source of truth), and refuses an inconsistent book (a fill without
+its intent, a sell above the holding) rather than guess. Fields the ledger
+can't give yet (spread paid, excursions, features, judge outputs) are NULL,
+never 0, so no analysis mistakes "unknown" for "free" or "flat". Rebuilt
+whole into a new file and swapped in, stamped with the ledger position.
+
 ## 2026-11-18 — Milestone 2's exit check counts bars, not days
 
 Owner: "instead of 7 days we can keep the check to some candles, example 7
