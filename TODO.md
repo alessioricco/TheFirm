@@ -48,9 +48,8 @@ replay history through the real code first, live runs on short timeframes.
       before milestone 3; milestone 3 designed with the owner (experiment
       agents) before any code; TA documents, "Ask the firm" and the web
       monitoring extras parked until after milestone 3.
-      **Conflict to settle (owner):** the mission note below (also
-      2026-11-17, later) puts milestone 3 next and lets the bus (F) and
-      journal (G) wait until something trades. Which order holds?
+      **Settled (owner, 2026-11-18): finish milestone 2 first, then
+      research (milestone 3).** Next: G (trade journal).
 - [x] Data store backup: `data/` (and `state/`) are covered by the owner's
       Time Machine backup of the Mac (2026-11-16). The DGX or any other host
       running the firm will need its own backup.
@@ -74,10 +73,9 @@ replay history through the real code first, live runs on short timeframes.
 - [ ] Owner (risk, optional): one order is capped at 10% of equity and a
       position at 20%, so every entry takes two bars (replay: the "extra
       paper orders"). Keep, or let one order reach the position cap?
-- [ ] Then **milestone 3**: the research agent. Strategies that pass,
-      ideally on 1h/4h bars so they trade often, go to paper trading after
-      owner approval. Bus (F) and trade journal (G) wait until something
-      trades.
+- [ ] After milestone 2, **milestone 3**: the research agent. Strategies
+      that pass, ideally on 1h/4h bars so they trade often, go to paper
+      trading through the promotion gate (SPEC "Research floor").
 - [ ] Owner (SPEC): replace "paper-trades for 7 days" in milestone 2's exit
       check with a count of decisions and fills; define "proven on paper"
       in trades.
