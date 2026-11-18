@@ -1,6 +1,6 @@
 # Running a paper strategy unattended (Linux box)
 
-The 7-day run (milestone 2, phase H) uses `firm paper run` under a systemd
+The unattended run (milestone 2, phase H) uses `firm paper run` under a systemd
 **user** unit on the always-on Linux box. It runs one verified strategy on
 one market until stopped, restarts after a crash or a reboot, and records
 everything in that machine's ledger.

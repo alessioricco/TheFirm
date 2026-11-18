@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -380,12 +380,28 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         lookback=args.lookback,
         seconds=args.hours * 3600 if args.hours else None,
         stream_symbol=args.stream_symbol,
+        status_seconds=args.status_every,
+        log=_tee_log(state_root(args.state_root), f"paper-{args.market}-{args.venue}.log"),
     )
     try:
         return asyncio.run(run.run())
     except DeploymentRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+
+
+def _tee_log(state: Path, name: str) -> Callable[[str], None]:
+    """Print a line and append it to `<state>/logs/<name>` (follow with `tail -f`)."""
+    path = state / "logs" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"log: {path}  (follow it with: tail -f {path})", flush=True)
+
+    def log(line: str) -> None:
+        print(line, flush=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+
+    return log
 
 
 def _cmd_paper_replay(args: argparse.Namespace) -> int:
@@ -552,6 +568,12 @@ def build_parser() -> argparse.ArgumentParser:
     prun.add_argument("--lookback", type=int, default=200, help="bars of history (default 200)")
     prun.add_argument("--hours", type=float, help="stop after this long (default: until Ctrl-C)")
     prun.add_argument("--stream-symbol", help="as the live stream spells it, if not on record")
+    prun.add_argument(
+        "--status-every",
+        type=float,
+        default=60,
+        help="seconds between status lines (default 60; 0 = off)",
+    )
     prun.add_argument("--jurisdiction", default="uk")
     prun.add_argument("--config", default="config")
     prun.add_argument("--root", help="data store")
