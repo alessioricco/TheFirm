@@ -386,14 +386,37 @@ Schemas, subjects and who may publish what live in `core/messages/`
 - `memory.py`: `MemoryBus`, JetStream's semantics in one process (stream
   log, publish dedupe by ID, durable cursors, no ack on raise, `*`/`>`
   wildcards). Tests use it; no server, no socket.
-- `nats.py`: `NatsBus.connect(url, user, password)`: one file-backed stream
-  (`FIRM`) holding exactly the firm's subjects (updated when the table
-  grows); publish with `Nats-Msg-Id` (server-side dedupe window, 2 minutes
+- `nats.py`: `NatsBus.connect(cfg, user=, password=)` or
+  `NatsBus.for_service(cfg, state, service)`: one file-backed stream
+  (`FIRM`) holding exactly the firm's subjects, created or updated only by
+  the admin (`ensure_stream`); publish with `Nats-Msg-Id` (server-side dedupe window, 2 minutes
   by default); durable push consumers with manual ack, `nak(delay)` on a
   failing handler. Imported only where a server is used.
-- `scripts/bus_smoke.py`: starts a throwaway `nats-server -js` on a free
-  localhost port and checks the same behaviour as the tests; run it after
-  changing `bus/`. Needs `nats-server` installed (README).
+- `auth.py` (F2): the server-side copy of the permission table. One NATS
+  user per `Service`, allowed to publish exactly its own subjects plus the
+  JetStream client calls on the firm's stream (stream info, create/look up
+  consumers, ack); no service may create, update, delete or purge a stream.
+  `firm-admin` manages the stream and publishes no firm subject. Every user
+  receives only under its own inbox prefix, `_INBOX.<user>.>` (its JetStream
+  deliveries and replies; `NatsBus.connect` sets the prefix).
+  Passwords: random, generated once into `<state>/bus/credentials.json`
+  (600), kept across runs, never printed; `login(state, service)`.
+  `write_server_config` writes `<state>/bus/nats-server.conf` (JSON, 600).
+- `server.py`: `start(cfg, state, log_file)` checks the config with
+  `nats-server -t`, refuses a port already in use, starts the server, waits
+  for it. CLI: `firm bus up` (foreground; SIGINT/SIGTERM stop the server
+  too; creates or updates the stream as admin) and `firm bus status`.
+  Config: `config/bus.yaml` (`load_bus`): host (loopback), port, stream,
+  retention, duplicate window, redelivery delay, publish timeout. The
+  stream is `deny_delete` and `deny_purge`.
+- `scripts/bus_smoke.py`: starts a throwaway server exactly as `firm bus up`
+  does (on a free port, temp state) and checks the client behaviour plus
+  enforcement by the server: an agent login can't publish `order.intent`
+  even raw, a service can't delete or purge the stream, a wrong password is
+  refused. Run it after changing `bus/`. Needs `nats-server` (README).
+- Gotcha: a refused publish surfaces as a JetStream ack timeout (the server
+  drops it and reports a permissions violation to the connection's error
+  callback, which logs it). A wrong password reconnects until timed out.
 - Gotcha: the client's ID memory is in-process; after a restart a durable
   consumer resumes after its last ack, and the ledger refuses an event ID
   twice, so a replay still can't make a desk act twice.

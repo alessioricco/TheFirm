@@ -1,0 +1,12 @@
+# The message bus between desks (NATS with JetStream). Owner-editable; agents
+# may not change it. `firm bus up` starts a server from this file. Service
+# passwords are generated into the state folder (bus/credentials.json, mode
+# 600), never written here.
+bus: default
+host: 127.0.0.1                # loopback only for now (everything runs on one machine)
+port: 4222
+stream: FIRM                   # one stream holds every firm subject
+max_age_days: 7                # the ledger is the record; the bus keeps a week
+duplicate_window_seconds: 120  # a re-sent message ID within this is dropped
+redeliver_seconds: 5           # a message whose handler failed comes again after this
+publish_timeout_seconds: 5     # waiting for the server to confirm a publish

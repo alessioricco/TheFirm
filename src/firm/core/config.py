@@ -325,6 +325,27 @@ class NotifyConfig(FirmModel):
     announce_start_stop: bool  # tell the owner when a run starts or stops
 
 
+class BusConfig(FirmModel):
+    """Where the message bus runs and how it keeps messages (`config/bus.yaml`).
+
+    The server listens on `host` only; v1 keeps it on the loopback address
+    (private network later, never the public internet). Owner-editable.
+    """
+
+    bus: Id
+    host: Id
+    port: int = Field(ge=1, le=65535)
+    stream: Id  # one JetStream stream holding every firm subject
+    max_age_days: float = Field(gt=0)  # the ledger is the record; the bus keeps a window
+    duplicate_window_seconds: float = Field(gt=0)  # a re-sent message ID is dropped within it
+    redeliver_seconds: float = Field(gt=0)  # after a handler fails
+    publish_timeout_seconds: float = Field(gt=0)  # waiting for the server's ack
+
+    @property
+    def url(self) -> str:
+        return f"nats://{self.host}:{self.port}"
+
+
 class SizingConfig(FirmModel):
     """How much of equity a target of 1 holds in the verifier's backtest. It
     matches the risk profile's per-instrument cap, so a verdict's returns and
@@ -481,6 +502,14 @@ def load_notify(root: Path, name: str = "default") -> NotifyConfig:
     cfg = _validate(NotifyConfig, path)
     if cfg.notify != name:
         raise ConfigError(f"{path}: notify {cfg.notify!r} must be {name!r}")
+    return cfg
+
+
+def load_bus(root: Path, name: str = "default") -> BusConfig:
+    path = root / "bus.yaml" if name == "default" else root / f"bus-{name}.yaml"
+    cfg = _validate(BusConfig, path)
+    if cfg.bus != name:
+        raise ConfigError(f"{path}: bus {cfg.bus!r} must be {name!r}")
     return cfg
 
 

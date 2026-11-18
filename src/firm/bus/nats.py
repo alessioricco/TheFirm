@@ -1,40 +1,51 @@
 """The NATS JetStream transport (the bus of a running firm).
 
-One stream (`FIRM` by default) holds every firm subject, so messages survive
-a consumer being down and can be replayed. Publishing sets `Nats-Msg-Id` to
-the message ID, so JetStream drops a duplicate sent within its window (a
-retried publish never lands twice). Subscriptions are durable push
-consumers with manual acknowledgement: a handler that returns acknowledges,
-a handler that raises asks for redelivery after `redeliver_seconds`.
+One stream (`config/bus.yaml`, `FIRM` by default) holds exactly the firm's
+subjects, so messages survive a consumer being down and can be replayed. Its
+messages can't be deleted or purged through the API (the ledger is the
+record; the stream only ages out after `max_age_days`). Publishing sets
+`Nats-Msg-Id` to the message ID, so JetStream drops a duplicate sent within
+`duplicate_window_seconds` (a retried publish never lands twice).
+Subscriptions are durable push consumers with manual acknowledgement: a
+handler that returns acknowledges, one that raises asks for redelivery after
+`redeliver_seconds`.
 
-The server address and this service's credentials are configuration
-(`NATS_URL`, and per-service users from F2), never code.
+Services log in with their own user (`firm.bus.auth`), so the server
+refuses a subject a service does not own. Only the admin login creates or
+updates the stream (`firm bus up`).
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import nats
 from nats.js import api
 from nats.js.errors import NotFoundError
 
+from firm.bus.auth import ADMIN, inbox_prefix, login
 from firm.bus.client import RawHandler
-from firm.core.messages import Subject
+from firm.core.config import BusConfig
+from firm.core.messages import Service, Subject
 
 log = logging.getLogger(__name__)
 
-DEFAULT_STREAM = "FIRM"
+DAY = 86_400.0
 
 
-def stream_config(name: str = DEFAULT_STREAM) -> api.StreamConfig:
+def stream_config(cfg: BusConfig) -> api.StreamConfig:
     return api.StreamConfig(
-        name=name,
+        name=cfg.stream,
         subjects=sorted(s.value for s in Subject),
         storage=api.StorageType.FILE,
         retention=api.RetentionPolicy.LIMITS,
+        max_age=cfg.max_age_days * DAY,
+        duplicate_window=cfg.duplicate_window_seconds,
+        deny_delete=True,
+        deny_purge=True,
     )
 
 
@@ -47,42 +58,58 @@ class NatsSubscription:
 
 
 class NatsBus:
-    def __init__(self, nc: Any, stream: str, redeliver_seconds: float) -> None:
-        self.nc, self.js, self.stream = nc, nc.jetstream(), stream
-        self.redeliver_seconds = redeliver_seconds
+    def __init__(self, nc: Any, cfg: BusConfig) -> None:
+        self.nc, self.js, self.cfg = nc, nc.jetstream(), cfg
 
     @classmethod
     async def connect(
-        cls,
-        url: str,
-        *,
-        user: str | None = None,
-        password: str | None = None,
-        stream: str = DEFAULT_STREAM,
-        ensure_stream: bool = True,
-        redeliver_seconds: float = 5.0,
+        cls, cfg: BusConfig, *, user: str, password: str, url: str | None = None
     ) -> NatsBus:
-        nc = await nats.connect(
-            url, user=user, password=password, name="firm", max_reconnect_attempts=-1
-        )
-        bus = cls(nc, stream, redeliver_seconds)
-        if ensure_stream:
-            await bus._ensure_stream()
-        return bus
+        async def on_error(exc: Exception) -> None:
+            log.warning("bus: %s", exc)  # e.g. a permissions violation, reported by the server
 
-    async def _ensure_stream(self) -> None:
-        wanted = stream_config(self.stream)
+        nc = await nats.connect(
+            url or cfg.url,
+            user=user,
+            password=password,
+            name=f"firm-{user}",
+            inbox_prefix=inbox_prefix(user).encode(),
+            max_reconnect_attempts=-1,
+            error_cb=on_error,
+        )
+        return cls(nc, cfg)
+
+    @classmethod
+    async def for_service(
+        cls, cfg: BusConfig, state: Path, service: Service | str, *, url: str | None = None
+    ) -> NatsBus:
+        """Log in as `service` (or `ADMIN`) with the password from the state folder."""
+        user, password = login(state, service)
+        return await cls.connect(cfg, user=user, password=password, url=url)
+
+    async def ensure_stream(self) -> api.StreamInfo:
+        """Create or update the firm's stream (admin login only)."""
+        wanted = stream_config(self.cfg)
         try:
-            info = await self.js.stream_info(self.stream)
+            info = await self.js.stream_info(self.cfg.stream)
         except NotFoundError:
-            await self.js.add_stream(wanted)
-            return
-        if sorted(info.config.subjects or []) != wanted.subjects:
-            await self.js.update_stream(wanted)  # a new subject was added to the table
+            return await self.js.add_stream(wanted)
+        current = info.config
+        if (
+            sorted(current.subjects or []) != wanted.subjects
+            or current.max_age != wanted.max_age
+            or current.duplicate_window != wanted.duplicate_window
+        ):
+            return await self.js.update_stream(wanted)
+        return info
 
     async def publish(self, subject: str, data: bytes, *, message_id: str) -> None:
         await self.js.publish(
-            subject, data, stream=self.stream, headers={"Nats-Msg-Id": message_id}
+            subject,
+            data,
+            stream=self.cfg.stream,
+            headers={"Nats-Msg-Id": message_id},
+            timeout=self.cfg.publish_timeout_seconds,
         )
 
     async def subscribe(
@@ -93,14 +120,17 @@ class NatsBus:
                 await handler(msg.subject, msg.data)
             except Exception as exc:
                 log.warning("bus: %s failed on %s (%s); redelivering", durable, msg.subject, exc)
-                await msg.nak(delay=self.redeliver_seconds)
+                await msg.nak(delay=self.cfg.redeliver_seconds)
                 return
             await msg.ack()
 
         sub = await self.js.subscribe(
-            pattern, durable=durable, stream=self.stream, cb=cb, manual_ack=True
+            pattern, durable=durable, stream=self.cfg.stream, cb=cb, manual_ack=True
         )
         return NatsSubscription(sub)
 
     async def close(self) -> None:
         await self.nc.drain()
+
+
+__all__ = ["ADMIN", "NatsBus", "NatsSubscription", "stream_config"]
