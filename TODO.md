@@ -77,10 +77,13 @@ replay history through the real code first, live runs on short timeframes.
       at least 7 closed bars of the strategy's timeframe (e.g. 7 hours on
       1h), deciding on every bar. SPEC updated in the same PR.
 - [ ] Owner: define "proven on paper" (candidate for real money) in trades.
-- [ ] **The 1h exit run needs a strategy verified on 1h.** Today only the
-      daily `ma_crossover` passes; its 1h versions fail on costs. Options:
-      run the exit check on the daily pass (7 days again), or get a 1h pass
-      first (milestone 3's job, or a hand-written 1h strategy).
+- [x] (2026-11-18, owner: "apply the best solution") **Which strategy runs
+      the exit check (H):** the daily `ma_crossover`, re-verified on the clean
+      dataset (7 daily bars, unattended on the Linux box, so it runs while
+      milestone 3 is built, and blocks nothing). If a strategy passes on 1h
+      before H starts, it runs instead (7 hours). Hand-writing a 1h strategy
+      just for this is rejected: every attempt is a trial that raises the bar
+      for the research agents.
 - [x] (2026-11-18, owner) **Order and position size are parameters**, and
       will later be searched by agents in simulation: keep 10% per order and
       20% per position. Already config, not code: `config/risk/default.yaml`
@@ -92,14 +95,13 @@ replay history through the real code first, live runs on short timeframes.
 - [x] (2026-11-18) `firm paper run` prints each bar's decision and a status
       line every 60 s (`--status-every`), and writes everything to
       `<state>/logs/paper-<market>-<venue>.log` (`tail -f` it).
-- [ ] **Corrupt bar in the daily pass's dataset** (owner: "a clean dataset
-      or an interpolated one"). The clean dataset already exists; what blocks
-      a fresh verdict is the OOS vault, not the data: a candidate on another
-      dataset is a different candidate in the same sealed scope (firm rule 4),
-      so it is refused. Interpolating would put made-up prices into a series
-      the verifier judges; proposal: never for verification, at most as a
-      marked derived dataset for charts. Owner to decide whether a dataset
-      that differs only by quarantined bars may replay the sealed result.
+- [x] (2026-11-18, owner: "apply the best solution") **Corrupt bar in the
+      daily pass's dataset:** clean dataset, never interpolated. The verifier
+      proves when a candidate differs from an opened one only by quarantined
+      bars and replays it instead of refusing (`firm verify --as-of` to match
+      the opening's window); the trial isn't counted twice.
+- [ ] After merge: re-verify the daily pass on the real state (command in
+      private/TODO.md) and use the new verdict for H.
 - [ ] **Archive ari_signals?** Not yet: only after the extraction steps 0–3
       pass. Its working tree has 2 modified + 2 untracked files outside the
       extracted code; commit or discard them there before archiving.

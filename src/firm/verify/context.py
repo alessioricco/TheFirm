@@ -34,6 +34,7 @@ class VerifyContext:
     registry: TrialRegistry
     vault: OosVault
     now: datetime
+    equivalent_keys: Mapping[str, str] = field(default_factory=dict)  # opened key -> why same
     _cache: dict[str, object] = field(default_factory=dict, compare=False, repr=False)
 
     @property

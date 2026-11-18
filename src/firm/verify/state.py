@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -79,6 +80,15 @@ def _read(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def resolve(aliases: Mapping[str, str], key: str) -> str:
+    """Follow an alias chain (a -> b -> c) to its end; a cycle stops where it repeats."""
+    seen = {key}
+    while key in aliases and aliases[key] not in seen:
+        key = aliases[key]
+        seen.add(key)
+    return key
+
+
 class TrialRegistry:
     """Global trial count. Trial IDs recorded under an old scheme can be linked to
     their new ID by an append-only alias (`trial_aliases.jsonl`); every trial is
@@ -93,8 +103,11 @@ class TrialRegistry:
         return {a["from"]: a["to"] for a in _read(self.alias_path)}
 
     def alias(self, old_id: str, new_id: str) -> None:
-        """Link a legacy trial ID to its canonical ID (idempotent)."""
-        if self._aliases().get(old_id) != new_id:
+        """Link a trial ID to its canonical ID (idempotent). An ID already linked
+        is extended from the end of its chain, so each ID is linked at most once."""
+        aliases = self._aliases()
+        old_id = resolve(aliases, old_id)
+        if old_id != resolve(aliases, new_id):
             record = {"from": old_id, "to": new_id}
             _append(self.alias_path, record)
             emit_trial_alias(self.sink, record)
@@ -116,7 +129,7 @@ class TrialRegistry:
 
     def ids(self) -> set[str]:
         aliases = self._aliases()
-        return {aliases.get(i, i) for i in self.raw_ids()}
+        return {resolve(aliases, i) for i in self.raw_ids()}
 
     def count(self) -> int:
         return len(self.ids())
@@ -167,18 +180,22 @@ class OosVault:
         at: datetime,
         config_key: str = "",
         legacy_keys: tuple[str, ...] = (),
+        equivalent_keys: Mapping[str, str] | None = None,
     ) -> Opening:
         """Log an opening attempt and say whether the OOS data may be used.
 
         Candidate keys are compared after resolving `alias` events, and a
         first opening recorded under one of `legacy_keys` (the pre-content
         key of the same candidate) is linked to `candidate_key` by a new
-        `alias` event: append-only, nothing is rewritten."""
+        `alias` event: append-only, nothing is rewritten. `equivalent_keys`
+        maps an opened key to the reason it is the same candidate (proved by
+        the caller, e.g. a difference of quarantined bars only); it is linked
+        the same way, with the reason recorded."""
         events = self.events()
         aliases = {e["from"]: e["to"] for e in events if e["event"] == "alias"}
 
         def canon(key: str) -> str:
-            return aliases.get(key, key)
+            return resolve(aliases, key)
 
         firsts = [
             e
@@ -192,18 +209,21 @@ class OosVault:
             access: Access = "first_opening"
         else:
             opened = firsts[0]["candidate_key"]
-            if canon(opened) != candidate_key and opened in legacy_keys:
-                self._log(
-                    {
-                        "event": "alias",
-                        "strategy_id": strategy_id,
-                        "scope": scope,
-                        "from": opened,
-                        "to": candidate_key,
-                        "at": at.isoformat(),
-                    }
-                )
-                aliases[opened] = candidate_key
+            equivalent = equivalent_keys or {}
+            if canon(opened) != candidate_key and (opened in legacy_keys or opened in equivalent):
+                record = {
+                    "event": "alias",
+                    "strategy_id": strategy_id,
+                    "scope": scope,
+                    # an already-linked key is extended from the end of its chain
+                    "from": canon(opened) if opened in equivalent else opened,
+                    "to": candidate_key,
+                    "at": at.isoformat(),
+                }
+                if opened in equivalent:
+                    record["reason"] = equivalent[opened]
+                self._log(record)
+                aliases[record["from"]] = candidate_key
             if canon(opened) == candidate_key:
                 access = "replay"
                 seals = [

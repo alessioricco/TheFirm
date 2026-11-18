@@ -382,7 +382,7 @@ These rules are enforced in code and each one gets an automated test; breaking o
 1. No LLM output can reach the execution desk except through a verdict and a risk approval.
 2. Every order carries a verdict ID and a risk decision ID; an order without both is rejected.
 3. Agents cannot read or write risk configuration, capital allocation, or the jurisdiction profile, and cannot change the verifier's thresholds.
-4. The final out-of-sample period is opened once per strategy, instrument and timeframe, by the verifier only, after the in-sample checks pass; every opening is logged and counted as a trial. Re-verifying the identical candidate replays the sealed result; any other version in the same scope is refused.
+4. The final out-of-sample period is opened once per strategy, instrument and timeframe, by the verifier only, after the in-sample checks pass; every opening is logged and counted as a trial. Re-verifying the identical candidate replays the sealed result; any other version in the same scope is refused. The same code and parameters on cleaned data count as the identical candidate only when the verifier proves that the bars read now are exactly the opened bars minus bars quarantined by the data-quality rule; the link is logged with its reason. Data is never interpolated for verification.
 5. Every trial an agent runs is counted, and the verifier corrects for the trial count.
 6. The ledger is append-only; nothing is edited or deleted.
 7. `live_trading` is false in v1; turning it on requires a config change plus a manual approval in the web UI.

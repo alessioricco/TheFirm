@@ -187,6 +187,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         market=args.market,
         state=state,
         now=datetime.now(UTC),
+        as_of=datetime.fromisoformat(args.as_of).astimezone(UTC) if args.as_of else None,
         verifier_name=args.verifier,
         sink=LedgerSink(Ledger(ledger_path(state_root(args.state_root)))),
     )
@@ -722,6 +723,11 @@ def build_parser() -> argparse.ArgumentParser:
     ver.add_argument("--root", help="data store")
     ver.add_argument("--state-root", help="verifier state (default $FIRM_STATE_ROOT or ./state)")
     ver.add_argument("--report", help="report path (default <state>/reports/<verdict>.json)")
+    ver.add_argument(
+        "--as-of",
+        help="only bars closed by then, ISO time with zone, e.g. 2026-11-16T00:00:00+00:00 "
+        "(to verify over the window an earlier opening used)",
+    )
     ver.set_defaults(func=_cmd_verify)
     return parser
 
