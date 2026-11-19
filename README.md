@@ -31,11 +31,15 @@ owner turns it on by hand.
 |---|---|
 | 0. Repository skeleton: typed domain objects, bus message rules, config profiles, venue adapter interface | done |
 | 1. Point-in-time data plane and strategy verifier (crypto) | done |
-| 2. Paper simulator, risk desk, ledger, trade journal | next |
-| 3. Research agents on [Certo](https://github.com/alessioricco/certo) | planned |
-| 4. Control API, CLI, web UI, notifications | planned |
+| 2. Paper simulator, risk desk, ledger, trade journal, Telegram alerts, message bus | built; its unattended exit run is in progress |
+| 3. Research agents on [Certo](https://github.com/alessioricco/certo), dashboard v1 | in progress: prerequisites done (private strategy store, sandbox, data-egress gate, research trials counted); research floor next |
+| 4. Control API, web UI, Telegram bot | planned (the CLI exists) |
 | 5. Local decision model ("judge") as features | planned |
 | 6. US shares | planned |
+| 7. Opportunity scout | planned |
+
+What works today, and what doesn't yet, is in the
+[user guide](docs/USER_GUIDE.md#2-implemented-now-vs-planned).
 
 The design is in [`docs/SPEC.md`](docs/SPEC.md); what's left is in
 [`TODO.md`](TODO.md), why things are the way they are is in
@@ -57,7 +61,8 @@ couldn't check), with a report whose hash is the verdict ID:
 4. **Trial count**: the Sharpe ratio is deflated for how many strategies
    were tried in total (Bailey & López de Prado, 2014).
 5. **Hidden out-of-sample**: a final period no author sees, opened once
-   per strategy, and only after the other checks pass.
+   per strategy, instrument and timeframe, and only after the other checks
+   pass.
 
 All thresholds live in [`config/verify/default.yaml`](config/verify/default.yaml)
 and are still placeholders.

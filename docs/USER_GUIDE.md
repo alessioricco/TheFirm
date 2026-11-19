@@ -70,6 +70,7 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Telegram alerts to the owner (urgent alerts, start/stop) | **implemented**; no chat commands |
 | Sandbox for agent-written strategy code; private strategy store | **implemented** (used by `firm verify`, `firm paper run` and `firm paper replay`) |
 | Model gateway with the data-egress gate | **implemented** as a library; no command calls a model yet |
+| Research backtests counted as trials (run by the verification desk, research view only) | **implemented** as a library, for the research floor; no command yet |
 | Unattended Linux service for `firm paper run` (systemd user unit) | **implemented**; a unit for `firm bus up` is still to do |
 | Research agents, research manager, dossiers, promotion gate | **planned** (milestone 3, in progress) |
 | Dashboard / web UI, control API, MCP endpoint | **planned** |
