@@ -107,3 +107,76 @@ def verification_desk(
 
 def ledger_model_usage(ledger: Ledger) -> ModelUsage:
     return lambda dossier_id: dossier_model_usage(ledger, dossier_id)
+
+
+def open_floor(config_root: Path, data_root: Path, state_root: Path):  # type: ignore[no-untyped-def]
+    """The research manager and the ledger for the owner's commands (CLI, API).
+    Nothing here runs a researcher yet (M4): backtest and verify refuse."""
+    from firm.core.config import load_research_config
+    from firm.ledger.sink import LedgerSink, ledger_path
+    from firm.research.dossier import DossierStore, FloorBriefs
+    from firm.research.manager import ResearchManager
+
+    def not_yet(*_a: Any, **_k: Any) -> Any:
+        raise RuntimeError("researchers run with the researcher agent (milestone 3, M4)")
+
+    ledger = Ledger(ledger_path(state_root))
+    store = DossierStore(data_root, sink=LedgerSink(ledger))
+    manager = ResearchManager(
+        load_research_config(config_root),
+        store,
+        backtest=not_yet,
+        verify=not_yet,
+        model_usage=ledger_model_usage(ledger),
+        floor_briefs=FloorBriefs(data_root),
+    )
+    return manager, ledger
+
+
+def owner_command(ledger: Ledger, command: str, payload: dict[str, Any], via: str) -> None:
+    """Record an owner command (OWNER_COMMAND), and where it came from (cli, dashboard)."""
+    from datetime import UTC
+    from datetime import datetime as dt
+
+    from firm.core.domain import LedgerEventType
+
+    ledger.append(
+        LedgerEventType.OWNER_COMMAND,
+        f"owner: research {command} ({via})"[:300],
+        {"command": f"research {command}", "via": via, "at": dt.now(UTC).isoformat()} | payload,
+    )
+
+
+def place(manager, dossier_id: str) -> str:  # type: ignore[no-untyped-def]
+    running = [d.dossier_id for d in manager.running()]
+    waiting = [d.dossier_id for d in manager.waiting()]
+    if dossier_id in running:
+        return "running"
+    if dossier_id in waiting:
+        return f"waiting ({waiting.index(dossier_id) + 1} in the queue)"
+    return "-"
+
+
+def dossier_view(manager, d) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """A dossier for the owner's eyes (CLI, dashboard): everything, with its place
+    in the queue and the budget used."""
+    u = manager.usage(d)
+    return d.model_dump(mode="json") | {
+        "place": "paused" if d.paused else place(manager, d.dossier_id),
+        "usage": {
+            "trials": u.trials,
+            "hours": round(u.hours, 4),
+            "tokens": u.tokens,
+            "cloud_gbp": u.cloud_gbp,
+        },
+    }
+
+
+def floor_view(manager) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    dossiers = sorted(manager.store.list(), key=lambda d: (d.opened_at, d.dossier_id))
+    brief = manager.floor_briefs.current()
+    return {
+        "researchers": manager.config.researchers,
+        "floor_brief": brief.text if brief else None,
+        "dossiers": [dossier_view(manager, d) for d in dossiers],
+    }

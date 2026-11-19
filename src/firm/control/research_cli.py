@@ -11,46 +11,22 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 
 def _floor(args: argparse.Namespace):  # type: ignore[no-untyped-def]
-    from firm.control.research import ledger_model_usage
-    from firm.core.config import load_research_config
+    from firm.control.research import open_floor
     from firm.data.store import data_root
-    from firm.ledger.sink import LedgerSink, ledger_path
-    from firm.ledger.store import Ledger
-    from firm.research.dossier import DossierStore, FloorBriefs
-    from firm.research.manager import ResearchManager
     from firm.verify.state import state_root
 
-    def not_yet(*_a: Any, **_k: Any) -> Any:
-        raise RuntimeError("researchers run with the researcher agent (milestone 3, M4)")
-
-    ledger = Ledger(ledger_path(state_root(args.state_root)))
-    root = data_root(args.root)
-    store = DossierStore(root, sink=LedgerSink(ledger))
-    manager = ResearchManager(
-        load_research_config(Path(args.config)),
-        store,
-        backtest=not_yet,
-        verify=not_yet,
-        model_usage=ledger_model_usage(ledger),
-        floor_briefs=FloorBriefs(root),
-    )
-    return manager, ledger
+    return open_floor(Path(args.config), data_root(args.root), state_root(args.state_root))
 
 
 def _owner(ledger, command: str, payload: dict[str, Any]) -> None:  # type: ignore[no-untyped-def]
-    from firm.core.domain import LedgerEventType
+    from firm.control.research import owner_command
 
-    ledger.append(
-        LedgerEventType.OWNER_COMMAND,
-        f"owner: research {command}"[:300],
-        {"command": f"research {command}", "at": datetime.now(UTC).isoformat()} | payload,
-    )
+    owner_command(ledger, command, payload, via="cli")
 
 
 def _brief_text(args: argparse.Namespace) -> str:
@@ -60,13 +36,9 @@ def _brief_text(args: argparse.Namespace) -> str:
 
 
 def _place(manager, dossier_id: str) -> str:  # type: ignore[no-untyped-def]
-    running = [d.dossier_id for d in manager.running()]
-    waiting = [d.dossier_id for d in manager.waiting()]
-    if dossier_id in running:
-        return "running"
-    if dossier_id in waiting:
-        return f"waiting ({waiting.index(dossier_id) + 1} in the queue)"
-    return "-"
+    from firm.control.research import place
+
+    return place(manager, dossier_id)
 
 
 def _usage_line(manager, d) -> str:  # type: ignore[no-untyped-def]

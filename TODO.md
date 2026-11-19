@@ -398,6 +398,16 @@ researcher agent, M5 methods library, M6 promotion gate).
       authenticated. Stack decided 2026-11-17 (SPEC "Dashboard stack"):
       FastAPI + plain JS modules, Lightweight Charts (keep TradingView
       attribution), ECharts, GridStack panels with saved layouts.
+  - [x] M3a part 1 (2026-11-19): control API (`firm dashboard serve | url`),
+        token login, research floor read + steer, paper status from the
+        ledger (`firm paper status`), live ledger events over a WebSocket.
+  - [ ] M3a part 2: the page: research floor and paper views, vendored
+        Lightweight Charts (attribution + NOTICE), ECharts, GridStack with
+        layouts saved per named view.
+  - [ ] M3b: kill switch with confirmation, end to end (control.command on
+        the bus -> risk desk halt -> ledger + alert), test-first.
+  - [ ] Starlette's TestClient warns that httpx is deprecated for it in
+        favour of `httpx2`; switch when that package is old enough.
       Dependencies `fastapi`, `uvicorn` and the three vendored JS libraries
       approved by the owner.
 - [x] CLI: `firm research start|list|show|pause|resume|redirect|close|brief`
