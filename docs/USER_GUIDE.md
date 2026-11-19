@@ -275,7 +275,7 @@ import pandas as pd
 
 
 class MyStrategy:
-    name = "my_strategy"                                  # stable ID
+    name = "my_strategy"  # stable ID
     default_params: ClassVar[dict[str, int]] = {"fast": 10, "slow": 40}
 
     def signals(self, bars: pd.DataFrame, params) -> pd.Series:
