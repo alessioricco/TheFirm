@@ -468,13 +468,45 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         stream_symbol=args.stream_symbol,
         status_seconds=args.status_every,
         notifier=_owner_notifier(args.no_notify),
+        bus=_paper_bus(args),
         log=_tee_log(state_root(args.state_root), f"paper-{args.market}-{args.venue}.log"),
     )
+    from firm.bus.server import BusDown
+
     try:
         return asyncio.run(run.run())
     except DeploymentRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+    except BusDown as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _paper_bus(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    """A login per service on the local bus (None with --no-bus). Connecting
+    raises `BusDown`, with how to start it, if the bus isn't running."""
+    from firm.bus.nats import NatsBus
+    from firm.bus.server import BusDown, listening
+    from firm.core.config import load_bus
+    from firm.verify.state import state_root
+
+    if args.no_bus:
+        print("bus: off (--no-bus): the desks call each other in-process", flush=True)
+        return None
+    cfg = load_bus(Path(args.config))
+    state = state_root(args.state_root)
+    print(f"bus: {cfg.url}", flush=True)
+
+    async def connect(service):  # type: ignore[no-untyped-def]
+        if not listening(cfg.host, cfg.port):
+            raise BusDown(
+                f"the bus is not running at {cfg.url}: start it in another terminal with "
+                "`uv run firm bus up` (or run with --no-bus)"
+            )
+        return await NatsBus.for_service(cfg, state, service)
+
+    return connect
 
 
 def _owner_notifier(off: bool):  # type: ignore[no-untyped-def]
@@ -578,6 +610,9 @@ def _cmd_bus_up(args: argparse.Namespace) -> int:
         bus = await NatsBus.for_service(cfg, state, ADMIN)
         try:
             info = await bus.ensure_stream()
+            created = await bus.ensure_consumers()
+            if created:
+                print(f"created bus consumers: {', '.join(created)}")
             return len(info.config.subjects or [])
         finally:
             await bus.close()
@@ -867,6 +902,9 @@ def build_parser() -> argparse.ArgumentParser:
     prun.add_argument("--hours", type=float, help="stop after this long (default: until Ctrl-C)")
     prun.add_argument("--stream-symbol", help="as the live stream spells it, if not on record")
     prun.add_argument("--no-notify", action="store_true", help="no alerts to the owner")
+    prun.add_argument(
+        "--no-bus", action="store_true", help="desks call each other in-process (no NATS)"
+    )
     prun.add_argument(
         "--status-every",
         type=float,

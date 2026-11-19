@@ -7,8 +7,10 @@ and ticks once a second:
 - a trade on the instrument first closes any bar it ends (the worker decides
   on that bar), THEN reaches the paper venue, so an order placed at a bar's
   close can fill on the next trade but never on one it already saw;
-- each tick: a risk heartbeat, the feed's staleness, and bars closed by time
-  (quiet markets still close their bars).
+- each tick: a risk heartbeat (in-process risk; over the bus they arrive on
+  their own), the heartbeat watch (lost / back, recorded and alerted), the
+  feed's staleness, and bars closed by time (quiet markets still close
+  their bars).
 
 Bars come from one of two places: the trade-built `BarBuilder` (fully
 watched periods only), or a `bar_source`, polled each tick, that returns new
@@ -55,13 +57,16 @@ class MarketRunner:
     symbol: str  # the instrument as the stream spells it
     fx: FxBook
     fx_pair: FxPair | None  # an FX pair on the same stream, if any
-    risk_heartbeat: Callable[[datetime], RiskHeartbeat]
+    # in-process risk: a heartbeat each tick; None when heartbeats arrive on the bus
+    risk_heartbeat: Callable[[datetime], RiskHeartbeat] | None
     stale: Callable[[datetime], dict[str, bool]]  # the feed's check()
     bar_source: Callable[[datetime], Awaitable[list[BarRow]]] | None = None
     sink: EventSink = NULL_SINK
     clock: Callable[[], datetime] = _now
     tick_seconds: float = 1.0
     _queue: asyncio.Queue[tuple[str, TradeRow]] = field(default_factory=asyncio.Queue)
+    _hb_alive: bool | None = None  # None until risk was heard (or given up on)
+    _started: datetime | None = None
 
     def on_trade(self, symbol: str, trade: TradeRow) -> None:
         self._queue.put_nowait((symbol, trade))
@@ -90,9 +95,38 @@ class MarketRunner:
             )
         )
 
+    def watch_heartbeat(self, now: datetime) -> None:
+        """Record when risk's heartbeat is lost and when it comes back (alerted)."""
+        if self._started is None:
+            self._started = now
+        alive = self.worker.heartbeat.alive(now)
+        market = self.worker.d.market
+        if alive and self._hb_alive is False:
+            self.sink.emit(
+                LedgerEventType.MARKET_STATUS,
+                f"{market}: risk heartbeat back, orders allowed again",
+                {"kind": "heartbeat_restored", "market": market, "at": now.isoformat()},
+            )
+        lost = not alive and (
+            self._hb_alive is True
+            or (self._hb_alive is None and now - self._started >= self.worker.heartbeat.timeout)
+        )
+        if lost:
+            self.sink.emit(
+                LedgerEventType.MARKET_STATUS,
+                f"{market}: risk heartbeat lost for over "
+                f"{self.worker.heartbeat.timeout.total_seconds():g}s: no new orders",
+                {"kind": "heartbeat_lost", "market": market, "at": now.isoformat()},
+            )
+            self._hb_alive = False
+        elif alive:
+            self._hb_alive = True
+
     async def tick(self) -> None:
         now = self.clock()
-        self.worker.on_heartbeat(self.risk_heartbeat(now))
+        if self.risk_heartbeat is not None:
+            self.worker.on_heartbeat(self.risk_heartbeat(now))
+        self.watch_heartbeat(now)
         self.worker.on_feed_status(self.stale(now).get(self.symbol, True))
         if self.builder is not None:
             for bar in self.builder.close_due(int(now.timestamp() * NS)):

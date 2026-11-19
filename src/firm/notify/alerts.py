@@ -6,7 +6,8 @@ Deterministic rules, no model anywhere in the path.
 
 - **Urgent:** a live feed stale or disconnected (new orders on that market
   are blocked), a risk halt (kill switch, drawdown, daily loss), a market
-  worker that crashed. The same alert is sent at most once per
+  worker that crashed, risk's heartbeat lost (no new orders until it's
+  back; the owner hears when it is). The same alert is sent at most once per
   `throttle_seconds`; when the thing recovers, the owner hears that too, but
   only if they heard the alert.
 - **Action:** a run started or stopped (`announce_start_stop`).
@@ -77,6 +78,12 @@ def alert_for(
             f"risk halt: {reason}",
         )
     if event_type is LedgerEventType.MARKET_STATUS:
+        kind = payload.get("kind")
+        hb_key = f"heartbeat:{payload.get('market')}"
+        if kind == "heartbeat_lost":
+            return Alert(hb_key, NotificationLevel.URGENT, reason)
+        if kind == "heartbeat_restored":
+            return Alert(f"{hb_key}:ok", NotificationLevel.ACTION, reason, hb_key)
         if payload.get("error") or payload.get("failure"):
             return Alert(
                 f"crash:{payload.get('market')}", NotificationLevel.URGENT, f"market down: {reason}"
@@ -96,7 +103,7 @@ class Outbox:
         self._queue: list[Notification] = []
         self._wake = asyncio.Event()
 
-    def put(self, notification: Notification) -> None:
+    def put(self, notification: Notification, source: LedgerEventType | None = None) -> None:
         self._queue.append(notification)
         self._wake.set()
 
@@ -152,11 +159,18 @@ class Outbox:
             await asyncio.wait_for(self._send_pending(), timeout=self.cfg.drain_seconds)
 
 
+class AlertQueue(Protocol):
+    """Where alerts go: straight to delivery (`Outbox`) or onto the bus
+    (`firm.notify.bus.BusAlerts`, which routes by the event that raised it)."""
+
+    def put(self, notification: Notification, source: LedgerEventType | None = None) -> None: ...
+
+
 class AlertingSink:
     """An `EventSink` that records first, then queues the alerts worth sending."""
 
     def __init__(
-        self, inner: EventSink, outbox: Outbox, cfg: NotifyConfig, *, clock: Clock = _now
+        self, inner: EventSink, outbox: AlertQueue, cfg: NotifyConfig, *, clock: Clock = _now
     ) -> None:
         self.inner, self.outbox, self.cfg, self.clock = inner, outbox, cfg, clock
         self._last_sent: dict[str, datetime] = {}
@@ -192,5 +206,6 @@ class AlertingSink:
                 level=alert.level,
                 text=alert.text,
                 created_at=now,
-            )
+            ),
+            event_type,
         )

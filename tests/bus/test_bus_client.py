@@ -12,6 +12,7 @@ import pytest
 from bus_samples import SAMPLES
 from factories import T0, order_intent
 from firm.bus import BusClient, BusError, MemoryBus, decode, encode, subject_matches
+from firm.bus.consumers import CONSUMERS, Consumer
 from firm.core.messages import PAYLOADS, PUBLISHERS, Envelope, Service, Subject, wrap
 
 
@@ -25,6 +26,11 @@ class Inbox:
 
     async def __call__(self, env: Envelope) -> None:
         self.got.append(env)
+
+
+ALL = Consumer("ledger-all", Service.LEDGER, ">")
+HB = Consumer("exe-hb", Service.EXECUTION, "risk.heartbeat")
+HB_OTHER = Consumer("exe-hb-other", Service.EXECUTION, "risk.heartbeat")
 
 
 def client(bus: MemoryBus, service: Service) -> BusClient:
@@ -42,7 +48,7 @@ def test_contract_every_subject_round_trips_from_its_owner(subject: Subject) -> 
         bus, inbox = MemoryBus(), Inbox()
         owner = PUBLISHERS[subject]
         assert owner is not None
-        await client(bus, Service.LEDGER).subscribe(">", "all", inbox)
+        await client(bus, Service.LEDGER).subscribe(ALL, inbox)
         await client(bus, owner).publish(subject, SAMPLES[subject], message_id="m-1")
         return inbox.got
 
@@ -82,7 +88,7 @@ def test_forged_malformed_and_misrouted_messages_are_rejected() -> None:
     async def main() -> Inbox:
         bus, inbox = MemoryBus(), Inbox()
         c = BusClient(bus, Service.LEDGER, on_reject=lambda s, why: rejected.append((s, why)))
-        await c.subscribe(">", "all", inbox)
+        await c.subscribe(ALL, inbox)
         await bus.publish("order.intent", json.dumps(forged).encode(), message_id="x1")
         await bus.publish("order.intent", b"not json", message_id="x2")
         await bus.publish("fill.executed", good, message_id="x3")  # names order.intent
@@ -100,7 +106,9 @@ def test_a_message_is_handled_once_even_when_sent_twice() -> None:
     async def main() -> Inbox:
         bus, inbox = MemoryBus(), Inbox()
         execution = client(bus, Service.EXECUTION)
-        await client(bus, Service.LEDGER).subscribe("fill.>", "fills", inbox)
+        await client(bus, Service.LEDGER).subscribe(
+            Consumer("ledger-fills", Service.LEDGER, "fill.>"), inbox
+        )
         fill = SAMPLES[Subject.FILL_EXECUTED]
         await execution.publish(Subject.FILL_EXECUTED, fill, message_id="f-1")
         await execution.publish(Subject.FILL_EXECUTED, fill, message_id="f-1")  # retry
@@ -118,13 +126,13 @@ def test_durable_consumers_resume_where_they_stopped() -> None:
         bus = MemoryBus()
         risk = client(bus, Service.RISK)
         first, again, fresh = Inbox(), Inbox(), Inbox()
-        sub = await client(bus, Service.EXECUTION).subscribe("risk.heartbeat", "hb", first)
+        sub = await client(bus, Service.EXECUTION).subscribe(HB, first)
         await risk.publish(Subject.RISK_HEARTBEAT, beat, message_id="b-1")
         await sub.close()  # execution restarts...
         await risk.publish(Subject.RISK_HEARTBEAT, beat, message_id="b-2")
         await risk.publish(Subject.RISK_HEARTBEAT, beat, message_id="b-3")
-        await client(bus, Service.EXECUTION).subscribe("risk.heartbeat", "hb", again)
-        await client(bus, Service.EXECUTION).subscribe("risk.heartbeat", "other", fresh)
+        await client(bus, Service.EXECUTION).subscribe(HB, again)
+        await client(bus, Service.EXECUTION).subscribe(HB_OTHER, fresh)
         return first, again, fresh
 
     first, again, fresh = run(main())
@@ -144,7 +152,9 @@ def test_a_failing_handler_gets_the_message_again() -> None:
     async def main() -> MemoryBus:
         bus = MemoryBus()
         execution = client(bus, Service.EXECUTION)
-        await client(bus, Service.LEDGER).subscribe("fill.executed", "fills", flaky)
+        await client(bus, Service.LEDGER).subscribe(
+            Consumer("ledger-fills", Service.LEDGER, "fill.executed"), flaky
+        )
         fill = SAMPLES[Subject.FILL_EXECUTED]
         await execution.publish(Subject.FILL_EXECUTED, fill, message_id="f-1")
         await execution.publish(Subject.FILL_EXECUTED, fill, message_id="f-2")
@@ -175,3 +185,35 @@ def test_decode_refuses_what_encode_did_not_make() -> None:
 )
 def test_subject_wildcards(pattern: str, subject: str, match: bool) -> None:
     assert subject_matches(pattern, subject) is match
+
+
+def test_a_service_reads_only_through_its_own_consumers() -> None:
+    async def main() -> None:
+        bus = MemoryBus()
+        with pytest.raises(BusError, match="belongs to"):
+            await client(bus, Service.RESEARCH).subscribe("risk-proposals", Inbox())
+        with pytest.raises(KeyError):
+            await client(bus, Service.RISK).subscribe("not-declared", Inbox())
+
+    run(main())
+
+
+def test_a_new_consumer_starting_new_skips_the_past() -> None:
+    async def main() -> Inbox:
+        bus, inbox = MemoryBus(), Inbox()
+        risk = client(bus, Service.RISK)
+        beat = SAMPLES[Subject.RISK_HEARTBEAT]
+        await risk.publish(Subject.RISK_HEARTBEAT, beat, message_id="old")
+        await client(bus, Service.EXECUTION).subscribe("execution-heartbeat", inbox)
+        await risk.publish(Subject.RISK_HEARTBEAT, beat, message_id="new")
+        return inbox
+
+    assert [e.message_id for e in run(main()).got] == ["new"]
+
+
+@pytest.mark.parametrize("name", sorted(CONSUMERS))
+def test_contract_every_declared_consumer_reads_real_subjects(name: str) -> None:
+    c = CONSUMERS[name]
+    assert c.name == name
+    assert any(subject_matches(c.filter, s.value) for s in Subject)
+    assert c.deliver_subject.startswith(f"_INBOX.{c.service.value}.")

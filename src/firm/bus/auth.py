@@ -5,11 +5,13 @@ already refuses it (`BusClient`, `Envelope`); this module makes the server
 refuse it too. `server_config` turns `PUBLISHERS` into a nats-server config:
 
 - one user per `Service`, allowed to publish exactly the subjects it owns,
-  plus the JetStream calls a client needs on the firm's stream (look up the
-  stream, create or look up its own consumers, acknowledge messages). No
-  service may create, change, purge or delete a stream.
-- one admin user (`firm-admin`) that may manage the stream and publishes no
-  firm subject; `firm bus up` and `firm bus status` use it.
+  plus the JetStream calls a client needs on the firm's stream: look up the
+  stream, look up and acknowledge its own declared consumers
+  (`firm.bus.consumers`). No service may create a consumer, nor create,
+  change, purge or delete a stream.
+- one admin user (`firm-admin`) that manages the stream and creates the
+  declared consumers, and publishes no firm subject; `firm bus up` and
+  `firm bus status` use it.
 - every user may receive only under its own inbox prefix
   (`_INBOX.<user>.>`: replies and its JetStream deliveries), so nothing
   reads firm subjects around JetStream, nor another desk's deliveries.
@@ -27,6 +29,7 @@ import secrets
 from pathlib import Path
 from typing import Any
 
+from firm.bus.consumers import consumers_of
 from firm.core.config import BusConfig
 from firm.core.messages import Service, subjects_published_by
 
@@ -78,16 +81,13 @@ def login(state: Path, user: Service | str) -> tuple[str, str]:
     return name, creds[name]
 
 
-def client_api(stream: str) -> list[str]:
-    """JetStream calls every service needs, all scoped to the firm's stream."""
-    return [
-        "$JS.API.INFO",
-        f"$JS.API.STREAM.INFO.{stream}",
-        f"$JS.API.CONSUMER.INFO.{stream}.*",
-        f"$JS.API.CONSUMER.CREATE.{stream}.>",
-        f"$JS.API.CONSUMER.DURABLE.CREATE.{stream}.*",
-        f"$JS.ACK.{stream}.>",
-    ]
+def client_api(service: Service, stream: str) -> list[str]:
+    """JetStream calls a service needs: look at the stream, look up and
+    acknowledge its own declared consumers. Nothing creates anything."""
+    allow = ["$JS.API.INFO", f"$JS.API.STREAM.INFO.{stream}"]
+    for c in consumers_of(service):
+        allow += [f"$JS.API.CONSUMER.INFO.{stream}.{c.name}", f"$JS.ACK.{stream}.{c.name}.>"]
+    return allow
 
 
 def inbox_prefix(user: str) -> str:
@@ -100,7 +100,7 @@ def permissions(user: str, stream: str) -> dict[str, Any]:
         publish = ["$JS.API.>"]
     else:
         own = sorted(s.value for s in subjects_published_by(Service(user)))
-        publish = own + client_api(stream)
+        publish = own + client_api(Service(user), stream)
     return {
         "publish": {"allow": publish},
         "subscribe": {"allow": [f"{inbox_prefix(user)}.>"]},

@@ -1,6 +1,10 @@
 """`firm paper run`: one market on paper against live data (the composition root).
 
-Wires the desks in one process, in-process first (the bus comes later):
+Wires the desks in one process. With the bus (the default from the CLI),
+risk, execution and the notifier each log in as themselves and talk only
+through it: proposals, decisions and risk's heartbeat on JetStream, alerts on
+`alert.*`. Without it (`--no-bus`, tests) they call each other in-process.
+The ledger has one writer, this process.
 
 - **Gate.** The verifier's report must pass `verdict_for_deployment`: intact,
   passing, the same code and parameters, the same venue/instrument/timeframe,
@@ -24,18 +28,21 @@ import asyncio
 import contextlib
 import json
 import signal
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from firm.bus.client import BusClient
+from firm.bus.client import Transport as BusTransport
 from firm.control.progress import Progress
-from firm.core.config import load_config, load_fee_schedule, load_notify
+from firm.core.config import load_bus, load_config, load_fee_schedule, load_notify
 from firm.core.domain import Fill, LedgerEventType, Side
 from firm.core.events import EventSink
 from firm.core.heartbeat import HeartbeatMonitor
+from firm.core.messages import Service
 from firm.core.timeframes import tf_seconds
 from firm.data import providers
 from firm.data.dataset import capture_methods
@@ -44,15 +51,18 @@ from firm.data.providers.base import NS, BarRow
 from firm.data.reference import InstrumentRecord, latest_instruments
 from firm.data.streams.feed import Feed
 from firm.execution.adapter import InstrumentRules, VenueMode
+from firm.execution.bus_risk import BusRisk
 from firm.execution.deploy import DeploymentRefused, position_fraction, verdict_for_deployment
 from firm.execution.portfolio import FxBook, Portfolio, starting_cash
 from firm.execution.runner import MarketRunner
 from firm.execution.simulator import PaperSimulator, SimConfig
-from firm.execution.worker import Deployment, MarketWorker
+from firm.execution.worker import Deployment, MarketWorker, RiskDecider
 from firm.ledger.sink import LedgerSink, ledger_path
 from firm.ledger.store import Ledger
 from firm.notify.alerts import AlertingSink, Outbox, Sender
+from firm.notify.bus import BusAlerts, NotifierService
 from firm.risk.desk import RiskDesk
+from firm.risk.service import RiskService
 from firm.verify.strategy import load_strategy
 
 OPENED = "paper_account_opened"
@@ -238,6 +248,8 @@ class PaperRun:
     log: Callable[[str], None] = print
     status_seconds: float = 60.0  # status line interval; 0 turns it off
     notifier: Sender | None = None  # alerts to the owner (None: off)
+    # the bus: a login per service (None: the desks call each other in-process)
+    bus: Callable[[Service], Awaitable[BusTransport]] | None = None
     stop: asyncio.Event = field(default_factory=asyncio.Event)
 
     def _report(self) -> bytes:
@@ -283,11 +295,28 @@ class PaperRun:
         ledger = Ledger(ledger_path(self.state_root))
         recorded: EventSink = Tee(LedgerSink(ledger), self.log)
         sink: EventSink = recorded
+        bus_cfg = load_bus(self.config_root) if self.bus is not None else None
+        clients: dict[Service, BusClient] = {}
+        if self.bus is not None:
+            services = [Service.RISK, Service.EXECUTION]
+            if self.notifier is not None:
+                services.append(Service.NOTIFIER)
+            for s in services:
+                clients[s] = BusClient(await self.bus(s), s)
+            self.log(f"bus: {', '.join(s.value for s in services)} logged in, one login each")
         outbox: Outbox | None = None
+        bus_alerts: BusAlerts | None = None
+        notifier_service: NotifierService | None = None
         if self.notifier is not None:
             notify_cfg = load_notify(self.config_root)
             outbox = Outbox(self.notifier, recorded, notify_cfg)
-            sink = AlertingSink(recorded, outbox, notify_cfg)
+            if self.bus is not None:  # desks publish alerts; the notifier delivers them
+                bus_alerts = BusAlerts(clients, recorded, notify_cfg)
+                sink = AlertingSink(recorded, bus_alerts, notify_cfg)
+                notifier_service = NotifierService(clients[Service.NOTIFIER], outbox)
+                await notifier_service.start()
+            else:
+                sink = AlertingSink(recorded, outbox, notify_cfg)
         fx_pairs = mp.execution.fx
         max_age = min(p.max_age_seconds for p in fx_pairs)
         fx = FxBook(max_age=timedelta(seconds=max_age))
@@ -295,6 +324,8 @@ class PaperRun:
         tasks: list[asyncio.Task[None]] = []
         if outbox is not None:
             tasks.append(asyncio.create_task(outbox.run(self.stop)))
+        if bus_alerts is not None:
+            tasks.append(asyncio.create_task(bus_alerts.run(self.stop)))
         for provider in sorted({p.provider for p in fx_pairs}):
 
             def on_fx(symbol: str, trade: Any, provider: str = provider) -> None:
@@ -358,6 +389,17 @@ class PaperRun:
             ),
         )
         desk = RiskDesk(cfg.risk, sink)
+        heartbeat = HeartbeatMonitor(timedelta(seconds=mp.execution.heartbeat_timeout_seconds))
+        risk: RiskDecider = desk
+        bus_risk: BusRisk | None = None
+        if self.bus is not None:
+            assert bus_cfg is not None
+            bus_risk = BusRisk(
+                clients[Service.EXECUTION],
+                timeout=bus_cfg.decision_timeout_seconds,
+                on_beat=heartbeat.accept,
+            )
+            risk = bus_risk
         portfolio = Portfolio(
             capital_gbp=cfg.risk.paper_capital_gbp, allocations_pct={self.market: allocation}
         )
@@ -384,12 +426,25 @@ class PaperRun:
             ),
             loaded.strategy,
             sim,
-            desk,
+            risk,
             risk_state,
-            HeartbeatMonitor(timedelta(seconds=mp.execution.heartbeat_timeout_seconds)),
+            heartbeat,
             sink=sink,
             clock=_now,
         )
+        if bus_risk is not None:
+            assert bus_cfg is not None
+            risk_service = RiskService(
+                desk,
+                clients[Service.RISK],
+                verdicts={verdict.verdict_id: verdict},
+                state=risk_state,
+                heartbeat_seconds=bus_cfg.risk_heartbeat_seconds,
+                max_age=timedelta(seconds=3 * bus_cfg.decision_timeout_seconds),
+            )
+            await risk_service.start()
+            await bus_risk.start()
+            tasks.append(asyncio.create_task(risk_service.run(self.stop)))
 
         bars = RestBars(
             Fetcher(self.data_root, transport=self.transport, log=lambda _: None),
@@ -406,7 +461,7 @@ class PaperRun:
             symbol=stream_symbol,
             fx=fx,
             fx_pair=None,  # FX arrives on its own streams (on_fx above)
-            risk_heartbeat=desk.heartbeat,
+            risk_heartbeat=None if self.bus is not None else desk.heartbeat,
             stale=lambda now: {},
             bar_source=bars,
             sink=sink,
@@ -483,6 +538,15 @@ class PaperRun:
                 "at": _now().isoformat(),
             },
         )
+        if bus_alerts is not None and notifier_service is not None:
+            await bus_alerts.drain()
+            await notifier_service.settle(
+                bus_alerts.published, timeout=5.0
+            )  # let the last alerts arrive
         if outbox is not None:
             await outbox.drain()  # the owner hears how it ended
+        for client in clients.values():
+            with contextlib.suppress(Exception):
+                await client.close()
+                await client.transport.close()
         return 1 if failed else 0

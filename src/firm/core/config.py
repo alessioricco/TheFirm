@@ -340,6 +340,8 @@ class BusConfig(FirmModel):
     duplicate_window_seconds: float = Field(gt=0)  # a re-sent message ID is dropped within it
     redeliver_seconds: float = Field(gt=0)  # after a handler fails
     publish_timeout_seconds: float = Field(gt=0)  # waiting for the server's ack
+    risk_heartbeat_seconds: float = Field(gt=0)  # how often risk says it's alive
+    decision_timeout_seconds: float = Field(gt=0)  # execution waits this long for risk
 
     @property
     def url(self) -> str:

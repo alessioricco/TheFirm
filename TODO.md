@@ -214,9 +214,9 @@ One PR per phase, test-first:
 - [ ] Before giving the owner run instructions, run that exact command
       against the real store (scratch state root). A paper run's stream
       symbol was missing from the real records although the tests passed.
-- [ ] The Linux box's paper ledger and the research ledger are separate
-      (DECISIONS 2026-11-17); one writer comes with the bus (F). Decide then
-      whether to merge them or keep one ledger per machine.
+- [x] (2026-11-19) Ledgers: one per machine, written by the process that
+      holds the desks (DECISIONS "Bus (F3)"); a ledger service on the bus
+      when a desk moves to another machine.
 - [ ] **F. Bus**: NATS JetStream, per-service credentials from `PUBLISHERS`.
       Dependency `nats-py` and the `nats-server` binary approved. In-process
       first (A–E), bus after (owner decision).
@@ -227,15 +227,18 @@ One PR per phase, test-first:
         `PUBLISHERS` (publish only own subjects, enforced by the server,
         checked by `scripts/bus_smoke.py`); `firm bus up | status`;
         `config/bus.yaml`.
-  - [ ] F3 detail: `firm bus up` creates the desks' durable consumers as
-        admin, and services lose `CONSUMER.CREATE` (today any login could
-        squat another desk's consumer name: a block, not a leak).
   - [ ] Later (more than one machine): NKeys or JWT accounts instead of
         passwords; TLS between machines; each machine gets only its own
         services' logins.
-  - [ ] F3: the paper run's desks talk through the bus (risk heartbeat on
-        `risk.heartbeat`, one ledger writer subscribed to everything, alerts
-        on `alert.>`); lost-heartbeat alert; a short run on the Mac.
+  - [x] (2026-11-19) F3: `firm paper run` runs risk, execution and the
+        notifier on the bus, one login each (proposals, decisions,
+        heartbeats, alerts); declared consumers created by the admin;
+        lost/restored heartbeat recorded and alerted; `--no-bus` keeps the
+        in-process path. Live check on the Mac: killing the bus mid-run
+        gave "heartbeat lost" in 10 s and "back" after restarting it.
+  - [ ] Paper service on the Linux box (later): a systemd unit for
+        `firm bus up` that the paper unit depends on; until then the
+        deploy example needs `--no-bus` or a bus started by hand.
 - [x] (2026-11-18) **G. Trade journal**: `firm.ledger.journal`, one row per
       round trip (flat -> long -> flat), rebuilt from the ledger into
       `<state>/journal.duckdb`; `firm journal build | show | export`;
@@ -266,8 +269,7 @@ One PR per phase, test-first:
       Design to agree: the run writes a heartbeat (file or tiny HTTP status)
       and the watchdog on the Mac/DGX polls it over the private network
       (Tailscale), alerting through the same Telegram bot.
-- [ ] Alert on a lost risk heartbeat: in-process it can't be lost; add the
-      rule with the bus (F), where it can.
+- [x] (2026-11-19) Alert on a lost risk heartbeat (and when it's back).
 - [ ] **H. The unattended run** (7+ closed bars) on the Linux box (24/7); strategy to choose then
       (a 1h-verified strategy trades often enough to exercise the plumbing).
       Starts only after G, N and F (owner order, 2026-11-17).

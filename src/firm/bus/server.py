@@ -22,6 +22,10 @@ class BusServerError(RuntimeError):
     pass
 
 
+class BusDown(RuntimeError):
+    """A desk needs the bus and it isn't running."""
+
+
 def nats_server() -> str:
     exe = shutil.which("nats-server")
     if exe is None:

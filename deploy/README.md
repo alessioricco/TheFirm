@@ -43,7 +43,9 @@ that was changed in transit is refused.
 The machine running the paper service also needs the NATS server
 (`nats-server`, 2.10 or later): a release binary from
 github.com/nats-io/nats-server/releases, on the `PATH`. Check with
-`nats-server --version`.
+`nats-server --version`. `firm paper run` talks through the bus by default
+and refuses to start without it; a systemd unit for `firm bus up` is still
+to do (TODO.md), so for now start the bus by hand or add `--no-bus`.
 
 
 ```bash
