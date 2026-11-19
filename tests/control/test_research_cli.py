@@ -43,7 +43,11 @@ def test_start_list_and_show(where, capsys) -> None:
     assert code == 0
     assert "researchers at once: 2" in out
     assert "d-001  draft      running" in out and "d-003  draft      waiting (1 in" in out
-    assert "trials 0/200" in out and "cloud £0.00/£0.00" in out
+    from firm.core.config import load_research_config
+    from verify_helpers import REPO
+
+    trials = load_research_config(REPO / "config").budgets.trials  # the owner's budget
+    assert f"trials 0/{trials}" in out and "cloud £0.00/£0.00" in out
     code, out = run(capsys, "research", "show", "d-001", *opts)
     assert code == 0 and "timeframes 1h, 1d" in out and "(not written yet)" in out
     d = DossierStore(root).get("d-001")

@@ -130,10 +130,14 @@ the tests.
 - Code runs only in the sandbox (R2) and is saved to the private store (R1).
 - A failed submission closes the dossier; a changed strategy is a new
   candidate.
-- The loop runs through Certo (its ladder, budgets and code verdict), on
-  the Mac for now with the research model on the DGX; when Certo is
-  installed on the DGX the loop moves there by configuration. Certo's
-  verdict is about the code; the firm's verifier still judges the strategy.
+- The loop runs through Certo (its budgets and code verdict): the research
+  manager starts Certo's MCP server with `scripts/certo-mcp` and speaks MCP
+  to it over stdio (`run_task`, `run_status`, `run_events`), on the Mac with
+  the research model (`qwen3.8:27b`) on the DGX's Ollama (owner,
+  2026-11-19; setup in `docs/CERTO.md`). Certo 0.2.4 is also on the DGX
+  behind an SSH key restricted to `certo mcp`; the loop moves there with the
+  research floor later. Certo's verdict is about the code; the firm's
+  verifier still judges the strategy.
   Exit-check run: one researcher, one brief, until a strategy passes or the
   budget is spent.
 

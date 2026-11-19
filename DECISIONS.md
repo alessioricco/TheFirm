@@ -1354,3 +1354,31 @@ The SPEC's kill switches, per market and global, from the CLI
   (a heartbeat could reach the old subscriber and be acknowledged there);
   it now waits until the server shows the consumer unbound, and checks
   "each once" rather than an order.
+
+## 2026-11-19 — Where Certo runs for research (M4 setup)
+
+Owner's decision: the firm starts **Certo's MCP server itself**, with the
+launcher `scripts/certo-mcp`, **on the Mac**, with the DGX's Ollama as its
+model server (`CERTO_LLM_BASE_URL`), research model `qwen3.8:27b`, a call
+capped at 20 minutes and a task at an hour, rooted in the private store
+(`<data root>/research/certo`). The research manager will be the MCP client
+(`run_task`, `run_status`, `run_events`), over stdio: no network port, no
+login, and no Claude Code in between (an earlier idea, adding Certo to Claude
+Code, was dropped: Claude Code runs on a cloud model and must never carry
+private strategy work).
+
+The launcher holds nothing machine-specific: the DGX's address and the path
+of Certo live in the git-ignored `private/certo-mcp.env`
+(`scripts/certo-mcp.env.example` shows the fields), because the repository
+is public. A test runs it against a stub Certo; checked live, Certo answered
+and the model replied.
+
+Why not the DGX's own Certo (0.2.4, reachable over SSH with a key that may
+only start `certo mcp`): its MCP tools report which files a run changed but
+can't return their contents, and the firm must keep agent code in its own
+private store and run it in its own sandbox. The models still run on the
+DGX. The research floor, and Certo with it, move to the DGX when the firm
+does.
+
+First-run budgets (owner): 50 trials and 4 hours per dossier, tokens as the
+owner set them (10M), cloud £0.

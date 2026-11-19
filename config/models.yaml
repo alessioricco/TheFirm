@@ -5,18 +5,18 @@
 models: default
 
 roles:
-  research:              # research and coding agents (milestone 3)
+  research:              # research and coding agents (milestone 3); owner, 2026-11-19
     provider: ollama
-    model: gpt-oss:120b
-  fast_worker:           # cheap, parallel sub-tasks
+    model: qwen3.8:27b   # pulled on the DGX; Certo uses it (docs/CERTO.md)
+  fast_worker:           # cheap, parallel sub-tasks (not used yet; not pulled on the DGX)
     provider: ollama
     model: qwen3.6:35b-a3b
   judge:                 # decision model, typed calls via /v1/systemone (milestone 5)
     provider: ollama
-    model: d3:9b         # test d3:27b against it on our labelled cases
-  ask:                   # question answering over firm data ("Ask the firm")
+    model: d3:9b         # milestone 5; the DGX has d3:27b pulled, not d3:9b
+  ask:                   # question answering over firm data ("Ask the firm"; parked)
     provider: ollama
-    model: gpt-oss:120b
+    model: gpt-oss:120b  # not pulled on the DGX
 
 ask:
   approach: tools        # typed read-only tools over our data (see TODO.md)
