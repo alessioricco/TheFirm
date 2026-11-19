@@ -205,7 +205,8 @@ One PR per phase, test-first:
       lost (the simulator is in memory; record them as cancelled on restart);
       the average entry price isn't rebuilt on restart (balances are);
       a bar that closes while the run is down is skipped, not decided late;
-      no remote stop until the control API (`systemctl --user stop` meanwhile).
+      the process itself can't be stopped remotely yet (the kill switch, M3b,
+      stops new buying; stopping the process is Ctrl-C or `systemctl --user stop`).
 - [x] (2026-11-17) Supervisor for the 24/7 run: systemd user unit
       `firm-paper@<name>` + `scripts/install_paper_service.sh` + runbook
       `deploy/README.md`; gate refusals exit 4 and aren't retried.
@@ -408,8 +409,10 @@ researcher agent, M5 methods library, M6 promotion gate).
   - [ ] ECharts (P&L curves, drawdown, distributions) when there are
         enough trades to chart; its ~1 MB build needs a deliberate exemption
         from the repo guard's size limit.
-  - [ ] M3b: kill switch with confirmation, end to end (control.command on
-        the bus -> risk desk halt -> ledger + alert), test-first.
+  - [x] M3b (2026-11-19): kill switch per market and global, end to end
+        (`firm kill | resume`, dashboard Kill/Resume with typed confirmation;
+        ledger first, then control.command -> risk desk halt -> alert;
+        replayed at paper-run start; confirmed by the desk's record).
   - [ ] Starlette's TestClient warns that httpx is deprecated for it in
         favour of `httpx2`; switch when that package is old enough.
       Dependencies `fastapi`, `uvicorn` and the three vendored JS libraries

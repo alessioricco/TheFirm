@@ -1322,3 +1322,35 @@ path; FastAPI + uvicorn, and the vendored chart and panel libraries.
   something to show, so the page can be previewed, and was checked in a real
   browser (both themes, desktop and phone widths, no console errors), without
   touching real data.
+
+## 2026-11-19 — The kill switch (M3b)
+
+The SPEC's kill switches, per market and global, from the CLI
+(`firm kill` / `firm resume`) and the dashboard.
+
+- **Through the risk desk, not around it**: the owner's command goes to the
+  risk desk (`control.command`, publishable only by the control service; a
+  new durable consumer `risk-commands`), which halts as it already did for
+  drawdowns. Nothing else changes in the order path, and an agent can't
+  send one (no control login).
+- **Ledger first, bus second**: the command is recorded before it is sent,
+  so it exists even when the bus is down, and the paper run's risk desk
+  replays the owner's commands at start. A kill therefore survives a
+  restart, and one sent while the run was down still applies; until now
+  halts lived only in the desk's memory.
+- **Confirmed, or honestly not**: the CLI and the dashboard wait for the
+  desk's own record of the halt; otherwise they say the kill is recorded
+  but not yet applied, and how to stop the run at once.
+- **What a kill means**: no new buying. Sells that reduce a position still
+  go through (the desk's existing rule for halts), so a kill never traps a
+  position; it doesn't stop the process or undo fills.
+- **Deliberate**: `--confirm` on the CLI; in the dashboard the market's name
+  (or ALL) must be typed. Resuming needs the same, and is refused when
+  nothing is on. The owner hears both: an urgent alert for the halt, an
+  action alert for its release (only if the halt alert was heard).
+- The dashboard's "no route touches trading" test now allows exactly
+  `/api/killswitch`.
+- The bus smoke test's durable-delivery check raced the closing connection
+  (a heartbeat could reach the old subscriber and be acknowledged there);
+  it now waits until the server shows the consumer unbound, and checks
+  "each once" rather than an order.

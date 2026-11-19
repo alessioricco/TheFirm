@@ -25,12 +25,14 @@ from datetime import UTC, datetime, timedelta
 from firm.bus.client import BusClient
 from firm.core.domain import LedgerEventType, OrderProposal, RiskAction, RiskDecision, Verdict
 from firm.core.messages import Envelope, Service, Subject
+from firm.core.messages.subjects import OwnerCommand
 from firm.core.risk_state import RiskState
 from firm.risk.desk import RiskDesk, _digest
 
 log = logging.getLogger(__name__)
 
 PROPOSALS = "risk-proposals"
+COMMANDS = "risk-commands"
 
 
 def _now() -> datetime:
@@ -59,6 +61,20 @@ class RiskService:
 
     async def start(self) -> None:
         await self.client.subscribe(PROPOSALS, self.on_proposal)
+        await self.client.subscribe(COMMANDS, self.on_command)
+
+    async def on_command(self, env: Envelope) -> None:
+        """The owner's kill switch or its release (only control may publish these)."""
+        cmd = env.typed_payload()
+        assert isinstance(cmd, OwnerCommand)
+        self.desk.command(cmd)
+        log.warning(
+            "risk: owner %s (%s %s): %s",
+            cmd.kind.value,
+            cmd.scope.value,
+            cmd.market or "all markets",
+            cmd.reason,
+        )
 
     def _reject(self, p: OrderProposal, reason: str, at: datetime) -> RiskDecision:
         decision = RiskDecision(

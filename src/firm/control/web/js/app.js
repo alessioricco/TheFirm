@@ -8,6 +8,7 @@ import { mountResearch, onResearchEvent, refreshResearch } from "./research.js";
 import { mountTrading, onTradingEvent, refreshTrading, themeChanged } from "./trading.js";
 import { mountLedger, onLedgerEvent } from "./ledger.js";
 import { mountCommands } from "./commands.js";
+import { refreshKill } from "./killswitch.js";
 
 const VIEWS = ["research", "trading", "ledger", "commands"];
 const mounted = new Set();
@@ -82,6 +83,7 @@ function connect() {
     onResearchEvent(e);
     onTradingEvent(e);
     onLedgerEvent(e);
+    if (["risk_halt", "owner_command"].includes(e.type)) refreshKill();
     if (["dossier", "owner_command", "trial", "verdict", "model_call"].includes(e.type)) refreshSoon.research();
     else refreshSoon.trading();
   };
@@ -163,6 +165,7 @@ async function boot() {
     if (mounted.has("trading")) refreshTrading();
   }, 30000);
   connect();
+  refreshKill();
   const start = location.hash.slice(1);
   await show(VIEWS.includes(start) ? start : "research", false);
 }

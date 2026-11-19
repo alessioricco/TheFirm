@@ -74,7 +74,8 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Unattended Linux service for `firm paper run` (systemd user unit) | **implemented**; a unit for `firm bus up` is still to do |
 | Research floor: dossiers, budgets, the research manager, `firm research` commands (start, list, show, pause, resume, redirect, close, floor brief) | **implemented**; nothing runs a researcher yet |
 | Research agents (the researcher loop on Certo and local models), methods library, promotion gate | **planned** (milestone 3, in progress) |
-| Dashboard (`firm dashboard serve`, [DASHBOARD.md](DASHBOARD.md)): research floor with every steering command, paper run (account, P&L, price chart with fills, feeds, risk), ledger, command reference; live updates; arrangeable panels; token login; loopback only | **implemented**; the kill switch is next |
+| Dashboard (`firm dashboard serve`, [DASHBOARD.md](DASHBOARD.md)): research floor with every steering command, paper run (account, P&L, price chart with fills, feeds, risk), ledger, command reference; live updates; arrangeable panels; token login; loopback only | **implemented** |
+| Kill switch per market and global (`firm kill` / `firm resume`, and the dashboard): through the bus to the risk desk, confirmed, survives a restart | **implemented** |
 | Kill switch from the dashboard, MCP endpoint, remote access over a private network | **planned** |
 | Judge (local decision model), opportunity scout | **planned** |
 | US shares paper trading (IBKR), EODHD data | **planned**; a `us_equities` profile exists and Yahoo daily bars can be downloaded, but there is no shares paper path |
@@ -496,6 +497,12 @@ delivery attempt is a NOTIFICATION event in the ledger.
 
 - **Stop**: Ctrl-C (or SIGTERM) in the paper terminal, then in the bus
   terminal. Feeds close and "stopped" is recorded.
+- **Kill switch**: to stop new buying without stopping the run,
+  `uv run firm kill --market crypto --reason "..." --confirm` (or `--all`),
+  or **Kill** in the dashboard's Trading → Risk panel. The risk desk
+  confirms it, you get an alert, and it stays on across restarts until
+  `uv run firm resume --market crypto --reason "..." --confirm`. Sells that
+  reduce a position still go through. See [COMMANDS.md](COMMANDS.md#firm-kill).
 - **Stopping the bus mid-run is safe**: the run reports "risk heartbeat
   lost: no new orders" and "back" when the bus returns.
 - **Restart** carries on from the ledger: the paper account and balances
@@ -504,7 +511,8 @@ delivery attempt is a NOTIFICATION event in the ledger.
   a bar that closes while the run is down is **skipped**, not decided late
   (a daily strategy down across 00:00 UTC misses that day); orders still
   open when the process stops are lost (the simulator is in memory); the
-  average entry price isn't rebuilt on restart; there's no remote stop yet.
+  average entry price isn't rebuilt on restart; the kill switch stops new
+  buying but doesn't stop the process (Ctrl-C or `systemctl` does).
 - If the strategy itself raises an error (or its sandbox dies), that
   market stops: no further orders, and an urgent alert.
 
@@ -635,6 +643,8 @@ seconds. The full runbook is [deploy/README.md](../deploy/README.md).
 | verdict UNVERIFIED: "sandbox failed" / "no OS sandbox available" | private-store code with no working OS sandbox, e.g. run from inside another sandbox on macOS, or no bubblewrap on Linux | run from your own terminal; on Linux install `bubblewrap` and check `bwrap --unshare-all --ro-bind / / true` works |
 | `refused: ...` and exit 4 from `paper run` / `replay` | the deployment gate | read the reason: synthetic data, a changed file, different parameters, venue or timeframe, or a report that isn't a PASS |
 | `paper run`: `error: no coinbase_ws symbol for BTC-USD ...` (exit 3) | the instrument record doesn't name the live stream's spelling | the message prints the `firm data add-symbol` command to run; or pass `--stream-symbol` |
+| `firm kill` exits 1: "not sent" or "not confirmed" | the bus isn't running, or no paper run answered | the kill is recorded and applies at the run's next start; to stop a running run now, Ctrl-C in its terminal |
+| the paper run says "kill switch is ON" at start and buys nothing | a kill switch you issued earlier is still on | `uv run firm resume --market <market> --reason "..." --confirm` |
 | "feed stale" alerts, no orders | no trades from the venue's stream (network drop, venue outage) | orders resume when trades arrive; check with `firm feed watch` |
 | "risk heartbeat lost: no new orders" | the bus stopped or the risk desk is unreachable | restart `firm bus up`; you get "back" when it recovers |
 | `notifications: OFF (...)` / `notify test` exits 2 | Telegram settings missing | set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_OWNER_CHAT_ID` in `.env` ([alerts](#alerts)) |

@@ -10,7 +10,8 @@ Deterministic rules, no model anywhere in the path.
   back; the owner hears when it is). The same alert is sent at most once per
   `throttle_seconds`; when the thing recovers, the owner hears that too, but
   only if they heard the alert.
-- **Action:** a run started or stopped (`announce_start_stop`).
+- **Action:** a run started or stopped (`announce_start_stop`); a kill
+  switch released by the owner (sent if the owner heard about the halt).
 
 `Outbox` delivers off the trading path: emitting never waits on Telegram.
 A background task sends with retries; every send, delivered or not, is a
@@ -77,6 +78,13 @@ def alert_for(
             NotificationLevel.URGENT,
             f"risk halt: {reason}",
         )
+    if (
+        event_type is LedgerEventType.OWNER_COMMAND
+        and payload.get("kind") == "resume"
+        and not payload.get("requested")  # the risk desk applied it, not just asked for
+    ):
+        key = f"halt:{payload.get('scope', '?')}:{payload.get('market')}"
+        return Alert(f"{key}:ok", NotificationLevel.ACTION, f"kill switch released: {reason}", key)
     if event_type is LedgerEventType.MARKET_STATUS:
         kind = payload.get("kind")
         hb_key = f"heartbeat:{payload.get('market')}"

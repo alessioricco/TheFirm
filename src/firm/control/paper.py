@@ -37,6 +37,7 @@ from typing import Any
 
 from firm.bus.client import BusClient
 from firm.bus.client import Transport as BusTransport
+from firm.control.killswitch import owner_commands
 from firm.control.progress import Progress
 from firm.core.config import load_bus, load_config, load_fee_schedule, load_notify
 from firm.core.domain import Fill, LedgerEventType, Side
@@ -411,6 +412,10 @@ class PaperRun:
             ),
         )
         desk = RiskDesk(cfg.risk, sink)
+        # the owner's kill switches survive a restart: replay them before trading
+        desk.restore(owner_commands(ledger))
+        if desk.halted(self.market):
+            self.log(f"kill switch is ON for {self.market}: no new buying until `firm resume`")
         heartbeat = HeartbeatMonitor(timedelta(seconds=mp.execution.heartbeat_timeout_seconds))
         risk: RiskDecider = desk
         bus_risk: BusRisk | None = None

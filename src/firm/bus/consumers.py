@@ -46,6 +46,9 @@ CONSUMERS: dict[str, Consumer] = {
         Consumer("execution-heartbeat", Service.EXECUTION, Subject.RISK_HEARTBEAT.value, "new"),
         # the notifier delivers every alert to the owner
         Consumer("notifier-alerts", Service.NOTIFIER, "alert.>", "new"),
+        # risk applies the owner's kill switch (and its release); a command sent
+        # while risk was down is delivered when it comes back (durable)
+        Consumer("risk-commands", Service.RISK, Subject.CONTROL_COMMAND.value, "new"),
     )
 }
 """Every durable consumer on the firm's stream."""

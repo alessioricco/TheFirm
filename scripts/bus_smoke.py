@@ -40,6 +40,7 @@ from firm.bus.auth import ADMIN
 from firm.bus.consumers import CONSUMERS
 from firm.bus.nats import NatsBus
 from firm.bus.server import BusServerError, start
+from firm.control.killswitch import new_command
 from firm.core.config import BusConfig, NotifyConfig, load_bus, load_risk
 from firm.core.domain import (
     LedgerEventType,
@@ -146,12 +147,19 @@ async def check(cfg: BusConfig, state: Path) -> None:
     remote = BusRisk(exe_client, timeout=3, on_beat=monitor.accept)
     await service.start()
     await remote.start()
+    # the sample global KILL published above, before risk was listening, arrives now
+    await wait_for(lambda: service.desk.halted("crypto"))
+    print("ok  a kill sent while risk wasn't listening is applied when it starts (durable)")
+    control = BusClient(await bus(Service.CONTROL), Service.CONTROL)
+    release_all = new_command("resume", market=None, reason="smoke: release the sample kill")
+    await control.publish(Subject.CONTROL_COMMAND, release_all, message_id=release_all.command_id)
+    await wait_for(lambda: not service.desk.halted("crypto"))
     proposal = SAMPLES[Subject.ORDER_PROPOSED]
     assert isinstance(proposal, OrderProposal)
     proposal = proposal.model_copy(update={"proposal_id": "p-smoke", "created_at": now})
     decision = await remote.decide(verdict(), proposal, None)  # type: ignore[arg-type]
     assert decision.action is RiskAction.REJECT and "unknown verdict" in decision.reason
-    assert risk_sink.events[0][0] is LedgerEventType.RISK_DECISION
+    assert any(t is LedgerEventType.RISK_DECISION for t, *_ in risk_sink.events)
     print("ok  execution's proposal reaches risk and risk's decision comes back")
 
     stop = asyncio.Event()
@@ -161,6 +169,16 @@ async def check(cfg: BusConfig, state: Path) -> None:
     await beating
     print("ok  risk's heartbeats reach execution")
 
+    # --- the owner's kill switch: control -> risk (control.command, risk-commands)
+    kill = new_command("kill", market="crypto", reason="smoke drill")
+    await control.publish(Subject.CONTROL_COMMAND, kill, message_id=kill.command_id)
+    await wait_for(lambda: service.desk.halted("crypto"))
+    assert any(t is LedgerEventType.RISK_HALT for t, *_ in risk_sink.events)
+    release = new_command("resume", market="crypto", reason="smoke drill over")
+    await control.publish(Subject.CONTROL_COMMAND, release, message_id=release.command_id)
+    await wait_for(lambda: not service.desk.halted("crypto"))
+    print("ok  the owner's kill switch reaches risk over the bus, and its release")
+
     # --- durable resume: execution restarts, misses nothing, gets nothing twice
     beats: list[str] = []
 
@@ -168,13 +186,21 @@ async def check(cfg: BusConfig, state: Path) -> None:
         beats.append(env.message_id)
 
     await exe_client.close()  # execution "restarts"
+    # wait until the server sees no subscriber on its consumer, so the next
+    # heartbeats can't reach the closing connection (and be handled there)
+    for _ in range(100):
+        info = await admin.js.consumer_info(cfg.stream, "execution-heartbeat")
+        if not info.push_bound:
+            break
+        await asyncio.sleep(0.05)
     await risk_client.publish(Subject.RISK_HEARTBEAT, beat, message_id="b-2")
     await risk_client.publish(Subject.RISK_HEARTBEAT, beat, message_id="b-3")
     await BusClient(await bus(Service.EXECUTION), Service.EXECUTION).subscribe(
         "execution-heartbeat", hb
     )
-    await wait_for(lambda: beats[-2:] == ["b-2", "b-3"])
-    assert beats.count("b-2") == 1
+    await wait_for(lambda: {"b-2", "b-3"} <= set(beats), seconds=cfg.redeliver_seconds + 5)
+    await asyncio.sleep(cfg.redeliver_seconds + 0.5)
+    assert beats.count("b-2") == 1 and beats.count("b-3") == 1
     print("ok  a durable consumer resumes after a restart: nothing lost, nothing twice")
 
     # --- alerts: execution publishes, the notifier delivers; a failure is retried
@@ -243,6 +269,22 @@ async def check(cfg: BusConfig, state: Path) -> None:
     after = (await admin.js.stream_info(cfg.stream)).state.messages
     assert after == before
     print(f"ok  the research login can't publish order.intent, even raw ({why}; stream unchanged)")
+
+    forged_kill = encode(
+        wrap(
+            message_id="forged-kill",
+            sender=Service.CONTROL,
+            subject=Subject.CONTROL_COMMAND,
+            payload=new_command("resume", market=None, reason="forged"),
+            timestamp=now,
+        )
+    )
+    for name in (Service.EXECUTION, Service.RISK, Service.RESEARCH):
+        other = await bus(name)
+        other.cfg = cfg.model_copy(update={"publish_timeout_seconds": 1.0})
+        why = await refused(other.publish("control.command", forged_kill, message_id="forged-kill"))
+    assert (await admin.js.stream_info(cfg.stream)).state.messages == after
+    print(f"ok  only control can send the kill switch: execution, risk, research refused ({why})")
 
     snooped: list[str] = []
 
