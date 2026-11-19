@@ -26,5 +26,17 @@ class HeartbeatMonitor:
             raise ValueError("heartbeat went backwards (stale or replayed)")
         self._last = heartbeat
 
+    def accept(self, heartbeat: RiskHeartbeat) -> bool:
+        """`beat` for heartbeats from the bus: never raises.
+
+        An older or repeated beat (a replay) is ignored and returns False. A
+        newer beat with a lower sequence means the risk desk restarted (its
+        count starts again), so it is taken as the new reference."""
+        last = self._last
+        if last is not None and heartbeat.sent_at <= last.sent_at:
+            return False
+        self._last = heartbeat
+        return True
+
     def alive(self, now: datetime) -> bool:
         return self._last is not None and now - self._last.sent_at <= self.timeout

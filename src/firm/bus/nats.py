@@ -18,6 +18,7 @@ updates the stream (`firm bus up`).
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from nats.js.errors import NotFoundError
 
 from firm.bus.auth import ADMIN, inbox_prefix, login
 from firm.bus.client import RawHandler
+from firm.bus.consumers import CONSUMERS, Consumer
 from firm.core.config import BusConfig
 from firm.core.messages import Service, Subject
 
@@ -60,13 +62,31 @@ class NatsSubscription:
 class NatsBus:
     def __init__(self, nc: Any, cfg: BusConfig) -> None:
         self.nc, self.js, self.cfg = nc, nc.jetstream(), cfg
+        self._closing: dict[str, bool] = {"yes": False}
 
     @classmethod
     async def connect(
         cls, cfg: BusConfig, *, user: str, password: str, url: str | None = None
     ) -> NatsBus:
+        last: dict[str, float] = {}
+        closing = {"yes": False}
+
         async def on_error(exc: Exception) -> None:
-            log.warning("bus: %s", exc)  # e.g. a permissions violation, reported by the server
+            # e.g. a permissions violation; while the server is down the client retries
+            # every few seconds, so the same error is logged at most once a minute
+            text, now = str(exc), time.monotonic()
+            if now - last.get(text, -1e9) >= 60:
+                last[text] = now
+                log.warning("bus: %s", text)
+
+        async def on_disconnect() -> None:
+            if closing["yes"]:
+                return  # our own close(), not an outage
+            log.warning("bus: disconnected from %s; reconnecting", url or cfg.url)
+
+        async def on_reconnect() -> None:
+            last.clear()
+            log.warning("bus: reconnected to %s", url or cfg.url)
 
         nc = await nats.connect(
             url or cfg.url,
@@ -76,8 +96,12 @@ class NatsBus:
             inbox_prefix=inbox_prefix(user).encode(),
             max_reconnect_attempts=-1,
             error_cb=on_error,
+            disconnected_cb=on_disconnect,
+            reconnected_cb=on_reconnect,
         )
-        return cls(nc, cfg)
+        bus = cls(nc, cfg)
+        bus._closing = closing
+        return bus
 
     @classmethod
     async def for_service(
@@ -112,24 +136,67 @@ class NatsBus:
             timeout=self.cfg.publish_timeout_seconds,
         )
 
-    async def subscribe(
-        self, pattern: str, *, durable: str, handler: RawHandler
-    ) -> NatsSubscription:
+    async def ensure_consumers(self, consumers: list[Consumer] | None = None) -> list[str]:
+        """Create the declared durable consumers that don't exist yet (admin only).
+
+        An existing consumer is left as it is, so it keeps its position."""
+        created = []
+        for c in consumers if consumers is not None else list(CONSUMERS.values()):
+            try:
+                await self.js.consumer_info(self.cfg.stream, c.name)
+                continue
+            except NotFoundError:
+                pass
+            await self.js.add_consumer(
+                self.cfg.stream,
+                api.ConsumerConfig(
+                    durable_name=c.name,
+                    filter_subject=c.filter,
+                    deliver_subject=c.deliver_subject,
+                    deliver_policy=(
+                        api.DeliverPolicy.NEW if c.start == "new" else api.DeliverPolicy.ALL
+                    ),
+                    ack_policy=api.AckPolicy.EXPLICIT,
+                    ack_wait=max(30.0, 3 * self.cfg.redeliver_seconds),
+                ),
+            )
+            created.append(c.name)
+        return created
+
+    async def subscribe(self, consumer: Consumer, handler: RawHandler) -> NatsSubscription:
+        """Bind to a declared consumer (created by the admin at `firm bus up`)."""
+
         async def cb(msg: Any) -> None:
             try:
                 await handler(msg.subject, msg.data)
             except Exception as exc:
-                log.warning("bus: %s failed on %s (%s); redelivering", durable, msg.subject, exc)
+                log.warning(
+                    "bus: %s failed on %s (%s); redelivering", consumer.name, msg.subject, exc
+                )
                 await msg.nak(delay=self.cfg.redeliver_seconds)
                 return
             await msg.ack()
 
-        sub = await self.js.subscribe(
-            pattern, durable=durable, stream=self.cfg.stream, cb=cb, manual_ack=True
+        try:
+            await self.js.consumer_info(self.cfg.stream, consumer.name)
+        except NotFoundError:
+            raise RuntimeError(
+                f"bus consumer {consumer.name} does not exist: restart `firm bus up` "
+                "(it creates every declared consumer)"
+            ) from None
+        sub = await self.js.subscribe_bind(
+            stream=self.cfg.stream,
+            consumer=consumer.name,
+            config=api.ConsumerConfig(
+                durable_name=consumer.name, deliver_subject=consumer.deliver_subject
+            ),
+            cb=cb,
+            manual_ack=True,
         )
         return NatsSubscription(sub)
 
     async def close(self) -> None:
+        self._closing["yes"] = True
         await self.nc.drain()
 
 

@@ -293,6 +293,17 @@ IDs for facts that can be emitted twice.
   owner's RESUME, but a sell still goes through, capped at what is held: it
   can only reduce exposure. It still needs its passing verdict.
 
+- `service.py` (F3): `RiskService(desk, client, verdicts=, state=,
+  heartbeat_seconds=, max_age=)`, the desk on the bus. Reads
+  `order.proposed` (consumer `risk-proposals`), answers each with
+  `risk.decision`; computes its own `RiskState` at decision time (what
+  execution saw is not trusted); an unknown verdict or no state is a
+  recorded reject; a proposal older than `max_age` is not decided at all
+  (execution gave up; deciding it on today's state could contradict the
+  ledger). `run(stop)` publishes `risk.heartbeat`; message IDs carry a boot
+  ID so a restarted desk's sequence 0 isn't a duplicate. A failing
+  heartbeat publish is logged once per outage.
+
 Gotchas: everything is valued in GBP via `state.fx_to_gbp`; a missing rate
 rejects. Market drawdown is measured on that market's P&L below its peak,
 as a % of current equity. `firm.core.heartbeat.HeartbeatMonitor` is the
@@ -307,6 +318,18 @@ execution-side check.
   `capabilities()`. Supporting types: `VenueMode`, `VenueCapabilities`,
   `RateLimitPolicy`, `InstrumentRules`, `Position`, `Balance`,
   `ReconciliationSnapshot`, `LiveTradingRefused`.
+- `bus_risk.py` (F3): `BusRisk(client, timeout=, on_beat=)`, the risk desk
+  as execution reaches it over the bus. `decide` publishes the proposal and
+  waits for the `risk.decision` naming it; no answer (or the bus down)
+  raises `RiskUnavailable` and the worker skips the bar with that reason:
+  execution never invents a decision. Heartbeats go to `on_beat`
+  (`HeartbeatMonitor.accept`: never raises, ignores replays, takes a
+  restarted desk's lower sequence when its time is newer). The worker's
+  `RiskDecider.decide` may return a decision or an awaitable of one.
+- `runner.py` heartbeat watch: `watch_heartbeat(now)` each tick records
+  `MARKET_STATUS heartbeat_lost` (once, after the monitor's timeout, also
+  if risk was never heard) and `heartbeat_restored`; the notifier alerts on
+  both. `risk_heartbeat=None` when heartbeats arrive on the bus.
 - `simulator.py`: `PaperSimulator(mode, live_trading=, config=SimConfig)`,
   paper mode only. `on_market(MarketTrade | MarketBar)` drives fills and
   returns the updates/fills it caused; `fills()`, `history(client_order_id)`.
@@ -363,6 +386,14 @@ To add a venue: implement `VenueAdapter`, register a factory in
   sends in a thread with retries, `drain()` at shutdown; every send is a
   `NOTIFICATION` ledger event with `delivered`, `attempts`,
   `latency_seconds`, `error`). A dead channel never raises into trading.
+- `bus.py` (F3): `BusAlerts`, the `AlertQueue` the desks' `AlertingSink`
+  feeds when the bus is on: publishes each alert on its desk's subject
+  (`route`: a risk halt on `alert.urgent.risk` as risk; everything else as
+  execution, urgent or action), in a background task; a publish that keeps
+  failing is recorded as an undelivered `NOTIFICATION`. `NotifierService`
+  reads `alert.>` (consumer `notifier-alerts`) into the `Outbox`; `settle`
+  waits at shutdown for the last alerts. `AlertingSink.put(n, source)` passes
+  the raising event type so alerts can be routed.
 - Config: `config/notify.yaml` (`load_notify`). Secrets: `TELEGRAM_BOT_TOKEN`,
   `TELEGRAM_OWNER_CHAT_ID` from the environment; `firm.core.env` fills unset
   keys from `.env` at CLI start (`FIRM_DOTENV=0` turns it off; the tests do).
@@ -409,11 +440,22 @@ Schemas, subjects and who may publish what live in `core/messages/`
   Config: `config/bus.yaml` (`load_bus`): host (loopback), port, stream,
   retention, duplicate window, redelivery delay, publish timeout. The
   stream is `deny_delete` and `deny_purge`.
+- `consumers.py` (F3): `CONSUMERS`, every durable consumer declared once
+  (name, service, filter, start `all`/`new`): `risk-proposals`,
+  `execution-decisions`, `execution-heartbeat`, `notifier-alerts`. The admin
+  creates them at `firm bus up` (`NatsBus.ensure_consumers`, existing ones
+  untouched so they keep their position), each delivering to
+  `_INBOX.<service>.c.<name>`. Services can only look up and acknowledge
+  their own (`auth.client_api`) and bind with `subscribe_bind`; they cannot
+  create a consumer. `BusClient.subscribe(name, handler)` refuses another
+  service's consumer. To add a reader: declare it here, restart `firm bus up`.
 - `scripts/bus_smoke.py`: starts a throwaway server exactly as `firm bus up`
   does (on a free port, temp state) and checks the client behaviour plus
   enforcement by the server: an agent login can't publish `order.intent`
   even raw, a service can't delete or purge the stream, a wrong password is
   refused. Run it after changing `bus/`. Needs `nats-server` (README).
+- Logging: the same client error is logged at most once a minute;
+  disconnects and reconnects once each (not on our own `close()`).
 - Gotcha: a refused publish surfaces as a JetStream ack timeout (the server
   drops it and reports a permissions violation to the connection's error
   callback, which logs it). A wrong password reconnects until timed out.
@@ -423,7 +465,12 @@ Schemas, subjects and who may publish what live in `core/messages/`
 
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one
-  market on paper: deployment gate on the stored report; instrument rules
+  market on paper. With `bus` (the CLI default; `--no-bus` turns it off)
+  risk, execution and the notifier each log in as themselves and talk only
+  through the bus (`RiskService`, `BusRisk`, `BusAlerts`, `NotifierService`);
+  the CLI refuses to start (exit 1, says how) when the bus isn't running,
+  after the deployment gate. One process, one ledger writer. Then:
+  deployment gate on the stored report; instrument rules
   from the venue (`Provider.rules_url` / `parse_rules`); `RestBars` (the
   venue's closed REST bars, fetched into the store: warm-up for the lookback,
   then each bar once its close + 10 s grace has passed, retried every 30 s,

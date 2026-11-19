@@ -25,6 +25,7 @@ a second order: the venue sees the same client order ID.
 from __future__ import annotations
 
 import hashlib
+import inspect
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -61,11 +62,17 @@ ParamValue = int | float | str | bool
 
 
 class RiskDecider(Protocol):
-    """The risk desk as execution sees it (in-process now, over the bus later)."""
+    """The risk desk as execution sees it: in-process (`RiskDesk`) or over the
+    bus (`firm.execution.bus_risk.BusRisk`, async; it raises `RiskUnavailable`
+    when no decision arrives in time)."""
 
     def decide(
         self, verdict: Verdict, proposal: OrderProposal, state: RiskState
-    ) -> RiskDecision: ...
+    ) -> RiskDecision | Awaitable[RiskDecision]: ...
+
+
+class RiskUnavailable(RuntimeError):
+    """No risk decision: the bar is skipped and nothing is ordered."""
 
 
 class SignalSource(Protocol):
@@ -311,7 +318,11 @@ class MarketWorker:
             proposal.model_dump(mode="json"),
             event_id=f"proposal:{proposal.proposal_id}",
         )
-        decision = self.risk.decide(self.d.verdict, proposal, state)
+        try:
+            answer = self.risk.decide(self.d.verdict, proposal, state)
+            decision = await answer if inspect.isawaitable(answer) else answer
+        except RiskUnavailable as exc:
+            return Outcome(_ts(bar["close_time_ns"]), "skip", f"{exc}: no order", target, proposal)
         if decision.action is RiskAction.REJECT:
             return Outcome(
                 _ts(bar["close_time_ns"]), "rejected", decision.reason, target, proposal, decision

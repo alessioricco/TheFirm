@@ -13,6 +13,8 @@ Subscribing decodes every message back into a validated `Envelope`:
 - a handler that raises leaves the message unacknowledged: the transport
   delivers it again, and it is not marked as handled.
 
+A service reads only through its own declared consumers (`firm.bus.consumers`).
+
 The transport underneath is NATS JetStream in a running firm
 (`firm.bus.nats`) and an in-memory bus in tests (`firm.bus.memory`).
 """
@@ -27,6 +29,7 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
+from firm.bus.consumers import CONSUMERS, Consumer
 from firm.core.base import FirmModel
 from firm.core.messages import Envelope, Service, Subject, may_publish, wrap
 
@@ -51,9 +54,7 @@ class Transport(Protocol):
 
     async def publish(self, subject: str, data: bytes, *, message_id: str) -> None: ...
 
-    async def subscribe(
-        self, pattern: str, *, durable: str, handler: RawHandler
-    ) -> Subscription: ...
+    async def subscribe(self, consumer: Consumer, handler: RawHandler) -> Subscription: ...
 
     async def close(self) -> None: ...
 
@@ -124,12 +125,15 @@ class BusClient:
         await self.transport.publish(subject.value, encode(env), message_id=message_id)
         return env
 
-    async def subscribe(self, pattern: str, consumer: str, handler: Handler) -> Subscription:
-        """Deliver every valid message on `pattern` to `handler`, once each.
+    async def subscribe(self, consumer: Consumer | str, handler: Handler) -> Subscription:
+        """Deliver every valid message of one of this service's consumers, once each.
 
-        `consumer` names this durable subscription within the service; the same
-        name after a restart resumes where it stopped.
+        `consumer` is a name from `CONSUMERS` (or a `Consumer`, in tests); it is
+        durable, so after a restart it resumes where it stopped.
         """
+        c = CONSUMERS[consumer] if isinstance(consumer, str) else consumer
+        if c.service is not self.service:
+            raise BusError(f"consumer {c.name} belongs to {c.service}, not {self.service}")
         seen = _Seen(self.dedupe_capacity)
 
         async def raw(subject: str, data: bytes) -> None:
@@ -143,9 +147,7 @@ class BusClient:
             await handler(env)  # raising: not acknowledged, delivered again
             seen.add(env.message_id)
 
-        sub = await self.transport.subscribe(
-            pattern, durable=f"{self.service.value}-{consumer}", handler=raw
-        )
+        sub = await self.transport.subscribe(c, raw)
         self._subs.append(sub)
         return sub
 

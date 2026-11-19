@@ -80,6 +80,9 @@ uv run firm bus up        # local server from config/bus.yaml, one login per des
 uv run firm bus status    # in another terminal: the stream and its consumers
 ```
 
+`firm paper run` needs the bus running (it says so if not); `--no-bus` runs
+the desks in one process without it.
+
 ```bash
 uv sync --extra dev
 git config core.hooksPath .githooks    # enable the pre-commit guard (once per clone)

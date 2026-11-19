@@ -1038,3 +1038,39 @@ kept in the state folder (600) and never printed, rather than bcrypt hashes
 NKeys or JWT accounts, while everything runs on one machine; each machine
 will later get only its own services' logins.
 
+## 2026-11-19 — Bus (F3): the paper run's desks talk through the bus
+
+Phase F3. `firm paper run` now runs risk, execution and the notifier as bus
+services, each on its own login, still in one process on the Mac (owner,
+2026-11-18: everything runs on the laptop for now). Splitting them into
+processes later changes the composition root, not the desks.
+
+- **Risk decides on its own state.** The proposal carries no risk state;
+  the risk service computes it when it decides, so execution can't shape
+  its own approval. In one process both read the same portfolio; when risk
+  moves to its own process it will need positions from the bus.
+- **No answer means no order.** Execution waits `decision_timeout_seconds`
+  and then skips the bar with the reason recorded; it never fabricates a
+  decision, and an outage can only stop trading, never cause it. Risk
+  ignores proposals older than three timeouts (e.g. replayed after a
+  restart): deciding them on today's state could contradict the ledger.
+- **Heartbeats over the bus.** Execution's monitor accepts beats without
+  raising: replays are ignored, a restarted risk desk (sequence back to 0,
+  newer time) is taken as the new reference. Losing the heartbeat is
+  recorded once and alerted; its return too. Checked live: killing the bus
+  server mid-run raised "heartbeat lost: no new orders" after 10 s, and
+  restarting it brought "heartbeat back" without restarting the run.
+- **Consumers are declared and created by the admin.** Closes F2's gap:
+  services can no longer create consumers, only look up and acknowledge
+  their own, so no desk can squat another's or take its deliveries.
+- **One ledger writer, one ledger per machine (for now).** The ledger keeps
+  being written by the process that holds the desks (the composition
+  root's sink), not by a bus subscriber that re-records messages: the
+  events already carry reasons and IDs the bus messages don't. With
+  everything on one machine there is one ledger. TODO's question (merge
+  the research and paper ledgers) is settled as "one per machine" until a
+  desk moves to another machine; then a ledger service on the bus.
+- **Desks may import `firm.bus`.** The import-boundary test now lets every
+  desk use the bus client (which imports only `core`), as they use `core`
+  and `data`; desks still never import each other.
+

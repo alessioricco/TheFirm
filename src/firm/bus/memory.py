@@ -5,7 +5,8 @@ What it keeps from JetStream:
 - publish dedupe: a second message with the same ID is dropped (JetStream's
   `Nats-Msg-Id` window), so a publisher may retry safely;
 - durable consumers: a consumer name resumes after the last message it
-  acknowledged, even after its subscription was closed;
+  acknowledged, even after its subscription was closed; a new one starts at
+  the beginning (`start="all"`) or at the end (`"new"`);
 - a handler that raises does not acknowledge: delivery to that consumer
   stops there, and the message comes again on its next subscribe or the
   next publish.
@@ -17,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from firm.bus.client import RawHandler
+from firm.bus.consumers import Consumer
 
 
 def subject_matches(pattern: str, subject: str) -> bool:
@@ -61,17 +63,16 @@ class MemoryBus:
         for name in list(self._consumers):
             await self._pump(name)
 
-    async def subscribe(
-        self, pattern: str, *, durable: str, handler: RawHandler
-    ) -> MemorySubscription:
-        consumer = self._consumers.get(durable)
-        if consumer is None:
-            consumer = self._consumers[durable] = _Consumer(pattern)
-        elif consumer.pattern != pattern:
-            raise ValueError(f"consumer {durable} is bound to {consumer.pattern}, not {pattern}")
-        consumer.handler = handler
-        await self._pump(durable)
-        return MemorySubscription(self, durable)
+    async def subscribe(self, consumer: Consumer, handler: RawHandler) -> MemorySubscription:
+        c = self._consumers.get(consumer.name)
+        if c is None:
+            start = len(self.log) if consumer.start == "new" else 0
+            c = self._consumers[consumer.name] = _Consumer(consumer.filter, start)
+        elif c.pattern != consumer.filter:
+            raise ValueError(f"consumer {consumer.name} is bound to {c.pattern}")
+        c.handler = handler
+        await self._pump(consumer.name)
+        return MemorySubscription(self, consumer.name)
 
     async def _pump(self, durable: str) -> None:
         c = self._consumers[durable]

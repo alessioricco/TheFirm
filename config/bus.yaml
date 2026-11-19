@@ -10,3 +10,6 @@ max_age_days: 7                # the ledger is the record; the bus keeps a week
 duplicate_window_seconds: 120  # a re-sent message ID within this is dropped
 redeliver_seconds: 5           # a message whose handler failed comes again after this
 publish_timeout_seconds: 5     # waiting for the server to confirm a publish
+risk_heartbeat_seconds: 2      # risk says it's alive this often (execution stops ordering
+                               # after the market profile's heartbeat_timeout_seconds)
+decision_timeout_seconds: 10   # execution waits this long for risk's decision, then skips the bar

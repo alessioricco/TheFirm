@@ -19,6 +19,7 @@ from firm.bus.auth import (
     server_config,
     write_server_config,
 )
+from firm.bus.consumers import consumers_of
 from firm.bus.nats import stream_config
 from firm.core.config import load_bus
 from firm.core.messages import AGENT_SERVICES, PUBLISHERS, Service, Subject
@@ -56,11 +57,14 @@ def test_no_wildcard_reaches_a_firm_subject_and_no_service_manages_streams(user:
     if user != ADMIN:
         stream_admin = ("$JS.API.STREAM.CREATE", "$JS.API.STREAM.UPDATE", "$JS.API.STREAM.DELETE")
         assert not [p for p in publish if p.startswith(stream_admin) or p == "$JS.API.>"]
-        assert all(
-            p.endswith(("FIRM", "FIRM.*", "FIRM.>")) or p == "$JS.API.INFO"
-            for p in publish
-            if p.startswith("$JS.")
-        )
+        mine = {c.name for c in consumers_of(Service(user))}
+        for p in publish:
+            if p.startswith("$JS.API.CONSUMER."):
+                assert p.startswith("$JS.API.CONSUMER.INFO.FIRM.") and p.rsplit(".", 1)[1] in mine
+            elif p.startswith("$JS.ACK."):
+                assert p.split(".")[3] in mine and p.split(".")[2] == "FIRM"
+            elif p.startswith("$JS."):
+                assert p in ("$JS.API.INFO", "$JS.API.STREAM.INFO.FIRM")
 
 
 def test_admin_publishes_no_firm_subject() -> None:
