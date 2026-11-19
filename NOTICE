@@ -1,0 +1,14 @@
+The Firm
+Copyright (c) the project's authors. Licensed under the MIT licence (LICENSE).
+
+This product includes software developed by third parties:
+
+TradingView Lightweight Charts™
+Copyright (c) 2025 TradingView, Inc. https://www.tradingview.com/
+Licensed under the Apache License, Version 2.0.
+Used by the dashboard (src/firm/control/web/vendor/); the chart keeps the
+TradingView attribution logo, and the page credits TradingView with a link.
+
+GridStack.js
+Copyright (c) 2021-2025 Alain Dumesny. Licensed under the MIT licence.
+Used by the dashboard for its panels (src/firm/control/web/vendor/).

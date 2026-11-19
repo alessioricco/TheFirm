@@ -74,8 +74,8 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Unattended Linux service for `firm paper run` (systemd user unit) | **implemented**; a unit for `firm bus up` is still to do |
 | Research floor: dossiers, budgets, the research manager, `firm research` commands (start, list, show, pause, resume, redirect, close, floor brief) | **implemented**; nothing runs a researcher yet |
 | Research agents (the researcher loop on Certo and local models), methods library, promotion gate | **planned** (milestone 3, in progress) |
-| Control API (`firm dashboard serve`): research floor, paper status, live ledger events; token login; loopback only | **implemented**; the page (charts, panels) is next, then the kill switch |
-| Full web UI (charts, configurable panels), MCP endpoint, remote access | **planned** |
+| Dashboard (`firm dashboard serve`, [DASHBOARD.md](DASHBOARD.md)): research floor with every steering command, paper run (account, P&L, price chart with fills, feeds, risk), ledger, command reference; live updates; arrangeable panels; token login; loopback only | **implemented**; the kill switch is next |
+| Kill switch from the dashboard, MCP endpoint, remote access over a private network | **planned** |
 | Judge (local decision model), opportunity scout | **planned** |
 | US shares paper trading (IBKR), EODHD data | **planned**; a `us_equities` profile exists and Yahoo daily bars can be downloaded, but there is no shares paper path |
 | Live trading with real money | **not in v1**; refused by the config loader |
@@ -459,6 +459,12 @@ paper venue over the bus; the risk desk can approve, resize down or reject.
 
 ### Monitoring
 
+The easiest way to watch a run is the **dashboard**: `uv run firm dashboard
+serve`, then open the link `uv run firm dashboard url` prints. It shows the
+run, the account, P&L, a price chart with the fills, the feeds and risk,
+live. Everything about turning it on and using it is in
+[DASHBOARD.md](DASHBOARD.md). From the terminal:
+
 ```bash
 uv run firm paper status                         # accounts, runs, feeds, halts, P&L (from the ledger)
 tail -f state/logs/paper-crypto-coinbase.log     # decisions + a status line every minute
@@ -641,6 +647,8 @@ seconds. The full runbook is [deploy/README.md](../deploy/README.md).
 
 - [COMMANDS.md](COMMANDS.md): every command and option, with examples (the
   authoritative reference).
+- [DASHBOARD.md](DASHBOARD.md): the web dashboard: turning it on, logging
+  in, each view, safety.
 - [deploy/README.md](../deploy/README.md): the unattended Linux runbook.
 - [SPEC.md](SPEC.md): the design and the firm rules (target, not status).
 - [TODO.md](../TODO.md): what's done, what's next, known bugs.
