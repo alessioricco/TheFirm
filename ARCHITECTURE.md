@@ -526,6 +526,24 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   `verify/strategy.py`): loading it in-process is refused.
 - Backtests during research go through the verification desk
   (`verify/research.py`), which counts each one as a trial (R4).
+- **Config** (`config/research.yaml`, `core.config.load_research_config`, M1):
+  `researchers` (running at once), per-dossier `budgets` (trials,
+  wall-clock hours, tokens, cloud spend) and the `promotion` gate (max
+  paper strategies, max correlation, paper allocation %). Strict; refuses a
+  dossier cloud budget above models.yaml's monthly cloud budget, and a gate
+  whose strategies together would exceed 100% of paper capital. Read by
+  deterministic code only; agent code (sandboxed) can't read `config/`.
+- **Dossiers** (`research/dossier.py`, M1): `DossierStore(data_root, sink=,
+  clock=)` keeps one append-only log per dossier,
+  `<data root>/research/dossiers/<id>.jsonl`; `get()` folds it into a
+  `Dossier` (brief, market, instruments, timeframes, the budget given at
+  opening, hypothesis and rationale, code by hash, trial IDs, submitted
+  candidate, verdicts, notes, stage). Stages: draft → hypothesis → research
+  → submitted → passed | failed (final) | research (unverified); any open
+  stage → closed. No code or trial before the hypothesis; the hypothesis
+  can be revised until the first trial, never after. Every stage change is
+  a DOSSIER ledger event (IDs, stages, reason), never the hypothesis,
+  rationale or notes.
 
 ## sandbox (milestone 3, R2)
 

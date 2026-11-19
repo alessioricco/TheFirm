@@ -514,6 +514,7 @@ class LedgerEventType(StrEnum):
     NOTIFICATION = "notification"
     OWNER_COMMAND = "owner_command"
     MODEL_CALL = "model_call"
+    DOSSIER = "dossier"  # a research dossier changed stage (M3)
 
 
 class LedgerEvent(FirmModel):

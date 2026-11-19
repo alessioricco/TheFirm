@@ -116,6 +116,11 @@ def test_rule_02_every_order_carries_verdict_id_and_risk_decision_id() -> None:
 
 @_placeholder("milestone 3/4: agent-facing interfaces")
 def test_rule_03_agents_cannot_read_or_write_risk_config_capital_or_jurisdiction() -> None:
+    # Partial: agent code (the only agent-facing interface so far) runs in the
+    # sandbox with the repo hidden, so it can't read or write config/ (risk,
+    # jurisdiction, verifier thresholds, research.yaml):
+    # tests/sandbox/test_agent_cannot_read_config.py. Still to come: the control
+    # API's agent endpoints, Certo runs, the MCP endpoint.
     pytest.fail("placeholder")
 
 

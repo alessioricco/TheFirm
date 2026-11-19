@@ -1211,3 +1211,32 @@ own verification adds one more trial: stricter, never kinder.
 
 `trial.recorded` on the bus comes with the research manager as a service
 (M2): it will ask for backtests over the bus and announce the trials.
+
+## 2026-11-19 — Research config and dossiers (M3, M1)
+
+`config/research.yaml` holds the floor's settings, checked against the rest
+of the config at load: a dossier's cloud budget can't exceed the monthly
+cloud budget in `models.yaml` (both are £0 now), and the promotion gate's
+strategies together can't exceed paper capital (3 × 10% = 30%). The owner
+set the gate (3 / 0.7 / 10%); the per-dossier trials, hours and tokens are
+placeholders to set before the first research run. No GPU memory budget
+yet: nothing in research uses the GPU until the ML desk.
+
+A dossier is an append-only event log, folded on read, like the OOS vault:
+nothing in it is rewritten, so what a researcher claimed and when stays
+on record. The hypothesis is locked by the first backtest, because a
+hypothesis written after seeing results is not a hypothesis; a new idea is
+a new dossier. A failed verdict is final for the dossier (a changed
+strategy is a new candidate, so a new dossier); an unverified one (bad
+data, a broken sandbox) says nothing about the idea and sends it back to
+research.
+
+The ledger gets every stage change but never the hypothesis, rationale or
+notes, for the same reason it never gets model prompts: it is read by the
+journal, the dashboard and later "ask the firm", and strategy ideas stay in
+the private store.
+
+Firm rule 3 now covers `research.yaml`. Its invariant test stays a
+placeholder until every agent-facing interface exists; a partial test
+proves agent code (sandboxed, with the repo hidden) can't read or write any
+protected profile.

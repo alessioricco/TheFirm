@@ -1,0 +1,18 @@
+# The research floor (milestone 3): researchers, their budgets and the
+# promotion gate. Owner-editable; read by deterministic code only. No agent
+# may read or change it (firm rule 3): agent code runs in the sandbox, which
+# can't read config/. Numbers are placeholders except where the owner set them.
+research: default
+
+researchers: 2                 # running at once; more dossiers wait in the queue
+
+budgets:                       # per dossier, enforced by the research manager
+  trials: 200                  # backtests, each a counted trial (raises the bar for all)
+  wall_clock_hours: 24
+  tokens: 2000000              # model tokens, input + output, local models included
+  cloud_spend_gbp: 0           # never above models.yaml's monthly cloud budget
+
+promotion:                     # owner, 2026-11-19
+  max_paper_strategies: 3      # in paper at once
+  max_correlation: 0.7         # with any strategy already in paper
+  paper_allocation_pct: 10     # of paper capital, per new strategy

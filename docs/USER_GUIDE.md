@@ -550,6 +550,7 @@ Where everything is written:
 | `bus.yaml` | bus host (loopback), port, stream, retention, heartbeat and timeouts |
 | `notify.yaml` | alert throttle, retries, start/stop announcements |
 | `models.yaml` | model per role and the egress policy (cloud budget £0) |
+| `research.yaml` | the research floor (being built): researchers at once, per-dossier budgets, the promotion gate. Agents can't read it |
 
 Validation is strict: an unknown key, a missing value or an inconsistency
 (a venue without a fee schedule, a market without risk limits) is an error,
