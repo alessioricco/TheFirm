@@ -352,6 +352,8 @@ prerequisites, then M1 config/dossiers, M2 manager, M3 dashboard, M4
 researcher agent, M5 methods library, M6 promotion gate).
 - [ ] Owner: install Certo on the DGX (the researcher loop runs Certo on the
       Mac, with the DGX's models, until then).
+- [ ] Owner: upgrade Certo on the Mac from 0.2.2 to 0.2.4 before M4 (the
+      plan relies on the 0.2.3 project-root guard and the 0.2.4 JSON fields).
 
 - [x] (2026-11-17) **Design session with the owner**: autonomous
       researchers, one strategy each (dossier); inspiration from published
