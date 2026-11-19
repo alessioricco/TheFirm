@@ -282,3 +282,25 @@ def capture_methods(root: Path, version: str) -> dict[str, int]:
     finally:
         con.close()
     return dict(sorted(out.items()))
+
+
+def find_datasets(root: Path, instrument: str, tf: str) -> list[tuple[str, str, int]]:
+    """Dataset versions holding native bars for `instrument` at `tf`:
+    (version, venue, rows), most rows first (then newest version name)."""
+    out: list[tuple[str, str, int]] = []
+    for path in sorted((Path(root) / "datasets").glob("ds-*.json")):
+        try:
+            manifest = DatasetManifest.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        rows: dict[str, int] = {}
+        for f in manifest.files:
+            if (
+                f.kind == "bars"
+                and f.instrument == instrument
+                and f.tf == tf
+                and not f.derived_from
+            ):
+                rows[f.venue] = rows.get(f.venue, 0) + f.rows
+        out += [(manifest.dataset_version, venue, n) for venue, n in rows.items()]
+    return sorted(out, key=lambda r: (-r[2], r[0]))

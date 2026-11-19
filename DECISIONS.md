@@ -1427,3 +1427,22 @@ Docker mode (an OpenHands image, internet open by default) or both.
 - **macOS only, fail closed elsewhere**: bubblewrap can't open a single
   port; until the floor moves to the DGX, the firm refuses to start Certo
   on Linux rather than start it open.
+
+## 2026-11-19 — The researcher agent keeps its state in the dossier (M4 part 2b)
+
+- **Stateless steps**: `ModelResearcher` reads the dossier at every step and
+  does the next thing; backtest results go into the dossier as notes. A
+  restart, a pause or a crash loses nothing, and the owner sees the same
+  record the researcher acts on.
+- **Model answers are data**: a JSON object is extracted and every field is
+  checked (strings, numeric params with plain names); anything else is
+  noted and retried a bounded number of times, then the dossier is closed
+  with the reason (`GiveUp`). The strategy code is never imported by the
+  researcher: its class name is read from the source, and the code runs only
+  in the verifier's sandbox.
+- **Certo's verdict is about the code** (tests pass), never the strategy:
+  a verified task only lets the file into the private store; the verifier
+  still decides.
+- **Submission = best research-view Sharpe**: simple and explicit; the
+  verifier's trial-count deflation and hidden out-of-sample check exist to
+  punish exactly this selection.

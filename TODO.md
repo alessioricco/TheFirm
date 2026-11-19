@@ -398,9 +398,15 @@ researcher agent, M5 methods library, M6 promotion gate).
         packages, `pytest.ini`); `control.research.certo_server`; the
         launcher starts Certo in its workspace (it reads `.env` in its cwd).
         Checked live: a generic task verified inside the sandbox.
-  - [ ] M4 loop, part 2b: the researcher: hypothesis through the gateway,
-        code through Certo, saved to the private store, counted backtests,
-        one submission.
+  - [x] M4 loop, part 2b (2026-11-19): `research.agent.ModelResearcher`
+        (hypothesis through the gateway, code through sandboxed Certo, saved
+        to the private store, counted backtests, one submission) and
+        `control.research.ResearchSession`.
+  - [ ] M4 part 3: `firm research floor` (runs the session's ticks
+        unattended, logs to a file, stops on owner pause/close) and the first
+        live run on a brief the owner chooses, on real data.
+  - [ ] Researcher: use every instrument/timeframe of the brief (now the
+        first of each); let the model choose among datasets.
   - [ ] Certo's sandbox on Linux (the DGX): bubblewrap can't open one port
         only; design it when the research floor moves there.
   - [ ] M4 loop, part 3: `firm research floor` runs it; first live run on a

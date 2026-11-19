@@ -560,8 +560,24 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   `ResearchTools` is all a researcher can touch: the dossier (read), the
   floor brief, `write_hypothesis`, `save_code` (its own folder in the
   private store), `backtest` / `submit_candidate` (only its own code, instruments and
-  timeframes; through the injected verification desk), `note`. No budget or
-  config is reachable from it.
+  timeframes; through the injected verification desk), `note`, and (M4)
+  `datasets(instrument, tf)`, `read_code(file)` (its own file, as bytes,
+  never run), `think(messages)` (one model call through the injected gateway,
+  charged to the dossier) and `async write_code(task)` (one Certo task, after
+  the hypothesis). No budget or config is reachable from it. `atick` is
+  `tick` for async researchers; a `GiveUp` from a step closes the dossier
+  with its reason, like `BudgetSpent`.
+- **Researcher agent** (`research/agent.py`, M4): `ModelResearcher(
+  backtests=6, code_attempts=2, ...)`, stateless: each step reads the
+  dossier and does the next thing: hypothesis (model, JSON answer, checked)
+  -> code (Certo task with the strategy contract `CONTRACT`; the file
+  `strategy.py` must pass Certo's checks and hold exactly one class, read by
+  regex, never imported) -> research backtests (the model proposes params
+  from the code and the results so far; each result is a `trial {json}`
+  note, which is how a restart knows them) -> `submit_candidate` with the
+  best Sharpe. Unreadable answers and failed code are noted and retried a
+  bounded number of times, then `GiveUp`. Dataset: the one with most rows
+  for the dossier's first instrument and timeframe.
 - **Certo projects** (`research/certo_projects.py`): `prepare_project(
   workspace, project)` makes `<workspace>/<project>` with a `.venv` whose
   `firm_packages.pth` points at the firm's site-packages (Certo uses an
@@ -577,7 +593,12 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   then the environment), finds Certo's install (two levels above its
   executable) and the model's port, and returns a `CertoServer` whose
   command is `firm.sandbox.certo.certo_command(...)` around
-  `scripts/certo-mcp`, on the research role's model. `control/research_cli.py`: the
+  `scripts/certo-mcp`, on the research role's model. `model_gateway(
+  config_root, ledger)`: the egress gate with Ollama at `OLLAMA_HOST` (or
+  the launcher's `CERTO_LLM_BASE_URL`). `ResearchSession` (async context
+  manager): the manager wired with all of it plus `find_datasets`; its
+  `code(dossier_id, task)` prepares the project, runs one Certo task and
+  returns `CodeResult(verdict, passed, strategy.py bytes, note)`. `control/research_cli.py`: the
   `firm research` commands; each change is an OWNER_COMMAND event. None of
   them runs a researcher yet (M4). Gotcha: never name a method `submit`
   outside order submission: rule 1's invariant test treats every `.submit(`

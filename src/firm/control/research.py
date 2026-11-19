@@ -257,3 +257,126 @@ def certo_server(
         sink=sink,
         poll_seconds=poll_seconds,
     )
+
+
+def model_gateway(config_root: Path, ledger: Ledger, *, repo: Path | None = None):  # type: ignore[no-untyped-def]
+    """The egress gate for research models: Ollama on the host in OLLAMA_HOST (or,
+    on the Mac, the one Certo's launcher uses), every call a MODEL_CALL event."""
+    import os
+
+    from firm.core.config import load_models_config
+    from firm.ledger.sink import LedgerSink
+    from firm.ledger.spend import cloud_spend_gbp
+    from firm.models.certo import certo_settings
+    from firm.models.gateway import ModelGateway
+    from firm.models.ollama import OllamaProvider
+
+    host = os.environ.get("OLLAMA_HOST") or certo_settings(repo or repo_root()).get(
+        "CERTO_LLM_BASE_URL"
+    )
+    if not host:
+        raise ValueError("no model server: set OLLAMA_HOST (docs/CERTO.md)")
+    if "://" not in host:
+        host = f"http://{host}"
+    return ModelGateway(
+        load_models_config(config_root),
+        {"ollama": OllamaProvider(host)},
+        sink=LedgerSink(ledger),
+        spent_this_month=lambda now: cloud_spend_gbp(ledger, now),
+    )
+
+
+class ResearchSession:
+    """The research floor, wired for real researchers (M4): the manager with
+    backtests and verification, the model gateway (private work, local models),
+    the firm's one Certo server (sandboxed) and the data store's datasets.
+
+        async with ResearchSession(config_root=..., data_root=..., state_root=...) as s:
+            await s.manager.atick(ModelResearcher())
+    """
+
+    def __init__(
+        self,
+        *,
+        config_root: Path,
+        data_root: Path,
+        state_root: Path,
+        certo_minutes: int = 20,
+        now: Callable[[], datetime] | None = None,
+    ) -> None:
+        from datetime import UTC
+        from datetime import datetime as dt
+
+        self.config_root, self.data_root, self.state_root = config_root, data_root, state_root
+        self.certo_minutes = certo_minutes
+        self.now = now or (lambda: dt.now(UTC))
+        self.manager: Any = None
+        self.ledger: Ledger | None = None
+        self._certo: Any = None
+
+    async def __aenter__(self) -> ResearchSession:
+        from firm.core.config import load_research_config
+        from firm.core.domain import DataTag
+        from firm.data.dataset import find_datasets
+        from firm.ledger.sink import LedgerSink, ledger_path
+        from firm.research.dossier import DossierStore, FloorBriefs
+        from firm.research.manager import ResearchManager
+
+        self.ledger = ledger = Ledger(ledger_path(self.state_root))
+        sink = LedgerSink(ledger)
+        gateway = model_gateway(self.config_root, ledger)
+        self._certo = certo_server(
+            config_root=self.config_root,
+            data_root=self.data_root,
+            state_root=self.state_root,
+            sink=sink,
+        )
+        await self._certo.start()
+        backtest, verify = verification_desk(
+            data_root=self.data_root,
+            config_root=self.config_root,
+            state=self.state_root,
+            now=self.now,
+            sink=sink,
+        )
+
+        def think(dossier_id: str, messages: list[dict[str, str]]) -> str:
+            reply = gateway.chat(
+                role="research", messages=messages, tag=DataTag.PRIVATE, dossier_id=dossier_id
+            )
+            return str(reply.text)
+
+        self.manager = ResearchManager(
+            load_research_config(self.config_root),
+            DossierStore(self.data_root, sink=sink),
+            backtest=backtest,
+            verify=verify,
+            model_usage=ledger_model_usage(ledger),
+            floor_briefs=FloorBriefs(self.data_root),
+            think=think,
+            coder=self.code,
+            datasets=lambda instrument, tf: find_datasets(self.data_root, instrument, tf),
+        )
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        if self._certo is not None:
+            await self._certo.close()
+
+    async def code(self, dossier_id: str, task: str):  # type: ignore[no-untyped-def]
+        """One Certo task in the dossier's project; the strategy file's bytes back."""
+        from firm.research.agent import STRATEGY_FILE
+        from firm.research.certo_projects import prepare_project
+        from firm.research.manager import CodeResult
+
+        folder = prepare_project(self._certo.workspace, dossier_id)
+        run = await self._certo.run_task(
+            dossier_id, task, dossier_id=dossier_id, max_minutes=self.certo_minutes
+        )
+        status = await self._certo.wait(run, timeout=self.certo_minutes * 60 + 120)
+        result = status.get("result") or {}
+        file = folder / STRATEGY_FILE
+        code = file.read_bytes() if file.is_file() else None
+        note = str(result.get("error") or result.get("summary") or status.get("state"))[:300]
+        passed = bool(status.get("passed")) and status.get("verdict") == "verified"
+        return CodeResult(status.get("verdict"), passed, code, note)
