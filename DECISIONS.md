@@ -1098,3 +1098,20 @@ benefited from the bug. Owner, 2026-11-19: the running exit run (H)
 finishes as a test of the machinery, labelled "verdict issued before the
 trial fix; fails under it"; it never counts as a strategy proven on paper.
 
+
+## 2026-11-19 — Private strategy store (M3 prerequisite R1)
+
+Agent-written strategies are the firm's private results, and the repo is
+public. They are saved in the data store, which is git-ignored and backed
+up with the rest of it, under `research/strategies/<dossier>/`, rather than
+in a separate git repo or an encrypted folder: one place to back up, and
+the same write-once rule as the rest of the store. Files are named by
+content (`<stem>-<sha12>.py`) and never edited, because the verifier keys
+candidates and trials by the code's hash: an edit in place would make a
+file on disk disagree with the verdict that cites it.
+
+The repo guard spots strategy code by its `def signals(` method rather than
+by folder, so a strategy pasted anywhere outside `examples/strategies/`,
+`src/` and `tests/` is refused even under an innocent name. Markdown is not
+checked: the plans quote the method's signature, and a strategy saved as
+prose can't be run by mistake.

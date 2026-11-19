@@ -59,6 +59,7 @@ data/
   datasets/    ds-<sha12>.json: frozen file lists + checksums that backtests cite
   reference/   instrument master: symbology, listings, delistings, corporate actions
   golden/      frozen test baselines (e.g. golden/ari_signals-03a8b8d/)
+  research/    the private strategy store (milestone 3, see "research")
 ```
 
 Paths are Hive-style `key=value` (DuckDB / pyarrow read them directly):
@@ -472,6 +473,26 @@ Schemas, subjects and who may publish what live in `core/messages/`
 - Gotcha: the client's ID memory is in-process; after a restart a durable
   consumer resumes after its last ack, and the ledger refuses an event ID
   twice, so a replay still can't make a desk act twice.
+
+## research (milestone 3)
+
+Being built in the order of `docs/plans/milestone-3.md`. So far:
+
+- **Private strategy store** (`research/store.py`, R1). Agent-written
+  strategies never go in git: `save_strategy(root, dossier, code, stem=)`
+  writes `<data root>/research/strategies/<dossier>/<stem>-<sha12>.py` once,
+  named by content, so a changed strategy is a new file and a new
+  candidate. Dossier IDs and stems are plain names (letters, digits, `-`,
+  `_`), so nothing can write outside the store. `firm verify` and
+  `firm paper run` take a path there like any other `PATH:CLASS`, and the
+  verdict report cites the code's SHA-256 and file name, never its text or
+  folder.
+- `scripts/check_repo.py` refuses strategy code (a `def signals(` method in
+  a `.py` or `.ipynb` file) anywhere except `examples/strategies/`, `src/`
+  and `tests/`.
+- Gotcha: saving to the store does not make code safe to run. The loader
+  (`verify/strategy.py`) still imports the file in-process; agent code must
+  wait for the sandboxed runner (R2).
 
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one

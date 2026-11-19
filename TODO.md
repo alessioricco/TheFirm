@@ -391,9 +391,10 @@ researcher agent, M5 methods library, M6 promotion gate).
 - [ ] CLI equivalents: `firm research start|list|show|pause|close`,
       `firm research brief`, `firm paper status`.
 - [ ] Prerequisite: trial Sharpes on one scale (section above).
-- [ ] Prerequisite: **agent-written strategies live in the private store**,
+- [x] Prerequisite: **agent-written strategies live in the private store**,
       never in git; only hand-written examples are public. `check_repo.py`
-      refuses strategy files outside `examples/`.
+      refuses strategy code outside `examples/strategies/`, `src/` and
+      `tests/` (R1, 2026-11-19).
 - [ ] Prerequisite: **data-egress gate enforced in code** (today it is only
       configuration): every model call tagged public/private; private calls
       to a cloud model refused without a per-run opt-in; every cloud call
