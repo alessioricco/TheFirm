@@ -11,6 +11,7 @@ src/firm/
   core/         typed domain objects, config profiles, bus messages (no deps on other desks)
   bus/          message bus client: in-memory and NATS JetStream transports (M2, F)
   sandbox/      runs untrusted strategy code in a locked-down worker (M3, R2)
+  models/       the model gateway: every model call, the data-egress gate (M3, R3)
   data/         data plane: store, providers, normalizer, datasets, reference  (M1)
   verify/       verification desk: backtest, 5 checks, verifier, state       (M1)
   risk/         risk desk                               (M2)
@@ -552,6 +553,35 @@ One worker serves a whole verification (hundreds of `signals` calls).
 - Used by `verify.strategy.load_strategy` (R2b): the verifier, `firm paper
   run` (CPU budget raised to 24 h for a long run; a sandbox that dies stops
   that market, like any strategy error) and `firm paper replay`.
+
+## models (milestone 3, R3)
+
+Every model call goes through `ModelGateway.chat(role=, messages=, tag=,
+target=None, opt_in=None)` (firm rule 8). A shared library: imports only
+`core`; desks use it, the composition root builds it.
+
+- The role's model comes from `config/models.yaml`; `target=Target(provider,
+  model)` names another one (a ladder step). `tag` is a required `DataTag`.
+- The gate, before anything is sent: an adapter must exist for the
+  provider; `private` work on a provider not in `egress.local_providers`
+  needs an `OwnerOptIn(run_id, reason)` (refused outright under
+  `private_to_cloud: never`); any cloud call needs this month's cloud spend
+  below `cloud_spend_budget_gbp` (default 0: no cloud calls). Cost is known
+  only after a call, so the last call of a month can overshoot; the next is
+  refused.
+- Every call is one MODEL_CALL ledger event: outcome `ok` / `refused` /
+  `error`, role, provider, model, `local`, tag, opt-in run and reason,
+  tokens, `cost_gbp`, seconds, and `messages_sha256`. Never the messages.
+- Month spend survives restarts: the gateway takes `spent_this_month(now)`,
+  wired to `firm.ledger.spend.cloud_spend_gbp(ledger, now)`, and adds its own
+  calls.
+- `ollama.py`: `OllamaProvider(host)`, one non-streaming `/api/chat`
+  request, tokens from `prompt_eval_count` / `eval_count`, cost £0. The host
+  comes from `OLLAMA_HOST` via the caller, never code.
+- `tests/invariants` rule 8 also scans `src/firm`: outside `models/`, no
+  model-server endpoint (`/api/chat`, `/v1/chat`, ...) and no model SDK
+  import may appear. Certo runs (M4) will pass the same gate before they
+  start.
 
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one

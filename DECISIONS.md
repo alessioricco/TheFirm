@@ -1160,3 +1160,29 @@ Found while wiring it: the OOS check counted its opening trial only after
 computing signals, so a crash in between (sandbox or not) left the vault
 opened and the trial uncounted, and the retry, a replay, never counts one.
 The trial is now recorded as soon as the vault grants the opening.
+
+## 2026-11-19 — The data-egress gate in code (M3 prerequisite R3)
+
+One gateway (`firm.models.ModelGateway`) is the only way to call a model,
+and an invariant test scans the code so no other module can name a model
+endpoint or import a model SDK. The rules were configuration only; now
+they're checks that run before anything is sent.
+
+- **Local or cloud** is configuration (`egress.local_providers`), not a
+  guess from the provider's name: anything not listed is cloud.
+- **Tag is required** on every call, with no default: forgetting it is a
+  TypeError, not a silent "public".
+- **Budget per calendar month (UTC)**, read back from the ledger so it holds
+  across restarts. Default £0 means no cloud call at all. Cost is known only
+  after a call, so the last call of a month may overshoot; it is refused
+  from then on. A monthly window matches how providers bill and gives the
+  owner one number to set.
+- **Refusals are logged too**, as MODEL_CALL events with outcome `refused`:
+  an attempt to send private work out is itself worth knowing about.
+- **No prompts in the ledger**: only a SHA-256 of the messages. The ledger is
+  private, but it is also what the journal, the dashboard and later "ask
+  the firm" read; a hash proves which messages were sent without copying
+  strategy code into every consumer.
+- **The opt-in is a record, not a switch**: `OwnerOptIn(run_id, reason)`,
+  written into every call it allows. How the owner grants one (a logged
+  owner command) comes with the research manager.

@@ -1,0 +1,27 @@
+"""The cloud budget holds across restarts: this month's spend comes from the ledger."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+from firm.core.domain import LedgerEventType
+from firm.ledger.spend import cloud_spend_gbp
+from firm.ledger.store import Ledger
+
+
+def call(ledger: Ledger, at: str, cost: float, *, local=False, outcome="ok") -> None:
+    payload = {"outcome": outcome, "local": local, "at": at, "cost_gbp": cost}
+    ledger.append(LedgerEventType.MODEL_CALL, "model call", payload)
+
+
+def test_only_this_months_successful_cloud_calls_count(tmp_path) -> None:
+    ledger = Ledger(tmp_path / "ledger.sqlite")
+    call(ledger, "2026-10-31T23:59:00+00:00", 5.0)  # last month
+    call(ledger, "2026-11-01T00:00:00+00:00", 0.40)
+    call(ledger, "2026-11-18T10:00:00+00:00", 0.35)
+    call(ledger, "2026-11-18T11:00:00+00:00", 0.0, local=True)  # local: free
+    call(ledger, "2026-11-18T12:00:00+00:00", 9.0, outcome="refused")  # never sent
+    ledger.append(LedgerEventType.FILL, "a fill", {"at": "2026-11-18T12:00:00+00:00"})
+    now = datetime(2026, 11, 19, 12, tzinfo=UTC)
+    assert cloud_spend_gbp(ledger, now) == 0.75
+    assert cloud_spend_gbp(ledger, datetime(2026, 12, 1, tzinfo=UTC)) == 0.0

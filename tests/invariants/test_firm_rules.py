@@ -9,7 +9,7 @@ pass: stop and ask the owner.
 Partial enforcement that already exists (schema-level) is tested in
 tests/core and tests/config and noted on each placeholder. Rules 4 and 5
 are enforced since milestone 1; rule 6 since the ledger, rules 1 and 2 since
-the market worker (milestone 2).
+the market worker (milestone 2), rule 8 since the model gateway (M3, R3).
 """
 
 from decimal import Decimal
@@ -229,9 +229,94 @@ def test_rule_07_live_trading_false_and_enabling_needs_config_plus_manual_approv
     pytest.fail("placeholder")
 
 
-@_placeholder("milestone 3: egress gate")
+# What only a model server or a model SDK would need. Outside `firm.models`
+# (the gateway and its provider adapters) none of it may appear in the code.
+MODEL_ENDPOINTS = (
+    "/api/chat",
+    "/api/generate",
+    "/v1/chat",
+    "/v1/completions",
+    "/v1/messages",
+    "/v1/systemone",
+    "/v1/responses",
+    "/api/embed",
+)
+MODEL_SDKS = ("openai", "anthropic", "ollama", "litellm", "google.generativeai", "mistralai")
+
+
 def test_rule_08_every_model_call_passes_egress_gate_and_cloud_calls_are_logged() -> None:
-    pytest.fail("placeholder")
+    """Private work never reaches a cloud model without the owner's per-run opt-in;
+    every call (local, cloud, refused) is a MODEL_CALL event with tag and cost; and
+    no code outside the gateway can call a model at all."""
+    import ast
+
+    from firm.core.config import load_models_config
+    from firm.core.domain import DataTag, LedgerEventType
+    from firm.core.events import CollectingSink
+    from firm.models.gateway import Completion, EgressRefused, ModelGateway, OwnerOptIn, Target
+
+    class Fake:
+        def __init__(self, local: bool) -> None:
+            self.local, self.sent = local, 0
+
+        def chat(self, model, messages, *, timeout):
+            self.sent += 1
+            return Completion("ok", 10, 5, 0.0 if self.local else 0.1)
+
+    cfg = load_models_config(REPO / "config")
+    assert cfg.egress.cloud_spend_budget_gbp == 0  # the shipped default
+    cfg = cfg.model_copy(
+        update={"egress": cfg.egress.model_copy(update={"cloud_spend_budget_gbp": 5.0})}
+    )
+    local, cloud = Fake(True), Fake(False)
+    sink = CollectingSink()
+    gw = ModelGateway(
+        cfg, {"ollama": local, "cloudco": cloud}, sink=sink, spent_this_month=lambda _n: 0.0
+    )
+    msg = [{"role": "user", "content": "strategy code"}]
+    big = Target("cloudco", "frontier")
+
+    gw.chat(role="research", messages=msg, tag=DataTag.PRIVATE)  # local: fine
+    with pytest.raises(EgressRefused):
+        gw.chat(role="research", messages=msg, tag=DataTag.PRIVATE, target=big)
+    assert cloud.sent == 0
+    gw.chat(role="research", messages=msg, tag=DataTag.PUBLIC, target=big)
+    gw.chat(
+        role="research",
+        messages=msg,
+        tag=DataTag.PRIVATE,
+        target=big,
+        opt_in=OwnerOptIn(run_id="run-1", reason="owner"),
+    )
+    logged = [p for t, _r, p, _i in sink.events if t is LedgerEventType.MODEL_CALL]
+    assert [(p["outcome"], p["tag"], p["local"]) for p in logged] == [
+        ("ok", "private", True),
+        ("refused", "private", False),
+        ("ok", "public", False),
+        ("ok", "private", False),
+    ]
+    assert logged[3]["opt_in_run"] == "run-1" and logged[3]["cost_gbp"] == 0.1
+    assert "strategy code" not in str(sink.events)
+
+    src = REPO / "src" / "firm"
+    for path in src.rglob("*.py"):
+        if path.is_relative_to(src / "models"):
+            continue
+        text = path.read_text()
+        for endpoint in MODEL_ENDPOINTS:
+            assert endpoint not in text, f"{path.relative_to(src)} names {endpoint}"
+        for node in ast.walk(ast.parse(text)):
+            names = (
+                [a.name for a in node.names]
+                if isinstance(node, ast.Import)
+                else [node.module or ""]
+                if isinstance(node, ast.ImportFrom)
+                else []
+            )
+            for name in names:
+                assert name.split(".")[0] not in {m.split(".")[0] for m in MODEL_SDKS} or (
+                    name.startswith("firm.")
+                ), f"{path.relative_to(src)} imports {name}"
 
 
 @_placeholder("milestone 3: scheduler")
