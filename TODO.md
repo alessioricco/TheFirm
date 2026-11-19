@@ -322,7 +322,7 @@ Still to build:
 Owner approved the proposed fix (2026-11-17); it must land before
 milestone 3, when agents start running many trials across timeframes.
 
-- [x] (2026-11-19, PR pending owner approval) **The trial-count check mixes timeframes.** Trials record their Sharpe
+- [x] (2026-11-19, owner approved) **The trial-count check mixes timeframes.** Trials record their Sharpe
       per bar, and the deflated-Sharpe benchmark takes the variance across
       all trials, so a daily trial's per-bar Sharpe sits next to an hourly
       one's (not comparable). Proposed fix: record each trial's timeframe and
@@ -334,13 +334,13 @@ milestone 3, when agents start running many trials across timeframes.
       **Done, and it changes the outcome on the current daily pass:**
       re-verified on a scratch copy, the pass becomes a FAIL at the
       trial-count check (details in private/TODO.md).
-- [ ] **Owner decision: the exit run (H) after the fix.** The running
-      strategy's verdict was issued under the old check and is still an
-      intact, passing report (the deployment gate reads the stored report),
-      but the corrected verifier would fail it. Options: (a) let H finish as
-      the plumbing test it is, labelled "verdict issued before the trial
-      fix; fails under it"; (b) stop H until a strategy passes the
-      corrected verifier (none does today).
+- [x] (owner, 2026-11-19: **(a) let it finish**) **The exit run (H) after
+      the fix.** The running strategy's verdict was issued under the old
+      check and is still an intact, passing report (the deployment gate
+      reads the stored report), but the corrected verifier fails it. H
+      finishes as the plumbing test it is, labelled "verdict issued before
+      the trial fix; fails under it": milestone 2's exit is about the
+      machinery, and this run never counts as a strategy proven on paper.
 
 ## Milestone 3: research floor and dashboard v1
 

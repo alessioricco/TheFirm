@@ -1094,6 +1094,7 @@ is about three times wider. The daily pass no longer survives the
 correction: re-verified on a scratch copy it fails the trial-count check
 (the TODO note "changes the numbers, not the outcome" was checked on an
 earlier verdict). The verifier is stricter, not looser: the earlier pass
-benefited from the bug. What this means for the running exit run is the
-owner's call (see TODO).
+benefited from the bug. Owner, 2026-11-19: the running exit run (H)
+finishes as a test of the machinery, labelled "verdict issued before the
+trial fix; fails under it"; it never counts as a strategy proven on paper.
 
