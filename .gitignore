@@ -254,3 +254,5 @@ __marimo__/
 # staging for files the Claude Code sandbox can't write into .claude/
 /claude-staging/
 .DS_Store
+# Browser-automation screenshots and snapshots (Playwright MCP)
+/.playwright-mcp/

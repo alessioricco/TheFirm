@@ -658,8 +658,32 @@ target=None, opt_in=None)` (firm rule 8). A shared library: imports only
   `/api/ledger` pages events; WebSocket `/api/live` polls the ledger and
   pushes events after the head it saw on connect. No route touches orders,
   risk, config or budgets (a test checks the route names). Docs, OpenAPI
-  and Swagger are off. `web/index.html` is a placeholder until the page PR.
-  `firm dashboard serve` refuses any host but loopback.
+  and Swagger are off. `firm dashboard serve` refuses any host but
+  loopback. Page support: `/static/<path>` (behind the token, only files
+  inside `web/` with a known type), `/api/meta` (market and timeframe
+  names), `/api/commands` (`command_catalog(build_parser())`: every CLI
+  command and option, so the page's reference can't drift),
+  `/api/layouts/<view>` (validated panel layouts in
+  `<state>/dashboard/layouts/`), `/api/paper/chart` (`run_chart`: the bars of
+  the dataset the run's verdict cites, plus its fills from the ledger; never
+  the venue), `/api/ledger?before=` (page backwards). A middleware adds a
+  strict CSP (scripts only from 'self'; styles may be inline because the
+  chart and grid libraries size elements that way), nosniff, no-referrer,
+  DENY framing, no-store.
+- `web/` (the page, M3a part 2): `index.html` (no inline script),
+  `app.css` (dark and light themes as CSS variables, system fonts),
+  `js/` as ES modules: `app.js` (views, live WebSocket with backoff, clock,
+  theme, layout editing), `research.js` (KPIs, dossier table with budget
+  meters, details drawer, every steering command as forms), `trading.js`
+  (run, account, P&L, Lightweight Charts candles + fill markers, feeds,
+  risk), `ledger.js`, `commands.js`, `layout.js` (GridStack grids, locked
+  unless editing, saved per view), `ui.js` (modals with focus trap,
+  confirmations, toasts, drawer), `activity.js`, `api.js`, `dom.js` (an
+  `h()` helper: data is only ever inserted as text). `vendor/`: Lightweight
+  Charts 5.2.1 and GridStack 14.1.0, pinned, SHA-256 in `VENDOR.md` and
+  checked by a test; TradingView attribution in `NOTICE`, the chart's logo
+  and the page footer. Gotcha: CSS `display` beats the `hidden` attribute,
+  so `app.css` sets `[hidden] { display: none !important }`.
 - `status.py`: `paper_status(ledger, data_root)` from the ledger alone:
   accounts (opening + fills), runs (last start/stop), latest feed status,
   heartbeat, halts, trades and net P&L via `journal.trades_from_ledger` (a

@@ -401,9 +401,13 @@ researcher agent, M5 methods library, M6 promotion gate).
   - [x] M3a part 1 (2026-11-19): control API (`firm dashboard serve | url`),
         token login, research floor read + steer, paper status from the
         ledger (`firm paper status`), live ledger events over a WebSocket.
-  - [ ] M3a part 2: the page: research floor and paper views, vendored
-        Lightweight Charts (attribution + NOTICE), ECharts, GridStack with
-        layouts saved per named view.
+  - [x] M3a part 2 (2026-11-19): the page: Research, Trading, Ledger and
+        Commands views, every research command, price chart with fills,
+        live updates, GridStack layouts saved per view, dark and light
+        themes; `docs/DASHBOARD.md`; `scripts/dashboard_demo.py`.
+  - [ ] ECharts (P&L curves, drawdown, distributions) when there are
+        enough trades to chart; its ~1 MB build needs a deliberate exemption
+        from the repo guard's size limit.
   - [ ] M3b: kill switch with confirmation, end to end (control.command on
         the bus -> risk desk halt -> ledger + alert), test-first.
   - [ ] Starlette's TestClient warns that httpx is deprecated for it in

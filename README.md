@@ -13,7 +13,9 @@ executes them. **Version 1 trades paper money only.**
 **New here? Start with the [user guide](docs/USER_GUIDE.md)**: install, a
 safe first run on synthetic data, real data, verification, paper trading,
 configuration and troubleshooting. Every command and option is in the
-[command reference](docs/COMMANDS.md).
+[command reference](docs/COMMANDS.md). To watch and steer the firm from
+your browser, see [the dashboard](docs/DASHBOARD.md)
+(`uv run firm dashboard serve`).
 
 ## The idea in one paragraph
 

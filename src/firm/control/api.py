@@ -40,6 +40,27 @@ from firm.research.dossier import DossierError
 COOKIE = "firm_dashboard"
 WEB = Path(__file__).with_name("web")
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+VIEWS = ("research", "trading")  # the named views whose panel layouts are saved
+CONTENT_TYPES = {
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+}
+# No inline or third-party scripts; styles may be set inline (the chart and
+# panel libraries size elements that way). Nothing may frame the page.
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; "
+        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Cache-Control": "no-store",
+}
 
 
 def token_path(state_root: Path) -> Path:
@@ -76,6 +97,18 @@ class BriefBody(BaseModel):
 
 class FloorBriefBody(BaseModel):
     text: str
+
+
+class LayoutItem(BaseModel):
+    id: str = Field(pattern=r"^[a-z][a-z0-9-]{0,40}$")
+    x: int = Field(ge=0, le=11)
+    y: int = Field(ge=0, le=200)
+    w: int = Field(ge=1, le=12)
+    h: int = Field(ge=1, le=40)
+
+
+class LayoutBody(BaseModel):
+    items: list[LayoutItem] = Field(max_length=40)
 
 
 def create_app(
@@ -117,6 +150,13 @@ def create_app(
     guarded = [Depends(owner)]
     change = [Depends(owner), Depends(json_body)]
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response = await call_next(request)
+        for k, v in SECURITY_HEADERS.items():
+            response.headers.setdefault(k, v)
+        return response
+
     # ------------------------------------------------------------- page, login
     @app.get("/login")
     def login(token: str = "") -> RedirectResponse:
@@ -129,6 +169,55 @@ def create_app(
     @app.get("/", dependencies=guarded)
     def page() -> FileResponse:
         return FileResponse(WEB / "index.html", media_type="text/html")
+
+    @app.get("/static/{path:path}", dependencies=guarded)
+    def static(path: str) -> FileResponse:
+        target = (WEB / path).resolve()
+        kind = CONTENT_TYPES.get(target.suffix)
+        if not target.is_relative_to(WEB.resolve()) or not target.is_file() or kind is None:
+            raise HTTPException(404, "not found")
+        return FileResponse(target, media_type=kind)
+
+    # ------------------------------------------------------- page support
+    @app.get("/api/meta", dependencies=guarded)
+    def meta() -> dict[str, Any]:
+        from firm import __version__
+        from firm.core.timeframes import TIMEFRAME_SECONDS
+
+        markets = sorted(p.stem for p in (config_root / "markets").glob("*.yaml"))
+        manager, _ = floor()
+        return {
+            "version": __version__,
+            "markets": markets,
+            "timeframes": sorted(TIMEFRAME_SECONDS, key=TIMEFRAME_SECONDS.__getitem__),
+            "researchers": manager.config.researchers,
+            "views": list(VIEWS),
+        }
+
+    @app.get("/api/commands", dependencies=guarded)
+    def commands() -> list[dict[str, Any]]:
+        from firm.control.cli import build_parser
+
+        return command_catalog(build_parser())
+
+    @app.get("/api/layouts/{view}", dependencies=guarded)
+    def get_layout(view: str) -> dict[str, Any]:
+        path = _layout_path(view)
+        if not path.is_file():
+            return {"items": None}
+        return LayoutBody.model_validate_json(path.read_text()).model_dump()
+
+    @app.put("/api/layouts/{view}", dependencies=change)
+    def put_layout(view: str, body: LayoutBody) -> dict[str, Any]:
+        path = _layout_path(view)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body.model_dump_json(indent=1))
+        return body.model_dump()
+
+    def _layout_path(view: str) -> Path:
+        if view not in VIEWS:
+            raise HTTPException(404, f"no view {view!r}; views: {', '.join(VIEWS)}")
+        return Path(state_root) / "dashboard" / "layouts" / f"{view}.json"
 
     # --------------------------------------------------------- research floor
     @app.get("/api/research", dependencies=guarded)
@@ -211,14 +300,29 @@ def create_app(
     def paper() -> dict[str, Any]:
         return paper_status(_ledger(), data_root)
 
+    @app.get("/api/paper/chart", dependencies=guarded)
+    def paper_chart(market: str, venue: str, bars: int = 500) -> dict[str, Any]:
+        return run_chart(_ledger(), state_root, data_root, market, venue, min(bars, 5000))
+
     @app.get("/api/ledger", dependencies=guarded)
-    def ledger_events(after: int = -1, limit: int = 100) -> list[dict[str, Any]]:
-        out = []
-        for e in _ledger().read(from_sequence=after + 1):
-            out.append(_event(e))
-            if len(out) >= min(limit, 1000):
-                break
-        return out
+    def ledger_events(
+        after: int | None = None, before: int | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Events after a sequence (oldest first), or the `limit` events before one
+        (default: the newest), oldest first either way."""
+        limit = max(1, min(limit, 1000))
+        led = _ledger()
+        if after is not None:
+            out = []
+            for e in led.read(from_sequence=after + 1):
+                out.append(_event(e))
+                if len(out) >= limit:
+                    break
+            return out
+        head = led.head()
+        end = before if before is not None else (head.sequence + 1 if head else 0)
+        start = max(0, end - limit)
+        return [_event(e) for e in led.read(from_sequence=start) if e.sequence < end]
 
     @app.websocket("/api/live")
     async def live(ws: WebSocket) -> None:
@@ -248,4 +352,102 @@ def _event(e) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         "reason": e.reason,
         "recorded_at": e.recorded_at.isoformat(),
         "payload": e.payload,
+    }
+
+
+def command_catalog(parser) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
+    """Every runnable `firm` command with its help and options, from the parser
+    itself, so the dashboard's command reference can't drift from the CLI."""
+    import argparse
+
+    out: list[dict[str, Any]] = []
+
+    def walk(p: argparse.ArgumentParser, prefix: str, help_text: str) -> None:
+        subs = [a for a in p._actions if isinstance(a, argparse._SubParsersAction)]
+        if subs:
+            helps = {c.dest: c.help for c in subs[0]._choices_actions}
+            for name, sub in subs[0].choices.items():
+                walk(sub, f"{prefix} {name}", helps.get(name) or "")
+            return
+        options = []
+        for a in p._actions:
+            if a.option_strings and "--help" in a.option_strings:
+                continue
+            options.append(
+                {
+                    "flags": a.option_strings or [a.dest.upper()],
+                    "help": a.help or "",
+                    "required": bool(a.required) or not a.option_strings,
+                    "default": None
+                    if a.default in (None, argparse.SUPPRESS, False)
+                    else str(a.default),
+                    "takes_value": a.nargs != 0,
+                }
+            )
+        out.append({"command": prefix, "help": help_text, "options": options})
+
+    walk(parser, "firm", "")
+    return [c for c in out if c["command"] != "firm"]
+
+
+def run_chart(
+    ledger: Ledger, state_root: Path, data_root: Path, market: str, venue: str, bars: int
+) -> dict[str, Any]:
+    """Price bars for a paper run (from the dataset its verdict cites) and its fills.
+
+    The bars end where that dataset ends: the dashboard reads the store, never
+    the venue. Fills come from the ledger."""
+    import json as _json
+    from datetime import UTC, datetime
+
+    from firm.core.domain import LedgerEventType
+    from firm.data.dataset import open_dataset
+
+    status = paper_status(ledger, data_root)
+    run = next((r for r in status["runs"] if (r["market"], r["venue"]) == (market, venue)), None)
+    if run is None or not run.get("verdict_id"):
+        raise HTTPException(404, f"no paper run for {market} on {venue} in this ledger")
+    report_path = Path(state_root) / "reports" / f"{run['verdict_id']}.json"
+    if not report_path.is_file():
+        raise HTTPException(404, "the run's verifier report isn't in this state folder")
+    data = _json.loads(report_path.read_text())["data"]
+    instrument, tf = data["instruments"][0], data["timeframe"]
+    try:
+        frame = open_dataset(data_root, data["dataset_version"]).bars(
+            data["venue"], instrument, tf, as_of=datetime.now(UTC)
+        )
+    except (OSError, LookupError, ValueError) as exc:
+        raise HTTPException(404, f"the run's dataset isn't readable here: {exc}") from exc
+    frame = frame.tail(bars)
+    candles = [
+        {
+            "time": int(r.open_time.timestamp()),
+            "open": float(r.open),
+            "high": float(r.high),
+            "low": float(r.low),
+            "close": float(r.close),
+        }
+        for r in frame.itertuples()
+    ]
+    fills = [
+        {
+            "time": e.payload["filled_at"],
+            "side": e.payload["side"],
+            "price": e.payload["price"],
+            "quantity": e.payload["quantity"],
+        }
+        for e in ledger.read()
+        if e.event_type is LedgerEventType.FILL
+        and e.payload.get("venue") == venue
+        and e.payload.get("instrument") == instrument
+    ]
+    return {
+        "market": market,
+        "venue": venue,
+        "instrument": instrument,
+        "timeframe": tf,
+        "dataset_version": data["dataset_version"],
+        "verdict_id": run["verdict_id"],
+        "candles": candles,
+        "fills": fills,
     }

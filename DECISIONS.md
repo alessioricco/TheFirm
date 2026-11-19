@@ -1294,3 +1294,31 @@ path; FastAPI + uvicorn, and the vendored chart and panel libraries.
   firm already used.
 - Split in two PRs: this API (tested in-process) and the page (charts,
   panels), so each stays reviewable.
+
+## 2026-11-19 — Dashboard v1, part two: the page (M3a)
+
+- **No build step, no CDN**: plain HTML, CSS and ES modules served by the
+  control API; the two libraries are vendored at pinned versions (each npm
+  tarball checked against the registry's SHA-512, each file's SHA-256
+  recorded and tested). Versions at least about two weeks old, as for the
+  Python dependencies.
+- **ECharts not vendored yet**: its build is about 1 MB, five times the
+  public-repo guard's file limit, and nothing on the page needs it: the
+  price chart is Lightweight Charts, budgets are CSS meters, stages are CSS
+  bars. It comes when a chart needs it (P&L curves and distributions once
+  there are enough trades), with a deliberate guard exemption.
+- **Strict Content-Security-Policy**: scripts only from the page's own
+  files; inline styles allowed because both libraries set element sizes
+  that way; nothing may frame the page. Data is never inserted as HTML.
+- **The command reference is generated from the CLI parser**, so the
+  dashboard can't list a command that doesn't exist or miss one.
+- **The chart reads the store, never the venue**: candles from the dataset
+  the run was verified on, fills from the ledger. Showing live prices would
+  mean the dashboard calling an exchange; the run's live decisions are in
+  the activity feed instead.
+- **Panels are locked unless editing**, so a click never drags a panel, and
+  layouts are saved on the server per named view (SPEC "Dashboard stack").
+- **A demo script** builds synthetic data in which every panel has
+  something to show, so the page can be previewed, and was checked in a real
+  browser (both themes, desktop and phone widths, no console errors), without
+  touching real data.

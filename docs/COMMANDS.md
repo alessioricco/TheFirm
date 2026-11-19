@@ -582,12 +582,13 @@ uv run firm research brief            # show it
 
 ## firm dashboard
 
-The owner's web dashboard and its control API (milestone 3, being built):
-the research floor (see and steer dossiers) and paper trading status, with
-live ledger events. Loopback only for now. **Read-only for trading**: it
-can't place, size or cancel an order or touch risk; the kill switch comes
-separately. The page itself (charts, panels) is still a placeholder listing
-the API; the API is complete.
+The owner's web dashboard: the research floor (see and steer dossiers), the
+paper run (account, P&L, price chart with fills, feeds, risk), the ledger
+and this command reference, with live updates and panels you can arrange.
+Loopback only. **Read-only for trading**: it can't place, size or cancel an
+order or touch risk; the kill switch comes separately. **How to turn it on,
+log in and use each view: [DASHBOARD.md](DASHBOARD.md).** To preview it on
+synthetic data: `scripts/dashboard_demo.py` ([Scripts](#scripts)).
 
 Login is a token in `<state>/dashboard/token` (mode 600, made on first use).
 Open the URL `firm dashboard url` prints: it sets the token as an HttpOnly
@@ -612,9 +613,11 @@ uv run firm dashboard serve
 API (all need the token): `GET /api/research`, `GET /api/research/<id>`,
 `POST /api/research` (start), `POST /api/research/<id>/pause | resume |
 redirect | close`, `PUT /api/research/brief`, `GET /api/paper`,
-`GET /api/ledger?after=<seq>&limit=<n>`, WebSocket `/api/live` (new ledger
-events as they are written). Changes need a JSON body; each is an
-OWNER_COMMAND in the ledger, "via dashboard".
+`GET /api/paper/chart?market=&venue=`, `GET /api/ledger?after=<seq> |
+before=<seq>&limit=<n>`, `GET /api/meta`, `GET /api/commands`,
+`GET | PUT /api/layouts/<research|trading>`, WebSocket `/api/live` (new
+ledger events as they are written). Changes need a JSON body; research
+changes are OWNER_COMMAND events in the ledger, "via dashboard".
 
 ### firm dashboard url
 
@@ -643,6 +646,7 @@ Run with `uv run python scripts/<name>` (shell scripts directly).
 | Script | What it does |
 | --- | --- |
 | `download_data.py` | Public market data from a provider into the data store, with a sidecar per download. `--providers` lists them. Options: `--provider`, `--symbol` (as the provider spells it), `--instrument` (firm ID), `--venue`, `--asset-class crypto\|equity`, `--quote`, `--tf`, `--since`, `--until`, `--listed-at` (needed the first time), `--trades-pages N`, `--root`, `--dry-run`. |
+| `dashboard_demo.py` | Builds a demo for the dashboard from synthetic data only (a store, a real verification of the example strategy, a paper-run history with fills, dossiers in every stage). `--out DIR` (default `data-demo-dashboard`, git-ignored), `--force` to replace it. Prints the `firm dashboard serve` command for it. See [DASHBOARD.md](DASHBOARD.md#2-try-it-on-demo-data-first). |
 | `bus_smoke.py` | Starts a throwaway `nats-server` exactly as `firm bus up` does and checks the bus end to end, including that the server refuses what the permission table forbids. Run after changing `src/firm/bus/`. |
 | `check_repo.py` | The public-repo guard: no data, secrets, machine paths, big files, or strategy code outside `examples/strategies/`, `src/` and `tests/` (agent strategies live in the private store). `--staged` (pre-commit hook) or `--all` (CI). |
 | `install_paper_service.sh <name>` | Linux only: installs the `firm-paper@<name>` systemd user unit and its config file (see `deploy/README.md`). Starts nothing. |
@@ -675,4 +679,5 @@ uv run python scripts/download_data.py --provider kraken --symbol XBTUSD \
 | `<state>/logs/` | `paper-<market>-<venue>.log`, `bus.log` |
 | `<state>/replays/` | `firm paper replay` scratch folders |
 | `<state>/dashboard/token` | the dashboard login token (mode 600) |
+| `<state>/dashboard/layouts/` | the dashboard's panel layouts, per view |
 | `$FIRM_DATA_ROOT/research/` | private store: `strategies/<dossier>/`, `dossiers/<id>.jsonl`, `floor_briefs.jsonl` |
