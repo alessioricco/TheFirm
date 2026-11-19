@@ -352,10 +352,17 @@ go-ahead before starting, as for milestone 2.
 Phase plan agreed 2026-11-19: `docs/plans/milestone-3.md` (R1–R4
 prerequisites, then M1 config/dossiers, M2 manager, M3 dashboard, M4
 researcher agent, M5 methods library, M6 promotion gate).
-- [ ] Owner: install Certo on the DGX (the researcher loop runs Certo on the
-      Mac, with the DGX's models, until then).
-- [ ] Owner: upgrade Certo on the Mac from 0.2.2 to 0.2.4 before M4 (the
-      plan relies on the 0.2.3 project-root guard and the 0.2.4 JSON fields).
+- [x] Owner: Certo 0.2.4 installed on the DGX, behind an SSH key that may only
+      start `certo mcp` (2026-11-19). Not used for research yet (its MCP tools
+      can't return file contents): docs/CERTO.md.
+- [x] Certo on the Mac: the firm starts Certo's MCP server itself with
+      `scripts/certo-mcp` (settings in `private/certo-mcp.env`), with the
+      DGX's Ollama as the model server (owner, 2026-11-19; docs/CERTO.md).
+      Research model `qwen3.8:27b`; checked live: Certo 0.2.5 answered, the
+      model replied.
+- [ ] `config/models.yaml`: the fast-worker (`qwen3.6:35b-a3b`), judge
+      (`d3:9b`) and ask (`gpt-oss:120b`) models aren't pulled on the DGX
+      (it has `d3:27b`); settle them when those roles are built.
 
 - [x] (2026-11-17) **Design session with the owner**: autonomous
       researchers, one strategy each (dossier); inspiration from published
@@ -368,8 +375,8 @@ researcher agent, M5 methods library, M6 promotion gate).
       (partial rule 3 test, tests/sandbox). (M1, 2026-11-19)
   - [ ] GPU memory budget per dossier: with the ML desk (later), when a
         job can use the GPU.
-  - [ ] Owner: the trials (200), hours (24) and tokens (2M) budgets are
-        placeholders; set real ones before the first research run.
+  - [x] Owner: first-run budgets set (2026-11-19): 50 trials, 4 hours,
+        10M tokens per dossier, cloud £0.
 - [x] Dossier store in the private store; dossier schema; every stage change
       a DOSSIER ledger event (trials are TRIAL events already). (M1)
 - [ ] Researcher agent loop on Certo and local models: idea (with written

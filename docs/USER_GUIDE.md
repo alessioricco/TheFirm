@@ -659,6 +659,8 @@ seconds. The full runbook is [deploy/README.md](../deploy/README.md).
   authoritative reference).
 - [DASHBOARD.md](DASHBOARD.md): the web dashboard: turning it on, logging
   in, each view, safety.
+- [CERTO.md](CERTO.md): Certo, the coding-agent harness the researcher agent
+  uses: the launcher, its settings, the rules, models and costs.
 - [deploy/README.md](../deploy/README.md): the unattended Linux runbook.
 - [SPEC.md](SPEC.md): the design and the firm rules (target, not status).
 - [TODO.md](../TODO.md): what's done, what's next, known bugs.

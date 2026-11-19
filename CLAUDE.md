@@ -113,12 +113,17 @@ an invariant test to make other work pass: stop and ask.
   budgeted searches (time, trials, GPU memory, tokens, cloud spend) as a
   queue on the DGX. Trial counts are global across all experiments and go
   to the ledger.
-- Certo runs on the DGX. The experiment manager calls Certo's CLI or server
-  mode for long runs; code-generation tasks can use `certo mcp` over SSH
-  stdio (`ssh dgx certo mcp --root /srv/firm/ml`). Never expose `certo mcp`
-  as a network port (it has no authentication), and never give it a root
-  that contains risk config, `.env` or the ledger. From this Claude Code
-  session, send Certo only generic code tasks, never private strategy data.
+- Certo (owner, 2026-11-19): the firm starts Certo's MCP server itself with
+  the launcher `scripts/certo-mcp` (stdio, no Claude Code in between), **on
+  the Mac**, with the DGX's Ollama as its model server (research role
+  `qwen3.8:27b`), rooted in the private store (`<data root>/research/certo`).
+  Machine-specific settings in the git-ignored `private/certo-mcp.env`.
+  Setup and rules: `docs/CERTO.md`. Never expose `certo mcp` or
+  `certo serve` as a network port (no authentication), and never give it a
+  root that contains risk config, `.env` or the ledger. From this Claude
+  Code session, send Certo only generic code tasks, never private strategy
+  data. (Certo 0.2.4 is also on the DGX behind an SSH forced-command key;
+  the research floor moves there later.)
 - Message bus: NATS with JetStream. Message schemas live in
   `src/firm/core/messages/` with a version field; a contract test checks
   every publisher and consumer against them. v1 runs every service on the

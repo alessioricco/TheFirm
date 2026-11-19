@@ -1,0 +1,33 @@
+#!/bin/sh
+# Certo's MCP server for the firm: the model on the DGX, one workspace.
+#
+# It speaks MCP over stdio, so only the program that starts it can talk to it
+# (no network port, no login needed). The research manager starts it; you can
+# also run it by hand to check it (docs/CERTO.md).
+#
+# These settings apply to this server only; everything else comes from
+# Certo's usual settings files. Machine-specific values (the DGX's address,
+# where Certo is installed) live in a git-ignored settings file, by default
+# private/certo-mcp.env (see scripts/certo-mcp.env.example), or in the
+# environment. Nothing machine-specific is written here: the repo is public.
+set -eu
+
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(dirname "$here")
+settings="${FIRM_CERTO_SETTINGS:-$repo/private/certo-mcp.env}"
+if [ -f "$settings" ]; then
+    # shellcheck disable=SC1090
+    . "$settings"
+fi
+
+: "${CERTO_LLM_MODEL:=ollama/qwen3.8:27b}"     # config/models.yaml, role research
+: "${CERTO_LLM_BASE_URL:?set CERTO_LLM_BASE_URL (Ollama on the DGX, http://<dgx-host>:11434) in $settings}"
+: "${CERTO_LLM_TIMEOUT_SECONDS:=1200}"          # one model call
+: "${CERTO_MAX_TASK_SECONDS:=3600}"             # one task
+: "${CERTO_BIN:=certo}"                         # Certo 0.2.4 or later
+: "${FIRM_CERTO_WORKSPACE:=${FIRM_DATA_ROOT:-$repo/data}/research/certo}"
+
+export CERTO_LLM_MODEL CERTO_LLM_BASE_URL CERTO_LLM_TIMEOUT_SECONDS CERTO_MAX_TASK_SECONDS
+export CERTO_PROJECTS_DIR="$FIRM_CERTO_WORKSPACE"
+mkdir -p "$FIRM_CERTO_WORKSPACE"
+exec "$CERTO_BIN" mcp --root "$FIRM_CERTO_WORKSPACE" "$@"

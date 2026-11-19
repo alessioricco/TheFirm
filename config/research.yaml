@@ -7,9 +7,10 @@ research: default
 researchers: 2                 # running at once; more dossiers wait in the queue
 
 budgets:                       # per dossier, enforced by the research manager
-  trials: 200                  # backtests, each a counted trial (raises the bar for all)
-  wall_clock_hours: 24
-  tokens: 2000000              # model tokens, input + output, local models included
+  # owner, 2026-11-19: small first runs (trials, hours); tokens set by the owner
+  trials: 50                   # backtests, each a counted trial (raises the bar for all)
+  wall_clock_hours: 4
+  tokens: 10000000             # model tokens, input + output, local models included
   cloud_spend_gbp: 0           # never above models.yaml's monthly cloud budget
 
 promotion:                     # owner, 2026-11-19
