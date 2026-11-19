@@ -241,7 +241,8 @@ class DossierStore:
     def log_work(self, dossier_id: str, seconds: float) -> None:
         """Charge researcher time to the dossier (allowed after it closes: the step
         that closed it still took time)."""
-        self._append(dossier_id, {"event": "work", "seconds": round(seconds, 3)})
+        # unrounded: many very short steps must still add up (a rounded 0 never would)
+        self._append(dossier_id, {"event": "work", "seconds": seconds})
 
     def note(self, dossier_id: str, text: str) -> None:
         self._open_dossier(dossier_id)

@@ -98,12 +98,14 @@ def floor(tmp_path, *, researchers=2, trials=200, hours=24.0, tokens=2_000_000, 
         }
     )
     store = DossierStore(tmp_path, sink=CollectingSink(), clock=Clock())
+    ticks = iter(range(10**6))  # a monotonic clock: each reading is one second later
     manager = ResearchManager(
         cfg,
         store,
         backtest=FakeBacktest(),
         verify=fake_verify,
         model_usage=lambda _id: used,
+        monotonic=lambda: float(next(ticks)),
     )
     return manager, store
 
