@@ -252,7 +252,8 @@ MODEL_SDKS = ("openai", "anthropic", "ollama", "litellm", "google.generativeai",
 def test_rule_08_every_model_call_passes_egress_gate_and_cloud_calls_are_logged() -> None:
     """Private work never reaches a cloud model without the owner's per-run opt-in;
     every call (local, cloud, refused) is a MODEL_CALL event with tag and cost; and
-    no code outside the gateway can call a model at all."""
+    no code outside the gateway can call a model at all, Certo included (it calls
+    a model itself, so only firm.models may launch it)."""
     import ast
 
     from firm.core.config import load_models_config
@@ -308,6 +309,20 @@ def test_rule_08_every_model_call_passes_egress_gate_and_cloud_calls_are_logged(
         if path.is_relative_to(src / "models"):
             continue
         text = path.read_text()
+        # Certo calls a model itself: only firm.models (the gate) may launch it
+        tree = ast.parse(text)
+        docstrings = {
+            id(n.value)
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)
+        }
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if id(node) in docstrings:
+                    continue
+                value = node.value.strip().lower()
+                launches = value in ("certo", "certo-mcp") or "certo-mcp" in value
+                assert not launches, f"{path.relative_to(src)} launches Certo outside firm.models"
         for endpoint in MODEL_ENDPOINTS:
             assert endpoint not in text, f"{path.relative_to(src)} names {endpoint}"
         for node in ast.walk(ast.parse(text)):

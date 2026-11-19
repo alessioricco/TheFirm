@@ -640,9 +640,27 @@ target=None, opt_in=None)` (firm rule 8). A shared library: imports only
 - `ollama.py`: `OllamaProvider(host)`, one non-streaming `/api/chat`
   request, tokens from `prompt_eval_count` / `eval_count`, cost £0. The host
   comes from `OLLAMA_HOST` via the caller, never code.
+- `certo.py` (M4): `CertoServer(command, workspace, models=, model=, sink=)`,
+  the firm's Certo client. Certo calls a model itself, so it lives here and
+  passes the same gate. `start()` takes an exclusive `flock` on
+  `<workspace>/.firm-certo.lock` (`WorkspaceLock`) **before** launching
+  `scripts/certo-mcp`, so there is only ever one Certo server per workspace
+  (`CertoBusy` otherwise; the OS releases the lock if the process dies),
+  then speaks MCP over stdio (JSON-RPC, one message per line; stdout line
+  limit 32 MiB for long results), checks `serverInfo` is Certo >= 0.2.4.
+  `run_task(project, task, dossier_id=)`: local provider only (else
+  `EgressRefused` and a refused MODEL_CALL), always `model=` the research
+  model, never `auto_model`/`escalate`, no independent tests, **one task at
+  a time** (`CertoBusy`). `wait(run_id, on_event=)` polls `run_status` (and
+  streams `run_events`), then records one MODEL_CALL (`via: certo`, run ID,
+  verdict, prompt/completion tokens, seconds, `cost_gbp` 0, a hash of the
+  task) that `ledger.spend.dossier_model_usage` charges to the dossier.
+  `resume(project, ...)` continues a project's last run after a stop. The
+  server's stderr goes to `<workspace>/.firm-certo.log`.
 - `tests/invariants` rule 8 also scans `src/firm`: outside `models/`, no
-  model-server endpoint (`/api/chat`, `/v1/chat`, ...) and no model SDK
-  import may appear. Certo runs (M4) will pass the same gate before they
+  model-server endpoint (`/api/chat`, `/v1/chat`, ...), no model SDK
+  import, and no launching of Certo (`"certo"`, `"certo-mcp"` as code
+  strings; docstrings aside) may appear. Certo runs (M4) will pass the same gate before they
   start.
 
 ## control
