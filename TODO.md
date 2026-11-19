@@ -152,7 +152,8 @@ Follow-ups from milestone 1:
 - [ ] Kraken OHLC gives only the last 720 bars: full history needs trade
       aggregation or Kraken's files (check terms). Coinbase pages fine.
 - [ ] FX conversion cost not applied in backtests (P&L in quote currency).
-- [ ] Strategy loader executes code: sandbox before agent code (M3).
+- [ ] Strategy loader executes code: sandbox before agent code (M3; the
+      sandbox exists since R2a, wiring is R2b).
 - [x] Trial registry and OOS vault are mirrored into the ledger (M2 phase
       A); the verifier keeps its own state (rule 12: no shared databases).
 - [ ] Each verdict should cite the ledger position of the trial count it
@@ -401,6 +402,16 @@ researcher agent, M5 methods library, M6 promotion gate).
       logged with tag and cost; invariant test.
 - [ ] Prerequisite: strategy loader sandboxed before it runs agent code
       (Milestone 1 follow-up).
+  - [x] R2a: `firm.sandbox` worker: OS sandbox (Seatbelt / bubblewrap,
+        fail closed), clean environment, CPU / memory / wall-clock limits,
+        import allow-list, Arrow over a pipe; tests prove it (2026-11-19).
+  - [ ] R2b: `firm verify` and `firm paper run` run strategies from the
+        private store only through the sandbox; a sandbox failure makes the
+        verdict UNVERIFIED, never FAIL or PASS.
+  - [ ] Owner, before research runs on the DGX: `sudo apt install
+        bubblewrap`, and allow unprivileged user namespaces for it
+        (Ubuntu 24.04 blocks them: an AppArmor profile for `bwrap`, or
+        `kernel.apparmor_restrict_unprivileged_userns=0`).
 - [ ] Global trial count across all experiments, in the ledger (exists for
       hand verifications; extend to experiments).
 

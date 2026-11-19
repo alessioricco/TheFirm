@@ -5,7 +5,9 @@
   imports only `core`.
 - `bus` (the message bus client, how desks talk to each other) imports
   only `core`.
-- Every desk may import `core`, `data` and `bus`.
+- `sandbox` (runs untrusted strategy code in a locked-down worker; used by
+  the verifier, the paper run and research) imports only `core`.
+- Every desk may import `core`, `data`, `bus` and `sandbox`.
 - `control` is the composition root (CLI, later the API): it wires desks
   together and may import any of them. Nothing imports `control`.
 """
@@ -38,11 +40,11 @@ def _firm_imports(path: Path) -> set[str]:
 def _allowed(desk: str) -> set[str]:
     if desk == "core":
         return {"core"}
-    if desk in ("data", "bus"):
+    if desk in ("data", "bus", "sandbox"):
         return {"core", desk}
     if desk == "control":
         return set(DESKS)
-    return {"core", "data", "bus", desk}
+    return {"core", "data", "bus", "sandbox", desk}
 
 
 @pytest.mark.parametrize("desk", DESKS)
