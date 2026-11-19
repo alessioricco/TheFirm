@@ -347,6 +347,8 @@ milestone 3, when agents start running many trials across timeframes.
 Design agreed with the owner 2026-11-17: SPEC "Research floor".
 Plan the build as phases (one PR each, test-first) and get the owner's
 go-ahead before starting, as for milestone 2.
+Phase plan drafted 2026-11-19: `docs/plans/milestone-3.md` (R1–R4
+prerequisites, then M1–M6; six open questions for the owner).
 
 - [x] (2026-11-17) **Design session with the owner**: autonomous
       researchers, one strategy each (dossier); inspiration from published
