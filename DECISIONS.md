@@ -1403,3 +1403,27 @@ enforced rather than intended:
   outside `firm.models` that launches Certo.
 - **A task is one MODEL_CALL**, recorded when it ends, with Certo's own token
   counts, so the dossier's token budget sees exactly what Certo used.
+
+## 2026-11-19 — Certo inside the OS sandbox (M4 loop, part 2a)
+
+Owner's choice: the firm's own OS sandbox around Certo, rather than Certo's
+Docker mode (an OpenHands image, internet open by default) or both.
+
+- **No internet, by preparing projects instead of downloading**: Certo uses
+  an existing `.venv` as it is, so the firm gives each project a `.venv`
+  linked to its own packages; the sandbox then allows only the model
+  server's port. Private strategy code has nowhere to go but the workspace.
+- **Rules found by running Certo, not guessed**: started from "deny
+  everything but the model port, the workspace and Certo's install", and
+  opened one thing at a time when Certo stopped, each understood before
+  allowing it: the names of the folders above the workspace (not their
+  contents), the terminal devices, OpenHands' state folder.
+- **The sandbox found a real leak**: Certo reads a `.env` in its current
+  folder, and the launcher was started from the repository root, where the
+  firm's `.env` lives. Earlier unsandboxed checks that day had let Certo
+  load it (no task ran and the only model was local, so nothing left the
+  Mac). The launcher now starts Certo inside its workspace, and a test
+  checks it.
+- **macOS only, fail closed elsewhere**: bubblewrap can't open a single
+  port; until the floor moves to the DGX, the firm refuses to start Certo
+  on Linux rather than start it open.

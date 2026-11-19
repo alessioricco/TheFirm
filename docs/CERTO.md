@@ -104,6 +104,38 @@ The research manager is the MCP client (`firm.models.certo.CertoServer`):
 
 The server's own messages (stderr) go to `<workspace>/.firm-certo.log`.
 
+## The sandbox Certo runs in
+
+Certo is a guard rail, not a sandbox (its own docs): its agent runs commands
+as you. So the firm starts `scripts/certo-mcp` inside the operating
+system's sandbox (owner, 2026-11-19; `firm.sandbox.certo`). The rules were
+found by running Certo in it and are as tight as Certo allows:
+
+| | Allowed | Everything else |
+| --- | --- | --- |
+| Network | out to the model server's port (the DGX's Ollama), and name lookup | blocked: no PyPI, no web (Seatbelt filters by port, not host) |
+| Writing | the Certo workspace, a private temporary folder, the terminal devices Certo's agent opens, `~/.openhands` (the agent engine's state) | blocked |
+| Reading | the workspace, Certo's install and `~/.config/certo`, the launcher and its settings file, the firm's Python packages, and the names (not contents) of the folders above the workspace | your home folder, the repository (and its `.env`), the data store and the state are hidden |
+
+Two things make this work without internet:
+
+- **Each dossier's project is prepared before Certo starts**
+  (`firm.research.certo_projects.prepare_project`): a `.venv` linked to the
+  firm's own packages (pandas, numpy, pytest), which Certo uses as it is, and
+  a `pytest.ini` that stops pytest at the project (it would otherwise climb
+  into the hidden repository).
+- **The launcher starts Certo inside its workspace**, because Certo reads a
+  `.env` in its current folder, and the firm's `.env`, with its keys, is in
+  the repository's root. (Found when the sandbox blocked that read.)
+
+Checked live (2026-11-19): a small generic task ran inside the sandbox and
+Certo verified it (pytest passed) in 78 s and 104k tokens, recorded as the
+dossier's model call.
+
+macOS only for now: on Linux, bubblewrap can't open one port and close the
+rest of the network, so the firm refuses to start Certo there until the
+research floor moves to the DGX with its own design.
+
 ## 4. Rules
 
 From [CLAUDE.md](../CLAUDE.md) and [SPEC.md](SPEC.md) ("Certo on the DGX"):
@@ -112,8 +144,8 @@ From [CLAUDE.md](../CLAUDE.md) and [SPEC.md](SPEC.md) ("Certo on the DGX"):
   has a login. `certo mcp` speaks over stdio; from another machine, reach it
   over SSH.
 - **The workspace holds no secrets**, no risk config, no `.env`, no ledger:
-  Certo is not a sandbox (its agent runs commands as you, with the network
-  open). The researcher loop runs Certo inside the firm's OS sandbox.
+  Certo is not a sandbox. The firm runs it inside the OS sandbox above, and
+  never starts it unsandboxed.
 - **Local models only.** Certo has no switch forbidding cloud models, and it
   also reads your global `~/.config/certo/models.yaml`. The firm always names
   the local model for a task and never asks Certo to escalate up a ladder

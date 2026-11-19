@@ -21,7 +21,8 @@ def stub(tmp_path: Path) -> Path:
     path.write_text(
         "#!/bin/sh\n"
         'python3 -c \'import json, os, sys; print(json.dumps({"args": sys.argv[1:], '
-        '"env": {k: v for k, v in os.environ.items() if k.startswith("CERTO_")}}))\' "$@"\n'
+        '"env": {k: v for k, v in os.environ.items() if k.startswith("CERTO_")}, '
+        '"cwd": os.getcwd()}))\' "$@"\n'
     )
     path.chmod(0o755)
     return path
@@ -63,6 +64,9 @@ def test_it_starts_certo_mcp_on_the_firms_workspace_with_its_settings(tmp_path) 
     assert env["CERTO_PROJECTS_DIR"] == str(workspace)
     assert (env["CERTO_LLM_TIMEOUT_SECONDS"], env["CERTO_MAX_TASK_SECONDS"]) == ("1200", "3600")
     assert workspace.is_dir()
+    # Certo reads a .env in its current folder: it starts in its workspace, never
+    # in the repository, where the firm's .env (keys) lives
+    assert os.path.realpath(seen["cwd"]) == os.path.realpath(workspace)
 
 
 def test_the_research_model_default_matches_the_config() -> None:

@@ -562,17 +562,45 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   private store), `backtest` / `submit_candidate` (only its own code, instruments and
   timeframes; through the injected verification desk), `note`. No budget or
   config is reachable from it.
+- **Certo projects** (`research/certo_projects.py`): `prepare_project(
+  workspace, project)` makes `<workspace>/<project>` with a `.venv` whose
+  `firm_packages.pth` points at the firm's site-packages (Certo uses an
+  existing `.venv` as it is, so nothing is downloaded) and a `pytest.ini`
+  (pytest's root stays inside the project). Idempotent.
 - **Wiring** (`control/research.py`): `verification_desk(...)` returns the
   `backtest` (a `ResearchBacktester` with `experiment_id` = the dossier ID)
   and `verify` (`verify_strategy_file`, report written to
   `<state>/reports/`) the manager needs, since research can't import the
-  verifier; `ledger_model_usage(ledger)`. `control/research_cli.py`: the
+  verifier; `ledger_model_usage(ledger)`. `certo_server(config_root=,
+  data_root=, state_root=, sink=)` is the only way the firm starts Certo: it
+  reads the launcher's settings (`certo_settings`: `private/certo-mcp.env`,
+  then the environment), finds Certo's install (two levels above its
+  executable) and the model's port, and returns a `CertoServer` whose
+  command is `firm.sandbox.certo.certo_command(...)` around
+  `scripts/certo-mcp`, on the research role's model. `control/research_cli.py`: the
   `firm research` commands; each change is an OWNER_COMMAND event. None of
   them runs a researcher yet (M4). Gotcha: never name a method `submit`
   outside order submission: rule 1's invariant test treats every `.submit(`
   call in `src/` as an order (dossiers use `record_submission`).
 
-## sandbox (milestone 3, R2)
+## sandbox (milestone 3, R2; Certo: M4)
+
+`certo.py`: the sandbox Certo's MCP server runs in. `seatbelt_profile(box)`
+builds the profile from a `CertoSandbox` (workspace, private tmp, model
+port, hidden roots, readable and writable extras): `(allow default)`, all
+network denied but outbound to `*:<model port>` and the mDNS socket, writes
+only to the workspace, tmp, `/dev/null|tty|fd`, the pty devices and the
+extras, reads of the home folder and the hidden roots denied except the
+readable ones, plus `literal` (names only) for each folder from the
+workspace up to home (Certo lists them). `certo_command(box, launcher)`
+writes the profile into tmp and returns the `sandbox-exec` argv (with
+`TMPDIR` set to tmp); on any OS but macOS it raises `CertoSandboxError`
+(fail closed). Gotchas found live: Certo reads `.env` in its cwd (the
+launcher `cd`s into the workspace); its terminal needs `/dev/ptmx` and
+`/dev/ttys*`; OpenHands keeps state in `~/.openhands`; pytest climbs to the
+nearest `pyproject.toml` unless the project has a `pytest.ini`.
+
+
 
 Agent-written strategy code never runs inside a firm process.
 `SandboxedStrategy(path, class_name, Policy(hidden=(repo, data, state)))`

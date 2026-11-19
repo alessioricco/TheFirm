@@ -30,4 +30,7 @@ fi
 export CERTO_LLM_MODEL CERTO_LLM_BASE_URL CERTO_LLM_TIMEOUT_SECONDS CERTO_MAX_TASK_SECONDS
 export CERTO_PROJECTS_DIR="$FIRM_CERTO_WORKSPACE"
 mkdir -p "$FIRM_CERTO_WORKSPACE"
+# Start Certo from inside its workspace: Certo reads a `.env` in its current
+# folder, and the firm's `.env` (keys) is in the repository's root.
+cd "$FIRM_CERTO_WORKSPACE"
 exec "$CERTO_BIN" mcp --root "$FIRM_CERTO_WORKSPACE" "$@"

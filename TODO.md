@@ -392,10 +392,17 @@ researcher agent, M5 methods library, M6 promotion gate).
         one task at a time, local model only, every task a MODEL_CALL for its
         dossier; rule 8's invariant forbids launching Certo outside
         `firm.models`.
-  - [ ] M4 loop, part 2: Certo started inside the OS sandbox (network to the
-        DGX's Ollama only, files limited to its workspace); the researcher:
-        hypothesis through the gateway, code through Certo, saved to the
-        private store, counted backtests, one submission.
+  - [x] M4 loop, part 2a (2026-11-19): Certo inside the OS sandbox (network
+        only to the model port; writes only its workspace; home, repo, .env
+        and stores hidden); projects prepared offline (`.venv` on the firm's
+        packages, `pytest.ini`); `control.research.certo_server`; the
+        launcher starts Certo in its workspace (it reads `.env` in its cwd).
+        Checked live: a generic task verified inside the sandbox.
+  - [ ] M4 loop, part 2b: the researcher: hypothesis through the gateway,
+        code through Certo, saved to the private store, counted backtests,
+        one submission.
+  - [ ] Certo's sandbox on Linux (the DGX): bubblewrap can't open one port
+        only; design it when the research floor moves there.
   - [ ] M4 loop, part 3: `firm research floor` runs it; first live run on a
         brief the owner chooses; wire the gateway (OLLAMA_HOST, ledger spend)
         and the verification desk (`control.research.verification_desk`).

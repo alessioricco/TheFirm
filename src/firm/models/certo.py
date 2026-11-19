@@ -42,6 +42,36 @@ from firm.core.events import NULL_SINK, EventSink
 from firm.models.gateway import EgressRefused
 
 MIN_VERSION = (0, 2, 4)
+LAUNCHER = Path("scripts") / "certo-mcp"  # relative to the repository
+SETTINGS = Path("private") / "certo-mcp.env"  # the launcher's settings, git-ignored
+WORKSPACE = Path("research") / "certo"  # in the data store
+CONFIG_DIR = Path(".config") / "certo"  # Certo's own settings, in the home folder
+
+
+def certo_settings(repo: Path) -> dict[str, str]:
+    """The launcher's settings (`private/certo-mcp.env`, then the environment)."""
+    path = Path(os.environ.get("FIRM_CERTO_SETTINGS", repo / SETTINGS))
+    out: dict[str, str] = {}
+    if path.is_file():
+        for raw in path.read_text().splitlines():
+            line = raw.split("#", 1)[0].strip()
+            key, sep, value = line.partition("=")
+            if sep and key.strip():
+                out[key.strip()] = value.strip().strip("'\"")
+    for key in ("CERTO_LLM_BASE_URL", "CERTO_LLM_MODEL", "CERTO_BIN", "FIRM_CERTO_WORKSPACE"):
+        if os.environ.get(key):
+            out[key] = os.environ[key]
+    out["_settings_file"] = str(path)
+    return out
+
+
+def find_certo(configured: str | None = None) -> str:
+    """Certo's executable: the configured one (CERTO_BIN), else `certo` on the PATH."""
+    import shutil
+
+    return configured or shutil.which("certo") or "certo"
+
+
 LINE_LIMIT = 32 << 20  # a run's result can be long (checks' output tails)
 LOCK_NAME = ".firm-certo.lock"
 

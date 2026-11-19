@@ -180,3 +180,80 @@ def floor_view(manager) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         "floor_brief": brief.text if brief else None,
         "dossiers": [dossier_view(manager, d) for d in dossiers],
     }
+
+
+# --------------------------------------------------------------------------- Certo
+def repo_root() -> Path:
+    import firm
+
+    return Path(firm.__file__).resolve().parents[2]
+
+
+def certo_server(
+    *,
+    config_root: Path,
+    data_root: Path,
+    state_root: Path,
+    sink: EventSink = NULL_SINK,
+    repo: Path | None = None,
+    poll_seconds: float = 5.0,
+):  # type: ignore[no-untyped-def]
+    """The firm's one Certo server: `scripts/certo-mcp` inside its OS sandbox
+    (firm.sandbox.certo), on the research role's local model."""
+    import os
+    import sys
+    import tempfile
+    from urllib.parse import urlparse
+
+    from firm.core.config import load_models_config
+    from firm.models.certo import (
+        CONFIG_DIR,
+        LAUNCHER,
+        WORKSPACE,
+        CertoServer,
+        certo_settings,
+        find_certo,
+    )
+    from firm.sandbox.certo import CertoSandbox, certo_command
+
+    repo = repo or repo_root()
+    settings = certo_settings(repo)  # private/<launcher>.env, then the environment
+    url = settings.get("CERTO_LLM_BASE_URL")
+    if not url:
+        raise ValueError(
+            f"CERTO_LLM_BASE_URL isn't set: create {settings['_settings_file']} "
+            f"from {LAUNCHER}.env.example (docs/CERTO.md)"
+        )
+    port = urlparse(url).port or 11434
+    certo_bin = find_certo(settings.get("CERTO_BIN"))
+    install = Path(os.path.realpath(certo_bin)).parents[2]  # .../<install>/(.venv/)bin/certo
+    home = Path.home()
+    workspace = Path(settings.get("FIRM_CERTO_WORKSPACE") or Path(data_root) / WORKSPACE)
+    workspace.mkdir(parents=True, exist_ok=True)
+    box = CertoSandbox(
+        workspace=workspace,
+        tmp=Path(tempfile.mkdtemp(prefix="firm-certo-")),
+        model_port=port,
+        hidden=(repo, Path(data_root), Path(state_root)),
+        readable=(
+            install,
+            home / CONFIG_DIR,
+            home / ".openhands",
+            repo / "scripts",
+            Path(settings["_settings_file"]),
+            repo / "src",
+            Path(sys.prefix),
+            Path(sys.base_prefix),
+        ),
+        writable=(home / ".openhands",),
+    )
+    models = load_models_config(config_root)
+    role = models.roles["research"]
+    return CertoServer(
+        certo_command(box, [str(repo / LAUNCHER)]),
+        workspace,
+        models=models,
+        model=f"{role.provider}/{role.model}",
+        sink=sink,
+        poll_seconds=poll_seconds,
+    )
