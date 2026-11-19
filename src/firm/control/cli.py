@@ -168,7 +168,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     from firm.verify.runner import verify_strategy_file
     from firm.verify.state import state_root
 
-    path_str, _, class_name = args.strategy.partition(":")
+    path_str, _, class_name = args.strategy.rpartition(":")
     if not class_name:
         print("--strategy must be PATH:CLASS", file=sys.stderr)
         return EXIT_ERROR

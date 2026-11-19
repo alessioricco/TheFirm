@@ -440,7 +440,7 @@ Run with `uv run python scripts/<name>` (shell scripts directly).
 | --- | --- |
 | `download_data.py` | Public market data from a provider into the data store, with a sidecar per download. `--providers` lists them. Options: `--provider`, `--symbol` (as the provider spells it), `--instrument` (firm ID), `--venue`, `--asset-class crypto\|equity`, `--quote`, `--tf`, `--since`, `--until`, `--listed-at` (needed the first time), `--trades-pages N`, `--root`, `--dry-run`. |
 | `bus_smoke.py` | Starts a throwaway `nats-server` exactly as `firm bus up` does and checks the bus end to end, including that the server refuses what the permission table forbids. Run after changing `src/firm/bus/`. |
-| `check_repo.py` | The public-repo guard: no data, secrets, machine paths or big files. `--staged` (pre-commit hook) or `--all` (CI). |
+| `check_repo.py` | The public-repo guard: no data, secrets, machine paths, big files, or strategy code outside `examples/strategies/`, `src/` and `tests/` (agent strategies live in the private store). `--staged` (pre-commit hook) or `--all` (CI). |
 | `install_paper_service.sh <name>` | Linux only: installs the `firm-paper@<name>` systemd user unit and its config file (see `deploy/README.md`). Starts nothing. |
 
 ```bash

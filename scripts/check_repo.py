@@ -6,7 +6,10 @@ Standard library only, so it runs in a git hook before any environment exists.
     python3 scripts/check_repo.py --all      # CI / tests: tracked + untracked files
 
 Exit 0 if clean, 1 with a list of problems otherwise. The data store
-(`/data/`) and verifier state (`/state/`) must never be committed.
+(`/data/`) and verifier state (`/state/`) must never be committed, and
+strategy code (a `def signals(` method) is allowed only in
+`examples/strategies/`, `src/` and `tests/`: agent-written strategies live in
+the private store.
 """
 
 from __future__ import annotations
@@ -64,6 +67,11 @@ HOME_PATH = re.compile(r"(/Users/|/home/)[A-Za-z0-9._-]+/")
 # in private/TODO.md, never in committed files (placeholders like ds-xxxx are fine).
 PRIVATE_ID = re.compile(r"(?<![A-Za-z0-9])(ds-[0-9a-f]{12}|v-[0-9a-f]{16})(?![0-9a-f])")
 SKIP_CONTENT = {"scripts/check_repo.py", "uv.lock"}  # this file holds the patterns
+# Agent-written strategies live in the private store, never in git (M3 plan, R1).
+# Only hand-written examples, the firm's own code and tests may hold strategy code.
+STRATEGY_CODE = re.compile(r"\bdef\s+signals\s*\(")
+STRATEGY_SUFFIXES = {".py", ".ipynb"}
+STRATEGY_HOMES = ("examples/strategies/", "src/", "tests/")
 
 
 def git(*args: str) -> bytes:
@@ -110,6 +118,12 @@ def problems(files: list[tuple[str, bytes]]) -> list[str]:
         m = HOME_PATH.search(text)
         if m:
             found.append(f"{name}: machine-specific path {m.group(0)!r}")
+        if (
+            path.suffix in STRATEGY_SUFFIXES
+            and not name.startswith(STRATEGY_HOMES)
+            and STRATEGY_CODE.search(text)
+        ):
+            found.append(f"{name}: strategy code outside {STRATEGY_HOMES} (private store)")
         m = PRIVATE_ID.search(text)
         if m:
             found.append(f"{name}: real dataset/verdict ID {m.group(0)} (private/TODO.md)")
