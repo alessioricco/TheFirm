@@ -10,6 +10,11 @@ executes them. **Version 1 trades paper money only.**
 > Backtests, including the ones this project calls "verified", can and do
 > fail on future data. Use at your own risk.
 
+**New here? Start with the [user guide](docs/USER_GUIDE.md)**: install, a
+safe first run on synthetic data, real data, verification, paper trading,
+configuration and troubleshooting. Every command and option is in the
+[command reference](docs/COMMANDS.md).
+
 ## The idea in one paragraph
 
 Language models are good at proposing ideas and bad at being trusted with
@@ -26,11 +31,15 @@ owner turns it on by hand.
 |---|---|
 | 0. Repository skeleton: typed domain objects, bus message rules, config profiles, venue adapter interface | done |
 | 1. Point-in-time data plane and strategy verifier (crypto) | done |
-| 2. Paper simulator, risk desk, ledger, trade journal | next |
-| 3. Research agents on [Certo](https://github.com/alessioricco/certo) | planned |
-| 4. Control API, CLI, web UI, notifications | planned |
+| 2. Paper simulator, risk desk, ledger, trade journal, Telegram alerts, message bus | built; its unattended exit run is in progress |
+| 3. Research agents on [Certo](https://github.com/alessioricco/certo), dashboard v1 | in progress: prerequisites done (private strategy store, sandbox, data-egress gate, research trials counted); research floor next |
+| 4. Control API, web UI, Telegram bot | planned (the CLI exists) |
 | 5. Local decision model ("judge") as features | planned |
 | 6. US shares | planned |
+| 7. Opportunity scout | planned |
+
+What works today, and what doesn't yet, is in the
+[user guide](docs/USER_GUIDE.md#2-implemented-now-vs-planned).
 
 The design is in [`docs/SPEC.md`](docs/SPEC.md); what's left is in
 [`TODO.md`](TODO.md), why things are the way they are is in
@@ -52,7 +61,8 @@ couldn't check), with a report whose hash is the verdict ID:
 4. **Trial count**: the Sharpe ratio is deflated for how many strategies
    were tried in total (Bailey & López de Prado, 2014).
 5. **Hidden out-of-sample**: a final period no author sees, opened once
-   per strategy, and only after the other checks pass.
+   per strategy, instrument and timeframe, and only after the other checks
+   pass.
 
 All thresholds live in [`config/verify/default.yaml`](config/verify/default.yaml)
 and are still placeholders.
@@ -62,8 +72,10 @@ and are still placeholders.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). Tested on macOS
 and Linux arm64; no GPU needed.
 
-**Every command, its options and worked examples (including an unattended
-paper run from download to stop) are in [docs/COMMANDS.md](docs/COMMANDS.md).**
+**The [user guide](docs/USER_GUIDE.md) walks through everything below in
+order. Every command, its options and worked examples (including an
+unattended paper run from download to stop) are in
+[docs/COMMANDS.md](docs/COMMANDS.md).**
 
 The desks talk over a message bus, so running the firm (not the tests) also
 needs the [NATS server](https://nats.io) (`nats-server`, 2.10 or later, with

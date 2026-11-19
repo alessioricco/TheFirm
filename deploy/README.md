@@ -89,8 +89,12 @@ journalctl --user -u firm-paper@crypto -f    # what it is doing
 systemctl --user stop firm-paper@crypto      # SIGTERM: feeds close, "stopped" recorded
 FIRM_STATE_ROOT=<state-root> uv run firm ledger verify   # hash chain intact
 FIRM_STATE_ROOT=<state-root> uv run firm ledger show --tail 50
+FIRM_STATE_ROOT=<state-root> uv run firm journal build   # one row per trade, from the ledger
+FIRM_STATE_ROOT=<state-root> uv run firm journal show
 ```
 
 Milestone 2's exit check is that every fill traces to a verdict ID. Each
-fill names its order, and each order its verdict and risk decision. The
-trade journal (phase G) will make this one command.
+fill names its order, and each order its verdict and risk decision; the
+trade journal follows that chain for you, and every trade row carries its
+verdict ID and risk decisions (`firm journal export` writes them to CSV or
+Parquet, outside the repo).

@@ -471,7 +471,7 @@ uv run python scripts/download_data.py --provider kraken --symbol XBTUSD \
 | --- | --- |
 | 0 | success (verify: pass) |
 | 1 | failure (verify: fail; ledger verify: broken chain; replay: signals differ; paper run: stopped by a failure, or the bus isn't running) |
-| 2 | verify: unverified; other commands: missing input (e.g. no token, empty journal) |
+| 2 | verify: unverified; other commands: missing input (e.g. no Telegram token, a journal that was never built) |
 | 3 | error (bad input, missing file, config problem) |
 | 4 | paper run refused by the deployment gate: a supervisor must not retry |
 
