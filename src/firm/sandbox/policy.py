@@ -102,7 +102,20 @@ def _python_paths() -> set[str]:
     Pythons through symlinked folders (cpython-3.14-... -> cpython-3.14.0-...), and
     the sandbox must show both, or the venv's interpreter link leads nowhere."""
     paths = {os.path.abspath(p) for p in (sys.prefix, sys.base_prefix)}
+    for hop in _link_chain(sys.executable):  # .venv/bin/python -> .../bin/python3.14 -> ...
+        paths.add(os.path.dirname(os.path.dirname(hop)))  # the install holding that bin/
     return paths | {_real(p) for p in paths}
+
+
+def _link_chain(path: str) -> list[str]:
+    """Every path a symlink chain passes through, unresolved, ending at the file."""
+    hops, p = [], os.path.abspath(path)
+    for _ in range(40):
+        hops.append(p)
+        if not os.path.islink(p):
+            break
+        p = os.path.normpath(os.path.join(os.path.dirname(p), os.readlink(p)))
+    return hops
 
 
 def exec_roots() -> list[str]:
