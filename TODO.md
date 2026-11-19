@@ -396,10 +396,14 @@ researcher agent, M5 methods library, M6 promotion gate).
       never in git; only hand-written examples are public. `check_repo.py`
       refuses strategy code outside `examples/strategies/`, `src/` and
       `tests/` (R1, 2026-11-19).
-- [ ] Prerequisite: **data-egress gate enforced in code** (today it is only
-      configuration): every model call tagged public/private; private calls
-      to a cloud model refused without a per-run opt-in; every cloud call
-      logged with tag and cost; invariant test.
+- [x] Prerequisite: **data-egress gate enforced in code**: `firm.models`
+      gateway; every call tagged, private-to-cloud refused without a per-run
+      opt-in, monthly cloud budget (default £0), every call a MODEL_CALL
+      ledger event; rule 8 invariant real (R3, 2026-11-19).
+  - [ ] M2/M4: wire the gateway in the research manager (OLLAMA_HOST from
+        .env, ledger spend), and put every Certo run through the same gate
+        (its model list checked before it starts; its `usage` logged as a
+        MODEL_CALL). Owner command to grant a per-run opt-in (logged).
 - [ ] Prerequisite: strategy loader sandboxed before it runs agent code
       (Milestone 1 follow-up).
   - [x] R2a: `firm.sandbox` worker: OS sandbox (Seatbelt / bubblewrap,

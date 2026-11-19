@@ -388,9 +388,13 @@ class AskConfig(FirmModel):
 
 
 class EgressConfig(FirmModel):
+    """Firm rule 8, enforced by `firm.models.gateway`. A provider not listed in
+    `local_providers` is a cloud provider. The budget is per calendar month (UTC)."""
+
     cloud_spend_budget_gbp: float = Field(ge=0)
     private_to_cloud: Literal["never", "per_run_opt_in"]
     log_every_cloud_call: Literal[True]
+    local_providers: list[Id] = Field(min_length=1)
 
 
 class ModelsConfig(FirmModel):

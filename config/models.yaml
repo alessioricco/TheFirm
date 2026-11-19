@@ -23,7 +23,8 @@ ask:
   text_search: fulltext  # for SPEC/DECISIONS/notes; embeddings only if needed
   embeddings: null       # e.g. {provider: ollama, model: ...} when added
 
-egress:                  # firm rule 8
-  cloud_spend_budget_gbp: 0      # default zero; the owner raises it explicitly
+egress:                  # firm rule 8, enforced by firm.models.gateway
+  cloud_spend_budget_gbp: 0      # per calendar month (UTC); default zero; the owner raises it
   private_to_cloud: per_run_opt_in   # private work stays local unless opted in per run
-  log_every_cloud_call: true
+  log_every_cloud_call: true     # every call, local or cloud, is a MODEL_CALL ledger event
+  local_providers: [ollama]      # served on our own machines (the DGX); anything else is cloud
