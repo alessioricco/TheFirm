@@ -265,6 +265,21 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
   `EXIT_CODES`; `cost_bps` (taker fee of the venue's schedule + half spread +
   slippage); `split_in_sample`. The report's `costs` block names the fee
   schedule, its source and date.
+- `research.py` (M3, R4): `ResearchBacktester(strategy_path=, class_name=,
+  experiment_id=, ...)`, a context manager holding one strategy (sandboxed
+  for the private store) for many `run(params)` calls, i.e. a parameter
+  search. Researchers can't backtest themselves (their code is sandboxed,
+  without the data store), so this is the only backtest they get:
+  - reads the research view only: `hidden_from` is where the verifier's
+    hidden period starts on the dataset as of now (last `oos.fraction`),
+    read through `Dataset.capped` with `as_of` just before it; with more
+    data later the hidden period only moves later;
+  - records the trial (its `experiment_id`, `sharpe_per_bar`,
+    `periods_per_year`) in the `TrialRegistry`, so the ledger, **before**
+    returning; a failed record returns nothing;
+  - trial ID = code, params and bars, as for manual trials: the same
+    backtest again isn't a new trial (`new_trial=False`);
+  - implausible bars refuse the run, with no trial.
 - `runner.py`: `verify_strategy_file(...)` wires files, config, dataset,
   trial recording and the verifier (used by the CLI and tests).
   `quarantine_equivalents(...)`: for each opening in the scope, rebuilds the
@@ -509,6 +524,8 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   and `tests/`.
 - Code in the store runs only in the sandbox (see `sandbox` and
   `verify/strategy.py`): loading it in-process is refused.
+- Backtests during research go through the verification desk
+  (`verify/research.py`), which counts each one as a trial (R4).
 
 ## sandbox (milestone 3, R2)
 

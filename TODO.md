@@ -414,8 +414,12 @@ researcher agent, M5 methods library, M6 promotion gate).
         (`--sandbox` for any other file); a sandbox failure makes the
         verdict UNVERIFIED, never FAIL or PASS (2026-11-19).
   - [x] Owner: bubblewrap installed on the DGX and working (2026-11-19).
-- [ ] Global trial count across all experiments, in the ledger (exists for
-      hand verifications; extend to experiments).
+- [x] Global trial count across all experiments, in the ledger: research
+      backtests go through `verify.research.ResearchBacktester`, counted
+      before any result is returned (R4, 2026-11-19).
+  - [ ] M2: when the research manager runs as its own service, it asks the
+        verification desk for backtests over the bus and publishes
+        `trial.recorded`; until then the call is in-process.
 
 ## Milestone 7: opportunity scout (after milestone 3)
 

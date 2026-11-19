@@ -1186,3 +1186,28 @@ they're checks that run before anything is sent.
 - **The opt-in is a record, not a switch**: `OwnerOptIn(run_id, reason)`,
   written into every call it allows. How the owner grants one (a logged
   owner command) comes with the research manager.
+
+## 2026-11-19 — Research backtests are run by the verification desk (M3 prerequisite R4)
+
+The plan had researchers record their own trials and publish them on
+`trial.recorded`. Built instead: the verification desk runs every research
+backtest (`verify.research.ResearchBacktester`) and records its trial
+before returning a result. Reasons:
+
+- The desk that corrects for trials should be the one counting them: a
+  research desk that records its own trials could forget one, and a
+  forgotten trial makes the deflated Sharpe too kind.
+- It already owns the hidden period, so it can cap research reads at the
+  start of the out-of-sample period it will open later.
+- Researchers can't backtest on their own anyway: their code runs in the
+  sandbox, which can't read the data store.
+- Import boundaries agree: research may not import the backtest engine.
+
+Trial identity stays code + parameters + bars, so repeating a backtest
+isn't a new trial, and the same search across two experiments counts once.
+A research backtest and the later verification read different windows
+(the research view ends where the hidden period starts), so the candidate's
+own verification adds one more trial: stricter, never kinder.
+
+`trial.recorded` on the bus comes with the research manager as a service
+(M2): it will ask for backtests over the bus and announce the trials.
