@@ -59,7 +59,7 @@ from firm.ledger.store import Ledger
 from firm.risk.desk import RiskDesk
 from firm.verify.backtest import clean_targets, run_backtest
 from firm.verify.runner import FAR_FUTURE
-from firm.verify.strategy import load_strategy
+from firm.verify.strategy import LoadedStrategy, load_strategy, private_root, sandbox_policy
 from firm.verify.verifier import cost_bps
 
 D = Decimal
@@ -328,10 +328,25 @@ class ReplayRun:
     transport: Transport = http_get
 
     async def run(self) -> ReplayResult:
+        loaded = load_strategy(
+            self.strategy_path,
+            self.class_name,
+            sandbox=sandbox_policy(
+                self.strategy_path,
+                data_root=self.data_root,
+                hidden=(self.state_root, self.config_root.parent),
+            ),
+            private_root=private_root(self.data_root),
+        )
+        try:
+            return await self._run(loaded)
+        finally:
+            loaded.close()
+
+    async def _run(self, loaded: LoadedStrategy) -> ReplayResult:
         cfg = load_config(self.config_root, self.jurisdiction, [self.market])
         profile = cfg.markets[self.market]
         fees = load_fee_schedule(self.config_root, profile.costs.fee_schedule_for(self.venue))
-        loaded = load_strategy(self.strategy_path, self.class_name)
         params = dict(loaded.strategy.default_params) | dict(self.params or {})
         path = self.state_root / "reports" / f"{self.verdict_id}.json"
         if not path.is_file():

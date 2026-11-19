@@ -40,6 +40,21 @@ def run(ctx: VerifyContext, in_sample_sharpe: float) -> CheckResult:
             detail=f"out-of-sample already opened for another version of "
             f"{ctx.strategy_id} in scope {ctx.scope}; it can't be reused",
         )
+    if opening.access == "first_opening":
+        # A trial the moment the vault grants it, before any signals are computed:
+        # if that then fails (a sandbox dies), the retry is a replay and would
+        # never count it (firm rule 5).
+        ctx.registry.record(
+            TrialRecord(
+                trial_id=opening_trial_id(ctx.scope, ctx.candidate_key),
+                experiment_id="oos_opening",
+                strategy_id=ctx.strategy_id,
+                parameters=dict(ctx.params),
+                metrics={},
+                dataset_version=ctx.dataset_version,
+                recorded_at=ctx.now,
+            )
+        )
     result = run_backtest(
         ctx.full, ctx.signals(ctx.full), cost_bps=ctx.cost_bps, position=ctx.position
     )
@@ -56,17 +71,6 @@ def run(ctx: VerifyContext, in_sample_sharpe: float) -> CheckResult:
             at=ctx.now,
         )
     if opening.access == "first_opening":
-        ctx.registry.record(
-            TrialRecord(
-                trial_id=opening_trial_id(ctx.scope, ctx.candidate_key),
-                experiment_id="oos_opening",
-                strategy_id=ctx.strategy_id,
-                parameters=dict(ctx.params),
-                metrics={},
-                dataset_version=ctx.dataset_version,
-                recorded_at=ctx.now,
-            )
-        )
         ctx.vault.seal(
             strategy_id=ctx.strategy_id,
             scope=ctx.scope,

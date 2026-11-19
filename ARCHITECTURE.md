@@ -210,8 +210,23 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
   rule and how many bars the normaliser quarantined.
 
 - `strategy.py`: the `Strategy` protocol (`name`, `default_params`,
-  `signals(bars, params)` → target in [0, 1]) and `load_strategy` (executes
-  the file: hand-written code only until a sandbox exists).
+  `signals(bars, params)` → target in [0, 1]) and `load_strategy(path, cls,
+  sandbox=Policy | None, private_root=...)`: with a policy it starts a
+  `SandboxedStrategy` on the exact bytes it hashed, otherwise it imports the
+  file, and it refuses (`SandboxRequired`) a file under the private store
+  without a sandbox. `sandbox_policy(path, data_root=, hidden=, force=)`
+  decides: always for the private store, else only on `--sandbox`; it
+  hides the data store, state and repo. `LoadedStrategy.close()` stops the
+  worker; the runner, the paper run and replay call it in `finally`.
+- Sandbox failures (`SandboxError`) pass through every check's own error
+  handling (`lookahead`, `sensitivity` re-raise it) to `verify()`, which
+  keeps the results so far, marks the rest NOT_RUN ("sandbox failed") and
+  forces UNVERIFIED, even over a FAILED check. A sandbox that can't start
+  raises before anything is judged or counted (CLI: exit 2).
+- The OOS check records its opening trial as soon as the vault grants the
+  first opening, before computing signals: if that then fails, a retry is a
+  replay (which seals but never records a trial), so the trial would be
+  lost otherwise.
 - `backtest.py`: `run_backtest` (decide at close, fill at next open,
   cost per unit traded; `position=` scales a target of 1 to that share of
   equity), `metrics`, `SignalError`. The verifier sizes at
@@ -491,9 +506,8 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
 - `scripts/check_repo.py` refuses strategy code (a `def signals(` method in
   a `.py` or `.ipynb` file) anywhere except `examples/strategies/`, `src/`
   and `tests/`.
-- Gotcha: saving to the store does not make code safe to run. The loader
-  (`verify/strategy.py`) still imports the file in-process; agent code must
-  wait for the sandboxed runner (R2).
+- Code in the store runs only in the sandbox (see `sandbox` and
+  `verify/strategy.py`): loading it in-process is refused.
 
 ## sandbox (milestone 3, R2)
 
@@ -535,9 +549,9 @@ One worker serves a whole verification (hundreds of `signals` calls).
   UNVERIFIED; run them unsandboxed. CI sets `FIRM_REQUIRE_SANDBOX=1` so they
   fail there instead, and installs bubblewrap on Linux (Ubuntu 24.04 needs
   `kernel.apparmor_restrict_unprivileged_userns=0`).
-- Not wired in yet: the verifier and the paper run still load strategies
-  in-process. Next step (R2b): agent strategies from the private store
-  always go through the sandbox.
+- Used by `verify.strategy.load_strategy` (R2b): the verifier, `firm paper
+  run` (CPU budget raised to 24 h for a long run; a sandbox that dies stops
+  that market, like any strategy error) and `firm paper replay`.
 
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one

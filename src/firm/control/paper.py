@@ -29,7 +29,7 @@ import contextlib
 import json
 import signal
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -63,7 +63,9 @@ from firm.notify.alerts import AlertingSink, Outbox, Sender
 from firm.notify.bus import BusAlerts, NotifierService
 from firm.risk.desk import RiskDesk
 from firm.risk.service import RiskService
-from firm.verify.strategy import load_strategy
+from firm.verify.strategy import LoadedStrategy, load_strategy, private_root, sandbox_policy
+
+PAPER_CPU_SECONDS = 86_400  # sandbox CPU budget over a whole paper run
 
 OPENED = "paper_account_opened"
 
@@ -251,6 +253,7 @@ class PaperRun:
     # the bus: a login per service (None: the desks call each other in-process)
     bus: Callable[[Service], Awaitable[BusTransport]] | None = None
     stop: asyncio.Event = field(default_factory=asyncio.Event)
+    sandbox: bool = False  # run the strategy in the sandbox (always for the private store)
 
     def _report(self) -> bytes:
         path = self.state_root / "reports" / f"{self.verdict_id}.json"
@@ -259,10 +262,29 @@ class PaperRun:
         return path.read_bytes()
 
     async def run(self) -> int:
+        policy = sandbox_policy(
+            self.strategy_path,
+            data_root=self.data_root,
+            hidden=(self.state_root, self.config_root.parent),
+            force=self.sandbox,
+        )
+        if policy is not None:  # a long run: the per-call wall clock stops a runaway strategy
+            policy = replace(policy, limits=replace(policy.limits, cpu_seconds=PAPER_CPU_SECONDS))
+        loaded = load_strategy(
+            self.strategy_path,
+            self.class_name,
+            sandbox=policy,
+            private_root=private_root(self.data_root),
+        )
+        try:
+            return await self._run(loaded)
+        finally:
+            loaded.close()
+
+    async def _run(self, loaded: LoadedStrategy) -> int:
         cfg = load_config(self.config_root, self.jurisdiction, [self.market])
         mp = cfg.markets[self.market]
         fees = load_fee_schedule(self.config_root, mp.costs.fee_schedule_for(self.venue))
-        loaded = load_strategy(self.strategy_path, self.class_name)
         params = dict(loaded.strategy.default_params) | dict(self.params or {})
 
         report = self._report()

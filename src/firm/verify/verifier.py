@@ -38,6 +38,7 @@ from firm.core.domain import (
 )
 from firm.core.events import NULL_SINK, EventSink
 from firm.core.timeframes import periods_per_year
+from firm.sandbox.client import SandboxError
 from firm.verify.backtest import metrics
 from firm.verify.checks import costs, lookahead, oos, sensitivity, trials
 from firm.verify.context import VerifyContext
@@ -178,6 +179,7 @@ def verify(
         metrics={"implausible": float(len(data_issues)), "quarantined": float(quarantined)},
     )
     results: list[CheckResult] = [quality]
+    sandbox_failed: str | None = None
     if data_issues:
         why = "data quality: the window has implausible bars; fix the data first"
         for mod in (*IN_SAMPLE_CHECKS, oos):
@@ -187,33 +189,20 @@ def verify(
         for mod in (*IN_SAMPLE_CHECKS, oos):
             results.append(CheckResult(name=mod.NAME, status=CheckStatus.NOT_RUN, detail=why))
     else:
-        for mod in IN_SAMPLE_CHECKS:
-            try:
-                results.append(mod.run(ctx))
-            except Exception as exc:
-                results.append(
-                    CheckResult(
-                        name=mod.NAME, status=CheckStatus.FAILED, detail=f"check raised {exc!r}"
+        try:
+            _run_checks(ctx, split, results)
+        except SandboxError as exc:
+            # The sandbox broke, not the strategy: what ran stays, nothing else is
+            # judged, and the verdict can only be UNVERIFIED (see `sandbox_failed`).
+            sandbox_failed = f"sandbox failed, nothing more was judged: {str(exc).splitlines()[0]}"
+            done = {r.name for r in results}
+            for mod in (*IN_SAMPLE_CHECKS, oos):
+                if mod.NAME not in done:
+                    results.append(
+                        CheckResult(
+                            name=mod.NAME, status=CheckStatus.NOT_RUN, detail=sandbox_failed
+                        )
                     )
-                )
-        if all(r.status is CheckStatus.PASSED for r in results):
-            is_sharpe = metrics(ctx.in_sample_backtest(), 0, split, ctx.periods_per_year)["sharpe"]
-            try:
-                results.append(oos.run(ctx, is_sharpe))
-            except Exception as exc:
-                results.append(
-                    CheckResult(
-                        name=oos.NAME, status=CheckStatus.FAILED, detail=f"check raised {exc!r}"
-                    )
-                )
-        else:
-            results.append(
-                CheckResult(
-                    name=oos.NAME,
-                    status=CheckStatus.NOT_RUN,
-                    detail="in-sample checks failed; out-of-sample kept closed",
-                )
-            )
 
     results = [
         CheckResult(name=r.name, status=r.status, detail=r.detail, metrics=_round(r.metrics))
@@ -221,7 +210,9 @@ def verify(
     ]
     statuses = {r.status for r in results}
     outcome = (
-        VerdictOutcome.FAIL
+        VerdictOutcome.UNVERIFIED
+        if sandbox_failed
+        else VerdictOutcome.FAIL
         if CheckStatus.FAILED in statuses
         else VerdictOutcome.UNVERIFIED
         if CheckStatus.NOT_RUN in statuses
@@ -290,6 +281,40 @@ def emit_verdict(sink: EventSink, body: dict[str, Any]) -> None:
         payload,
         event_id=f"verdict:{payload['verdict_id']}",
     )
+
+
+def _run_checks(ctx: VerifyContext, split: int, results: list[CheckResult]) -> None:
+    """The in-sample checks, then the hidden out-of-sample one if they all passed.
+    A check that raises fails, except a `SandboxError`, which the caller handles."""
+    for mod in IN_SAMPLE_CHECKS:
+        try:
+            results.append(mod.run(ctx))
+        except SandboxError:
+            raise
+        except Exception as exc:
+            results.append(
+                CheckResult(
+                    name=mod.NAME, status=CheckStatus.FAILED, detail=f"check raised {exc!r}"
+                )
+            )
+    if not all(r.status is CheckStatus.PASSED for r in results):
+        results.append(
+            CheckResult(
+                name=oos.NAME,
+                status=CheckStatus.NOT_RUN,
+                detail="in-sample checks failed; out-of-sample kept closed",
+            )
+        )
+        return
+    is_sharpe = metrics(ctx.in_sample_backtest(), 0, split, ctx.periods_per_year)["sharpe"]
+    try:
+        results.append(oos.run(ctx, is_sharpe))
+    except SandboxError:
+        raise
+    except Exception as exc:
+        results.append(
+            CheckResult(name=oos.NAME, status=CheckStatus.FAILED, detail=f"check raised {exc!r}")
+        )
 
 
 def verdict_event_payload(body: dict[str, Any]) -> dict[str, Any]:
