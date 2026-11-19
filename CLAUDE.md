@@ -147,7 +147,7 @@ control API); the **Mac** is for development. Code must run on both
 uv run pytest                    # all tests, no network, no model
 uv run pytest tests/invariants   # the firm rules
 uv run ruff check . && uv run ruff format --check .
-uv run firm --help               # the CLI
+uv run firm --help               # the CLI (full reference: docs/COMMANDS.md)
 python3 scripts/check_repo.py --all   # public-repo guard (also pre-commit and CI)
 ```
 
@@ -172,6 +172,9 @@ Use fakes for adapters.
 - When the spec is ambiguous, write the question in TODO.md and ask; do not
   guess on anything that touches orders, risk or verification.
 - Keep docs honest: never show output that was not produced by a real run.
+- Every CLI command and option is documented in `docs/COMMANDS.md` with an
+  example (owner, 2026-11-19); a test fails if one is missing. Update it in
+  the same change that adds or changes a command, flag or script.
 
 ## Project commands
 

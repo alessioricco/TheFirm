@@ -62,6 +62,9 @@ and are still placeholders.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). Tested on macOS
 and Linux arm64; no GPU needed.
 
+**Every command, its options and worked examples (including an unattended
+paper run from download to stop) are in [docs/COMMANDS.md](docs/COMMANDS.md).**
+
 The desks talk over a message bus, so running the firm (not the tests) also
 needs the [NATS server](https://nats.io) (`nats-server`, 2.10 or later, with
 JetStream):

@@ -239,6 +239,9 @@ One PR per phase, test-first:
   - [ ] Paper service on the Linux box (later): a systemd unit for
         `firm bus up` that the paper unit depends on; until then the
         deploy example needs `--no-bus` or a bus started by hand.
+- [x] (2026-11-19) `docs/COMMANDS.md`: every command, option and script with
+      examples, and the unattended-run walkthrough; `tests/control/
+      test_commands_doc.py` fails if a command or option is missing.
 - [x] (2026-11-18) **G. Trade journal**: `firm.ledger.journal`, one row per
       round trip (flat -> long -> flat), rebuilt from the ledger into
       `<state>/journal.duckdb`; `firm journal build | show | export`;
