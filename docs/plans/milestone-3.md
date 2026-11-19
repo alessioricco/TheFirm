@@ -73,8 +73,10 @@ code today, which is fine for hand-written code and not for agent code.
 
 **R4. Experiment trials in the global count.**
 - Every backtest a researcher runs is a trial with `experiment_id` and its
-  bars per year. It is recorded through the same registry, published on
-  `trial.recorded`, and written to the ledger.
+  bars per year. It is recorded through the same registry and written to
+  the ledger. Built (2026-11-19): the verification desk runs research
+  backtests and counts them (`verify/research.py`; DECISIONS); publishing
+  on `trial.recorded` comes with the research manager as a service (M2).
 - Tests check that a researcher can't run a backtest that isn't counted,
   and that the deflated Sharpe of a later candidate sees those trials.
 
