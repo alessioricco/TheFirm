@@ -1115,3 +1115,28 @@ by folder, so a strategy pasted anywhere outside `examples/strategies/`,
 `src/` and `tests/` is refused even under an innocent name. Markdown is not
 checked: the plans quote the method's signature, and a strategy saved as
 prose can't be run by mistake.
+
+## 2026-11-19 — Sandbox for agent strategy code (M3 prerequisite R2, part a)
+
+Agent strategy code runs in a separate Python process inside the OS's own
+sandbox (`sandbox-exec` on macOS, `bubblewrap` on Linux) rather than in a
+container or a Python-level jail. Python can't safely restrict Python (a
+restricted `__import__` is escaped in one line through object
+introspection), so the import allow-list is only hygiene. Containers would
+add a daemon and an image to keep in sync with the venv on both machines;
+the OS sandboxes ship with macOS and are one package on Linux, start in
+under a second, and reuse the firm's own venv read-only.
+
+It fails closed: with no working OS sandbox nothing runs, and there is no
+"unsandboxed" switch for agent code. `sandbox-exec` is marked deprecated by
+Apple but is what macOS's own services use; if it ever goes, the firm's
+research moves to the DGX (Linux) or a Linux VM, and nothing else changes.
+
+Memory: macOS refuses address-space limits for Python, so a watchdog polls
+resident memory four times a second. A fast allocation can overshoot by a
+few hundred MB before it is killed; acceptable on 128 GB (DGX) and for the
+Mac, where research is temporary. Linux adds `RLIMIT_AS` as a hard cap.
+
+Errors are two types so a broken sandbox never reads as a failed (or
+passing) strategy: `StrategyError` for the strategy's own faults,
+`SandboxError` for the sandbox's.

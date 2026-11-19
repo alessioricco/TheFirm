@@ -34,6 +34,13 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install (locked)
         run: uv sync --locked --extra dev
+      - name: OS sandbox for agent strategy code (bubblewrap)
+        if: runner.os == 'Linux'
+        # Ubuntu 24.04 blocks unprivileged user namespaces by default; the
+        # runner is throwaway, so allow them for bubblewrap.
+        run: |
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Lint
         run: uv run ruff check . && uv run ruff format --check .
       - name: Types
@@ -41,6 +48,8 @@ jobs:
       - name: Firm rules
         run: uv run pytest tests/invariants -ra
       - name: All tests
+        env:
+          FIRM_REQUIRE_SANDBOX: "1"  # sandbox tests fail here, never skip
         run: uv run pytest -ra
 
   secrets:

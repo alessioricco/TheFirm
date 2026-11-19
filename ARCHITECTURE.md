@@ -10,6 +10,7 @@ verifier) built; later desks are interfaces only.
 src/firm/
   core/         typed domain objects, config profiles, bus messages (no deps on other desks)
   bus/          message bus client: in-memory and NATS JetStream transports (M2, F)
+  sandbox/      runs untrusted strategy code in a locked-down worker (M3, R2)
   data/         data plane: store, providers, normalizer, datasets, reference  (M1)
   verify/       verification desk: backtest, 5 checks, verifier, state       (M1)
   risk/         risk desk                               (M2)
@@ -494,6 +495,50 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   (`verify/strategy.py`) still imports the file in-process; agent code must
   wait for the sandboxed runner (R2).
 
+## sandbox (milestone 3, R2)
+
+Agent-written strategy code never runs inside a firm process.
+`SandboxedStrategy(path, class_name, Policy(hidden=(repo, data, state)))`
+starts one worker (`python -I -m firm.sandbox.worker`) and looks like any
+strategy (`name`, `default_params`, `signals`); every call crosses a pipe.
+One worker serves a whole verification (hundreds of `signals` calls).
+
+- **OS sandbox** (`policy.py`): `sandbox-exec` with a generated Seatbelt
+  profile on macOS, `bubblewrap --unshare-all` on Linux. No network, no
+  reading under the home folder or the `hidden` roots (except the Python
+  install, the venv and the firm's source), writes only in the worker's
+  temporary folder. macOS also forbids exec and fork; on Linux a started
+  program is in the same namespaces. `detect()` tries each backend for
+  real; with none working `start()` raises `SandboxError` and nothing
+  runs (fail closed).
+- **Environment**: rebuilt from scratch (`clean_env`): no keys, no hosts,
+  `HOME` and `TMPDIR` are the work folder, BLAS pinned to one thread.
+- **Limits**: CPU (`RLIMIT_CPU`, over the worker's life), file size, wall
+  clock per call (the parent kills the process group), memory. macOS
+  refuses every memory rlimit (a Python process already maps hundreds of
+  GB of address space), so a watchdog thread polls the group's resident
+  memory with `ps` every 0.25 s and kills it; Linux also sets `RLIMIT_AS`.
+- **Imports**: the strategy's builtins get a guarded `__import__` that
+  allows only `DEFAULT_IMPORTS` (numpy, pandas, a few stdlib modules), and
+  lose `open`, `exec`, `eval`, `compile`. Hygiene and a clear early error,
+  not the boundary: Python can't sandbox Python, the OS sandbox does.
+- **Protocol** (`protocol.py`): length-prefixed frames; a JSON header, then
+  bars as an Arrow IPC stream or signals as raw float64. The worker's own
+  stdout is moved to stderr so a `print` can't corrupt the stream.
+- **Errors**: `StrategyError` (a `ValueError`: the code raised, a forbidden
+  import, wrong number of signals; the worker keeps serving) vs
+  `SandboxError` (no sandbox, crash, a limit; the worker is gone). Callers
+  must keep them apart: a broken sandbox is not a failed strategy.
+- Gotchas: Seatbelt paths must be real paths (`/var` is a symlink to
+  `/private/var`). macOS can't nest sandboxes, so inside another sandbox
+  (a Claude Code session) `detect()` returns None and the tests skip as
+  UNVERIFIED; run them unsandboxed. CI sets `FIRM_REQUIRE_SANDBOX=1` so they
+  fail there instead, and installs bubblewrap on Linux (Ubuntu 24.04 needs
+  `kernel.apparmor_restrict_unprivileged_userns=0`).
+- Not wired in yet: the verifier and the paper run still load strategies
+  in-process. Next step (R2b): agent strategies from the private store
+  always go through the sandbox.
+
 ## control
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one
   market on paper. With `bus` (the CLI default; `--no-bus` turns it off)
@@ -551,7 +596,8 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
 - `tests/core/test_bus.py::test_permission_table_snapshot` pins who may
   publish what; edit it deliberately alongside `PUBLISHERS`.
 - `tests/core/test_import_boundaries.py` fails if one desk imports another
-  (desks may import `core` and `data`; only `control` imports desks).
+  (desks may import `core`, `data`, `bus` and `sandbox`; only `control`
+  imports desks).
 - `tests/conftest.py` blocks sockets: any network use fails the test.
 - `scripts/check_repo.py` (no data, secrets, machine paths, big files) runs
   in `.githooks/pre-commit`, in `tests/repo/` and in CI
