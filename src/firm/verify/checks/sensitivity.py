@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from firm.core.domain import CheckResult, CheckStatus
+from firm.sandbox.client import SandboxError
 from firm.verify.backtest import metrics
 from firm.verify.context import VerifyContext
 from firm.verify.strategy import ParamValue
@@ -47,6 +48,8 @@ def run(ctx: VerifyContext) -> CheckResult:
     for key, step, params in cases:
         try:
             s = metrics(ctx.in_sample_backtest(params), 0, n, ppy)["sharpe"]
+        except SandboxError:
+            raise  # the sandbox failed, not the strategy: the verifier makes it UNVERIFIED
         except Exception as exc:
             failures.append(f"{key}{step:+.0%}: rejected ({type(exc).__name__})")
             worst = float("-inf")

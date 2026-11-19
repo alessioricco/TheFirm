@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 from firm.core.domain import CheckResult, CheckStatus
+from firm.sandbox.client import SandboxError
 from firm.verify.context import VerifyContext
 
 NAME = "lookahead_truncation"
@@ -31,6 +32,8 @@ def run(ctx: VerifyContext) -> CheckResult:
     for t in points:
         try:
             cut = ctx.signals(bars.iloc[: t + 1]).to_numpy(dtype=float, na_value=np.nan)
+        except SandboxError:
+            raise  # the sandbox failed, not the strategy: the verifier makes it UNVERIFIED
         except Exception as exc:  # a strategy that can't run on less data is not causal-safe
             return CheckResult(
                 name=NAME,

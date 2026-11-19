@@ -1140,3 +1140,23 @@ Mac, where research is temporary. Linux adds `RLIMIT_AS` as a hard cap.
 Errors are two types so a broken sandbox never reads as a failed (or
 passing) strategy: `StrategyError` for the strategy's own faults,
 `SandboxError` for the sandbox's.
+
+## 2026-11-19 — Sandbox wiring (R2b): who is sandboxed, and what a failure means
+
+Sandboxing is decided by where the code lives, not by a flag someone must
+remember: anything under the private store (`<data root>/research/`) runs
+in the sandbox, and the loader refuses to import it in-process. Hand-written
+examples still run in-process (fast, and their code is public and reviewed);
+`--sandbox` sandboxes any file on request. The sandbox runs the exact bytes
+whose hash the verdict cites, so a file changed between hashing and running
+can't slip through.
+
+A sandbox failure is not evidence about the strategy, so it can't produce a
+FAIL (or a PASS): the checks already done stay in the report, the rest are
+NOT_RUN, and the verdict is UNVERIFIED. A strategy that deliberately breaks
+the sandbox gains nothing by it: UNVERIFIED can never be promoted.
+
+Found while wiring it: the OOS check counted its opening trial only after
+computing signals, so a crash in between (sandbox or not) left the vault
+opened and the trial uncounted, and the retry, a replay, never counts one.
+The trial is now recorded as soon as the vault grants the opening.

@@ -162,10 +162,7 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
 
 
 def _cmd_verify(args: argparse.Namespace) -> int:
-    from firm.data.store import data_root
-    from firm.ledger.sink import LedgerSink, ledger_path
-    from firm.ledger.store import Ledger
-    from firm.verify.runner import verify_strategy_file
+    from firm.sandbox.client import SandboxError
     from firm.verify.state import state_root
 
     path_str, _, class_name = args.strategy.rpartition(":")
@@ -173,7 +170,36 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         print("--strategy must be PATH:CLASS", file=sys.stderr)
         return EXIT_ERROR
     state = state_root(args.state_root)
-    result = verify_strategy_file(
+    try:
+        result = _verify_file(args, path_str, class_name, state)
+    except SandboxError as exc:
+        print(f"UNVERIFIED  sandbox failed before anything was judged: {exc}", file=sys.stderr)
+        return 2
+    out = (
+        Path(args.report)
+        if args.report
+        else state / "reports" / f"{result.verdict.verdict_id}.json"
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(result.report)
+    v = result.verdict
+    print(f"{v.verdict_id}  {v.outcome.value.upper()}  ({v.strategy_id} on {v.dataset_version})")
+    for c in v.checks:
+        print(f"  {c.status.value:<8} {c.name}: {c.detail}")
+    print(f"report: {out}")
+    return result.exit_code
+
+
+def _verify_file(  # type: ignore[no-untyped-def]
+    args: argparse.Namespace, path_str: str, class_name: str, state: Path
+):
+    from firm.data.store import data_root
+    from firm.ledger.sink import LedgerSink, ledger_path
+    from firm.ledger.store import Ledger
+    from firm.verify.runner import verify_strategy_file
+    from firm.verify.state import state_root
+
+    return verify_strategy_file(
         strategy_path=Path(path_str),
         class_name=class_name,
         params=json.loads(args.params) if args.params else None,
@@ -190,20 +216,8 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         as_of=datetime.fromisoformat(args.as_of).astimezone(UTC) if args.as_of else None,
         verifier_name=args.verifier,
         sink=LedgerSink(Ledger(ledger_path(state_root(args.state_root)))),
+        sandbox=args.sandbox,
     )
-    out = (
-        Path(args.report)
-        if args.report
-        else state / "reports" / f"{result.verdict.verdict_id}.json"
-    )
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_bytes(result.report)
-    v = result.verdict
-    print(f"{v.verdict_id}  {v.outcome.value.upper()}  ({v.strategy_id} on {v.dataset_version})")
-    for c in v.checks:
-        print(f"  {c.status.value:<8} {c.name}: {c.detail}")
-    print(f"report: {out}")
-    return result.exit_code
 
 
 def _cmd_state_show(args: argparse.Namespace) -> int:
@@ -470,14 +484,19 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         notifier=_owner_notifier(args.no_notify),
         bus=_paper_bus(args),
         log=_tee_log(state_root(args.state_root), f"paper-{args.market}-{args.venue}.log"),
+        sandbox=args.sandbox,
     )
     from firm.bus.server import BusDown
+    from firm.sandbox.client import SandboxError
 
     try:
         return asyncio.run(run.run())
     except DeploymentRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return EXIT_REFUSED
+    except SandboxError as exc:  # can't start: nothing ran, no order was placed
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except BusDown as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -892,6 +911,11 @@ def build_parser() -> argparse.ArgumentParser:
         "run", help="paper-trade a verified strategy on live data (needs network; Ctrl-C stops)"
     )
     prun.add_argument("--strategy", required=True, help="PATH:CLASS (the verified file)")
+    prun.add_argument(
+        "--sandbox",
+        action="store_true",
+        help="run the strategy in the sandbox (always on for the private store)",
+    )
     prun.add_argument("--params", help="JSON overrides; must equal the verified parameters")
     prun.add_argument("--verdict", required=True, help="verdict ID (v-...) of a passing report")
     prun.add_argument("--market", required=True)
@@ -941,6 +965,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     ver = sub.add_parser("verify", help="verify a strategy against a dataset version")
     ver.add_argument("--strategy", required=True, help="PATH:CLASS")
+    ver.add_argument(
+        "--sandbox",
+        action="store_true",
+        help="run the strategy in the sandbox (always on for the private store)",
+    )
     ver.add_argument("--params", help="JSON object overriding default_params")
     ver.add_argument("--dataset", required=True, help="dataset version (ds-...)")
     ver.add_argument("--venue", required=True)

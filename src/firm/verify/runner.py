@@ -31,7 +31,7 @@ from firm.data.dataset import open_dataset
 from firm.data.quality import implausible_bars
 from firm.verify.backtest import metrics, run_backtest
 from firm.verify.state import OosVault, TrialRegistry, oos_scope
-from firm.verify.strategy import load_strategy
+from firm.verify.strategy import LoadedStrategy, load_strategy, private_root, sandbox_policy
 from firm.verify.trial_scale import legacy_periods
 from firm.verify.verifier import (
     VerificationResult,
@@ -69,8 +69,59 @@ def verify_strategy_file(
     start: datetime | None = None,
     verifier_name: str = "default",
     sink: EventSink = NULL_SINK,
+    sandbox: bool = False,
 ) -> VerificationResult:
-    loaded = load_strategy(strategy_path, class_name)
+    """Verify one strategy file. Files in the private store (agent-written) run
+    only in the sandbox; `sandbox=True` sandboxes any other file too. A sandbox
+    that can't start raises `SandboxError` before anything is judged or counted."""
+    policy = sandbox_policy(
+        strategy_path, data_root=data_root, hidden=(state, config_root.parent), force=sandbox
+    )
+    loaded = load_strategy(
+        strategy_path, class_name, sandbox=policy, private_root=private_root(data_root)
+    )
+    try:
+        return _verify_loaded(
+            loaded,
+            params=params,
+            data_root=data_root,
+            dataset_version=dataset_version,
+            venue=venue,
+            instrument=instrument,
+            tf=tf,
+            config_root=config_root,
+            jurisdiction=jurisdiction,
+            market=market,
+            state=state,
+            now=now,
+            as_of=as_of,
+            start=start,
+            verifier_name=verifier_name,
+            sink=sink,
+        )
+    finally:
+        loaded.close()
+
+
+def _verify_loaded(
+    loaded: LoadedStrategy,
+    *,
+    params: Mapping[str, Any] | None,
+    data_root: Path,
+    dataset_version: str,
+    venue: str,
+    instrument: str,
+    tf: str,
+    config_root: Path,
+    jurisdiction: str,
+    market: str,
+    state: Path,
+    now: datetime,
+    as_of: datetime | None,
+    start: datetime | None,
+    verifier_name: str,
+    sink: EventSink,
+) -> VerificationResult:
     p = dict(loaded.strategy.default_params) | dict(params or {})
     cfg = load_config(config_root, jurisdiction, [market])
     profile = cfg.markets[market]
@@ -169,7 +220,7 @@ def verify_strategy_file(
         candidate_id="c-" + _h([trial_id])[:16],
         strategy_id=loaded.strategy.name,
         version=loaded.code_sha256[:12],
-        code_path=strategy_path.name,
+        code_path=loaded.path.name,
         code_sha256=loaded.code_sha256,
         spec=StrategySpec(
             hypothesis=f"hand-written {loaded.strategy.name}",

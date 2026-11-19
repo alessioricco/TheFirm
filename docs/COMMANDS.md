@@ -205,6 +205,17 @@ the identical candidate replays the sealed result.
 | `--state-root` | state (trials, out-of-sample log, reports) |
 | `--report` | where to write the report (default `<state>/reports/<verdict>.json`) |
 | `--as-of` | only bars closed by then (ISO time with zone): verify over the window an earlier opening used |
+| `--sandbox` | run the strategy in the sandbox; always on for a file in the private store |
+
+**Agent-written strategies** live in the private store
+(`<data root>/research/strategies/<dossier>/`) and are always run in the
+sandbox: a separate process under the OS sandbox (`sandbox-exec` on macOS,
+`bubblewrap` on Linux), with no network, none of your files and no keys.
+The verdict is the same as running the file directly. If no OS sandbox
+works, or the sandbox fails mid-way, nothing more is judged and the result
+is **unverified** (exit 2), never pass or fail. Inside another sandbox
+(e.g. a Claude Code session on macOS) the OS sandbox can't start: run it
+from your own terminal.
 
 ```bash
 uv run firm verify --strategy examples/strategies/ma_crossover.py:MovingAverageCrossover \
@@ -212,9 +223,13 @@ uv run firm verify --strategy examples/strategies/ma_crossover.py:MovingAverageC
 # planted lookahead, rejected on purpose:
 uv run firm verify --strategy examples/strategies/lookahead_ma.py:LookaheadCrossover \
     --dataset ds-xxxxxxxxxxxx --venue coinbase --instrument BTC-USD --tf 1d --market crypto
+# an agent-written strategy from the private store (sandboxed automatically):
+uv run firm verify \
+    --strategy data/research/strategies/d-001/ma_cross-xxxxxxxxxxxx.py:MovingAverageCrossover \
+    --dataset ds-xxxxxxxxxxxx --venue coinbase --instrument BTC-USD --tf 1d --market crypto
 ```
 
-Exit code: 0 pass, 1 fail, 2 unverified, 3 error.
+Exit code: 0 pass, 1 fail, 2 unverified (including a sandbox that failed), 3 error.
 
 ## firm state
 
@@ -343,6 +358,7 @@ Needs the bus (`firm bus up`) unless `--no-bus`.
 | `--no-notify` | no Telegram alerts |
 | `--no-bus` | desks call each other in one process, no NATS |
 | `--status-every` | seconds between status lines (default 60; 0 = off) |
+| `--sandbox` | run the strategy in the sandbox; always on for a file in the private store. If the sandbox dies mid-run, that market stops (no further orders) |
 | `--jurisdiction`, `--config` | profiles |
 | `--root` | data store |
 | `--state-root` | state and ledger |

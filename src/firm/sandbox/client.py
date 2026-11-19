@@ -71,8 +71,11 @@ class SandboxedStrategy:
         policy: Policy | None = None,
         *,
         backend: Backend | None = None,
+        code: bytes | None = None,
     ) -> None:
+        """`code`: the exact bytes to run (the caller hashed them); default: read `path`."""
         self.path, self.class_name = Path(path), class_name
+        self._code = code
         self.policy = policy or Policy()
         self._backend = backend
         self._proc: subprocess.Popen[bytes] | None = None
@@ -91,7 +94,7 @@ class SandboxedStrategy:
                 "no OS sandbox available (sandbox-exec on macOS, bubblewrap on Linux): "
                 "refusing to run strategy code unsandboxed"
             )
-        code = self.path.read_text()
+        code = (self._code if self._code is not None else self.path.read_bytes()).decode()
         self._work = os.path.realpath(tempfile.mkdtemp(prefix="firm-sandbox-"))
         self._stderr = tempfile.TemporaryFile()  # noqa: SIM115 - closed in close()
         argv = wrap(
