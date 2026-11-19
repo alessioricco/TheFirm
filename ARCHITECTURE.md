@@ -646,6 +646,25 @@ target=None, opt_in=None)` (firm rule 8). A shared library: imports only
   start.
 
 ## control
+- `api.py` (M3a): `create_app(config_root=, data_root=, state_root=)`, the
+  control API (FastAPI). Token in `<state>/dashboard/token` (0600,
+  `load_or_create_token`); `/login?token=` sets an HttpOnly SameSite=Strict
+  cookie; `/api/*` takes the cookie or a bearer header (compared with
+  `hmac.compare_digest`). Changes need `Content-Type: application/json`
+  (415 otherwise: no cross-site form posts). Research endpoints call the
+  same helpers as `firm research` (`control/research.py`: `open_floor`,
+  `owner_command(..., via=)`, `floor_view`, `dossier_view`); `DossierError`
+  maps to 404 (no dossier) or 409. `/api/paper` = `status.paper_status`;
+  `/api/ledger` pages events; WebSocket `/api/live` polls the ledger and
+  pushes events after the head it saw on connect. No route touches orders,
+  risk, config or budgets (a test checks the route names). Docs, OpenAPI
+  and Swagger are off. `web/index.html` is a placeholder until the page PR.
+  `firm dashboard serve` refuses any host but loopback.
+- `status.py`: `paper_status(ledger, data_root)` from the ledger alone:
+  accounts (opening + fills), runs (last start/stop), latest feed status,
+  heartbeat, halts, trades and net P&L via `journal.trades_from_ledger` (a
+  ledger the rebuild refuses reports its error instead of failing);
+  `describe()` for `firm paper status`.
 - `paper.py`: `PaperRun` (`firm paper run`), the composition root for one
   market on paper. With `bus` (the CLI default; `--no-bus` turns it off)
   risk, execution and the notifier each log in as themselves and talk only

@@ -16,6 +16,7 @@ from firm import __version__
 
 EXIT_ERROR = 3
 EXIT_REFUSED = 4  # the deployment gate said no: a supervisor must not retry
+DASHBOARD_PORT = 8765
 
 
 def _cmd_version(args: argparse.Namespace) -> int:
@@ -502,6 +503,51 @@ def _cmd_paper_run(args: argparse.Namespace) -> int:
         return 1
 
 
+def _cmd_dashboard_serve(args: argparse.Namespace) -> int:
+    from firm.control.api import LOOPBACK, create_app
+    from firm.data.store import data_root
+    from firm.verify.state import state_root
+
+    if args.host not in LOOPBACK:
+        print(
+            f"refusing to serve on {args.host}: loopback only for now (127.0.0.1); "
+            "reach it from another machine through an SSH tunnel or Tailscale",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+    import uvicorn
+
+    app = create_app(
+        config_root=Path(args.config),
+        data_root=data_root(args.root),
+        state_root=state_root(args.state_root),
+    )
+    print(
+        f"dashboard on http://{args.host}:{args.port}  (log in: `uv run firm dashboard url`)",
+        flush=True,
+    )
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
+def _cmd_dashboard_url(args: argparse.Namespace) -> int:
+    from firm.control.api import load_or_create_token
+    from firm.verify.state import state_root
+
+    code = load_or_create_token(state_root(args.state_root))
+    print(f"http://127.0.0.1:{args.port}/login?token={code}")
+    return 0
+
+
+def _cmd_paper_status(args: argparse.Namespace) -> int:
+    from firm.control.status import describe, paper_status
+    from firm.data.store import data_root
+
+    status = paper_status(_ledger(args), data_root(args.root))
+    print(json.dumps(status, indent=1) if args.json else "\n".join(describe(status)))
+    return 0
+
+
 def _paper_bus(args: argparse.Namespace):  # type: ignore[no-untyped-def]
     """A login per service on the local bus (None with --no-bus). Connecting
     raises `BusDown`, with how to start it, if the bus isn't running."""
@@ -894,6 +940,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     add_research_parser(sub)
 
+    dash = sub.add_parser(
+        "dashboard", help="the owner's web dashboard (loopback only)"
+    ).add_subparsers(dest="dashboard_cmd")
+    dserve = dash.add_parser("serve", help="serve the dashboard in the foreground (Ctrl-C stops)")
+    dserve.add_argument("--host", default="127.0.0.1", help="loopback only (default 127.0.0.1)")
+    dserve.add_argument("--port", type=int, default=DASHBOARD_PORT)
+    dserve.add_argument("--config", default="config")
+    dserve.add_argument("--root", help="data store (default $FIRM_DATA_ROOT or ./data)")
+    dserve.add_argument(
+        "--state-root", help="state and ledger (default $FIRM_STATE_ROOT or ./state)"
+    )
+    dserve.set_defaults(func=_cmd_dashboard_serve)
+    durl = dash.add_parser("url", help="print the one-click login URL (contains the token)")
+    durl.add_argument("--port", type=int, default=DASHBOARD_PORT)
+    durl.add_argument("--state-root", help="state (default $FIRM_STATE_ROOT or ./state)")
+    durl.set_defaults(func=_cmd_dashboard_url)
+
     feed = sub.add_parser("feed", help="live market data streams").add_subparsers(dest="feed_cmd")
     watch = feed.add_parser("watch", help="run a live stream for a while (needs network)")
     watch.add_argument("--provider", required=True, help="kraken_ws | coinbase_ws | binance_ws")
@@ -911,6 +974,15 @@ def build_parser() -> argparse.ArgumentParser:
     watch.set_defaults(func=_cmd_feed_watch)
 
     paper = sub.add_parser("paper", help="paper trading").add_subparsers(dest="paper_cmd")
+    pst = paper.add_parser(
+        "status", help="accounts, runs, feeds, halts and P&L, from the ledger (read-only)"
+    )
+    pst.add_argument(
+        "--root", help="data store, for currencies (default $FIRM_DATA_ROOT or ./data)"
+    )
+    pst.add_argument("--state-root", help="the paper ledger (default $FIRM_STATE_ROOT or ./state)")
+    pst.add_argument("--json", action="store_true", help="machine-readable output")
+    pst.set_defaults(func=_cmd_paper_status)
     prun = paper.add_parser(
         "run", help="paper-trade a verified strategy on live data (needs network; Ctrl-C stops)"
     )
@@ -1013,6 +1085,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "notify",
             "bus",
             "research",
+            "dashboard",
         ):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")

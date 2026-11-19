@@ -74,7 +74,8 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Unattended Linux service for `firm paper run` (systemd user unit) | **implemented**; a unit for `firm bus up` is still to do |
 | Research floor: dossiers, budgets, the research manager, `firm research` commands (start, list, show, pause, resume, redirect, close, floor brief) | **implemented**; nothing runs a researcher yet |
 | Research agents (the researcher loop on Certo and local models), methods library, promotion gate | **planned** (milestone 3, in progress) |
-| Dashboard / web UI, control API, MCP endpoint | **planned** |
+| Control API (`firm dashboard serve`): research floor, paper status, live ledger events; token login; loopback only | **implemented**; the page (charts, panels) is next, then the kill switch |
+| Full web UI (charts, configurable panels), MCP endpoint, remote access | **planned** |
 | Judge (local decision model), opportunity scout | **planned** |
 | US shares paper trading (IBKR), EODHD data | **planned**; a `us_equities` profile exists and Yahoo daily bars can be downloaded, but there is no shares paper path |
 | Live trading with real money | **not in v1**; refused by the config loader |
@@ -459,6 +460,7 @@ paper venue over the bus; the risk desk can approve, resize down or reject.
 ### Monitoring
 
 ```bash
+uv run firm paper status                         # accounts, runs, feeds, halts, P&L (from the ledger)
 tail -f state/logs/paper-crypto-coinbase.log     # decisions + a status line every minute
 uv run firm bus status                           # the stream and each desk's consumer
 uv run firm ledger show --tail 20                # the latest recorded events

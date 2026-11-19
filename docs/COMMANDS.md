@@ -16,7 +16,7 @@ version, `v-xxxxxxxxxxxxxxxx` a verdict. Use the ones your own runs print.
 - Reference: [data](#firm-data) · [verify](#firm-verify) · [state](#firm-state) ·
   [ledger](#firm-ledger) · [journal](#firm-journal) · [feed](#firm-feed) ·
   [paper](#firm-paper) · [bus](#firm-bus) · [notify](#firm-notify) ·
-  [research](#firm-research) · [version](#firm-version)
+  [research](#firm-research) · [dashboard](#firm-dashboard) · [version](#firm-version)
 - [Scripts](#scripts)
 - [Exit codes](#exit-codes) · [Where things are written](#where-things-are-written)
 
@@ -367,6 +367,23 @@ The terminal shows each decision and a status line; everything is also
 written to `<state>/logs/paper-<market>-<venue>.log` (the run prints the
 `tail -f` command) and to the ledger.
 
+### firm paper status
+
+Accounts, runs, feeds, risk heartbeat, halts and P&L, from the ledger alone
+(read-only; it never talks to a running paper run, so it works during a
+run, after one, or on a copy of the state). A run killed before it could
+record its stop still shows as "running (last start has no stop)".
+
+| Option | Meaning |
+| --- | --- |
+| `--state-root` | the paper ledger |
+| `--root` | data store (for each instrument's currencies) |
+| `--json` | machine-readable output |
+
+```bash
+uv run firm paper status
+```
+
 ### firm paper replay
 
 Runs a verified strategy's history through the paper path (risk desk, paper
@@ -563,6 +580,56 @@ uv run firm research brief --text "prefer 1h and 4h; stay uncorrelated with the 
 uv run firm research brief            # show it
 ```
 
+## firm dashboard
+
+The owner's web dashboard and its control API (milestone 3, being built):
+the research floor (see and steer dossiers) and paper trading status, with
+live ledger events. Loopback only for now. **Read-only for trading**: it
+can't place, size or cancel an order or touch risk; the kill switch comes
+separately. The page itself (charts, panels) is still a placeholder listing
+the API; the API is complete.
+
+Login is a token in `<state>/dashboard/token` (mode 600, made on first use).
+Open the URL `firm dashboard url` prints: it sets the token as an HttpOnly
+cookie and opens the page. Scripts can send `Authorization: Bearer <token>`.
+
+### firm dashboard serve
+
+Serves the dashboard in the foreground (Ctrl-C stops it).
+
+| Option | Meaning |
+| --- | --- |
+| `--host` | loopback only (default `127.0.0.1`); anything else is refused |
+| `--port` | default 8765 |
+| `--config` | config root (`research.yaml`) |
+| `--root` | data store (dossiers, instrument records) |
+| `--state-root` | state: ledger, token |
+
+```bash
+uv run firm dashboard serve
+```
+
+API (all need the token): `GET /api/research`, `GET /api/research/<id>`,
+`POST /api/research` (start), `POST /api/research/<id>/pause | resume |
+redirect | close`, `PUT /api/research/brief`, `GET /api/paper`,
+`GET /api/ledger?after=<seq>&limit=<n>`, WebSocket `/api/live` (new ledger
+events as they are written). Changes need a JSON body; each is an
+OWNER_COMMAND in the ledger, "via dashboard".
+
+### firm dashboard url
+
+Prints the one-click login URL, which **contains the token**: open it in
+your browser, don't paste it anywhere else.
+
+| Option | Meaning |
+| --- | --- |
+| `--port` | the port `serve` uses (default 8765) |
+| `--state-root` | state (where the token is) |
+
+```bash
+uv run firm dashboard url
+```
+
 ## firm version
 
 Prints the version (also `firm --version`).
@@ -607,4 +674,5 @@ uv run python scripts/download_data.py --provider kraken --symbol XBTUSD \
 | `<state>/bus/` | bus logins, server config, JetStream store |
 | `<state>/logs/` | `paper-<market>-<venue>.log`, `bus.log` |
 | `<state>/replays/` | `firm paper replay` scratch folders |
+| `<state>/dashboard/token` | the dashboard login token (mode 600) |
 | `$FIRM_DATA_ROOT/research/` | private store: `strategies/<dossier>/`, `dossiers/<id>.jsonl`, `floor_briefs.jsonl` |

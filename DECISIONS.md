@@ -1268,3 +1268,29 @@ backtester, verifier and sandbox.
   linked to the old one. A draft just takes the new brief.
 - **Pause is not a stage**: a paused dossier keeps where it was, and only
   stops running. Every owner command is an OWNER_COMMAND ledger event.
+
+## 2026-11-19 — Dashboard v1, part one: the control API (M3a)
+
+Owner decisions: a token kept in the state folder for login; the kill
+switch in its own PR after the dashboard, because it changes the order
+path; FastAPI + uvicorn, and the vendored chart and panel libraries.
+
+- **Token, not accounts**: one owner, one machine for now. The token is
+  created on first use with mode 0600, compared in constant time, and lives
+  in an HttpOnly, SameSite=Strict cookie, so page scripts can't read it and
+  other sites can't send it. Changes need a JSON body, which a cross-site
+  form can't send without a CORS preflight the API never answers. Loopback
+  only: `firm dashboard serve` refuses another host; remote access will go
+  through Tailscale or an SSH tunnel, not an open port.
+- **Read-only for trading**: no route can place, size or cancel an order, or
+  read or change risk, config or budgets; a test checks the route names.
+  Paper status is built from the ledger alone, so the dashboard never talks
+  to the running paper run and can't disturb it.
+- **Supply-chain cooldown**: FastAPI's newest release was a day old, and so
+  was one of its dependencies. FastAPI is pinned to 0.162.0 and
+  `annotated-doc` constrained (`[tool.uv] constraint-dependencies`), so
+  every new package is at least about two weeks old. A project-wide
+  `exclude-newer` was tried and rejected: it also downgraded packages the
+  firm already used.
+- Split in two PRs: this API (tested in-process) and the page (charts,
+  panels), so each stays reviewable.
