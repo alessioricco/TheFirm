@@ -7,8 +7,10 @@ does, and how it is kept safe. Every command and option is also in the
 [command reference](COMMANDS.md#firm-dashboard).
 
 > **Paper money only.** The dashboard can't place, size or cancel an order,
-> and can't read or change risk limits, config or budgets. It reads the
-> ledger the paper run writes and never talks to the run itself.
+> and can't read or change risk limits, config or budgets. Its one trading
+> action is the owner's kill switch, which stops new buying through the
+> risk desk. Everything else it shows comes from the ledger the paper run
+> writes.
 
 ## Contents
 
@@ -149,13 +151,35 @@ The paper run, read from its ledger.
 | Trades & P&L | closed and open trades and net P&L of closed trades, rebuilt the same way as the trade journal |
 | Price | candles for the run's instrument and timeframe, from the dataset its verdict cites, with the run's fills marked (Buy / Sell). The history ends where that dataset ends: the dashboard never contacts the venue |
 | Feeds | the latest status of each live stream (fresh, connected, stale, disconnected) |
-| Risk | the risk heartbeat, risk halts recorded (kill switch, drawdown, daily loss), and the kill switch |
+| Risk | the kill switch for each market and for all markets (on or off, with a Kill or Resume button), the risk heartbeat, risk halts recorded (kill switch, drawdown, daily loss) |
 | Trading activity | fills, orders, risk decisions and halts, feed and market status, alerts, live |
 
-**Kill switch:** not in the dashboard yet. It comes in the next release,
-with a confirmation, through the bus and the risk desk. Until then stop a
-run from its terminal with Ctrl-C, or `systemctl --user stop
-firm-paper@<name>` for the Linux service.
+### Kill switch
+
+In **Trading → Risk**, each market has a **Kill** button, and so does
+**All markets**.
+
+1. Click **Kill** next to the market (or All markets).
+2. Give a reason (recorded) and type the market's name (`crypto`, or `ALL`)
+   to confirm: the button stays disabled until it matches.
+3. The dashboard records the command in the ledger, sends it over the bus
+   to the paper run's risk desk, and waits for the desk to record the halt.
+   You see "confirmed by the risk desk", and you get an urgent alert.
+
+While a kill switch is on, a **red banner** across every view says so, and
+the market's row turns red with a **Resume** button (same confirmation).
+
+What it does: the risk desk rejects every new buy on that market (or every
+market). Sells that reduce a position still go through, and nothing already
+filled is undone. It **stays on after a restart** of the paper run (the run
+replays it from its ledger at start) until you resume.
+
+If the dashboard says the command was **recorded but not sent** (the bus
+isn't running) or **not confirmed** (no running paper run answered), the
+kill applies when the run next starts; to stop a running run at once, use
+Ctrl-C in its terminal or `systemctl --user stop firm-paper@<name>`. From
+a terminal the same is `uv run firm kill --market crypto --reason "..."
+--confirm` and `uv run firm resume ...` ([COMMANDS.md](COMMANDS.md#firm-kill)).
 
 ### Ledger
 
@@ -198,8 +222,11 @@ On a narrow window or a phone the panels stack in one column.
   website can't send from your browser; the cookie is SameSite=Strict; a
   strict Content-Security-Policy allows only the page's own scripts (no
   inline or third-party code) and forbids framing the page.
-- **Read-only for trading.** No endpoint can place, size or cancel an order
-  or touch risk, config or budgets; a test checks the route names. Research
+- **One trading action, the kill switch.** No endpoint can place, size or
+  cancel an order or touch risk limits, config or budgets; a test checks the
+  route names. The kill switch can only stop new buying (or release that
+  stop), needs the market's name typed to confirm, and goes through the risk
+  desk like `firm kill`. Research
   steering goes through the same rules as the CLI (a hypothesis stays
   locked, closing needs a reason, a closed dossier takes no changes).
 - **Everything recorded.** Each change you make is an OWNER_COMMAND event in
@@ -236,4 +263,7 @@ port to the internet.
 | The chart's history stops before today | Expected: it shows the dataset the run was verified on, never live prices. The run's own decisions are in the Trading activity and the log. |
 | "Trades can't be rebuilt from this ledger" | The trade rebuild found an incomplete order chain (for example a ledger copied part-way). The other panels still work; `uv run firm journal build` says more. |
 | Live indicator stays on "Reconnecting" | The server stopped or restarted; it reconnects by itself once `serve` is running again. |
+| Kill switch: "recorded, but the bus isn't running" | The kill is in the ledger and applies when the paper run next starts. Start `firm bus up` so a running run hears it; to stop the run now, Ctrl-C in its terminal. |
+| Kill switch: "sent but not confirmed" | No running paper run answered (stopped, or on another state folder). It applies when the run starts; check **Paper run** in the Trading view. |
+| The Kill button stays disabled | Type the market's name exactly (`crypto`), or `ALL` for every market. |
 | A panel is too small or in the wrong place | **Edit layout**, then drag or resize, or **Reset layout**. |

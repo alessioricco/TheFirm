@@ -15,7 +15,7 @@ version, `v-xxxxxxxxxxxxxxxx` a verdict. Use the ones your own runs print.
 - [Walkthrough: verify a strategy, then paper-trade it unattended](#walkthrough-verify-a-strategy-then-paper-trade-it-unattended)
 - Reference: [data](#firm-data) · [verify](#firm-verify) · [state](#firm-state) ·
   [ledger](#firm-ledger) · [journal](#firm-journal) · [feed](#firm-feed) ·
-  [paper](#firm-paper) · [bus](#firm-bus) · [notify](#firm-notify) ·
+  [paper](#firm-paper) · [kill / resume](#firm-kill) · [bus](#firm-bus) · [notify](#firm-notify) ·
   [research](#firm-research) · [dashboard](#firm-dashboard) · [version](#firm-version)
 - [Scripts](#scripts)
 - [Exit codes](#exit-codes) · [Where things are written](#where-things-are-written)
@@ -402,6 +402,70 @@ signals disagree. Writes to a scratch folder; the real ledger is only read.
 | `--root` | data store |
 | `--state-root` | reports and the paper ledger (read only) |
 
+## firm kill
+
+The owner's **kill switch**: the paper run's risk desk stops all new buying
+on a market (`--market`) or on every market (`--all`), at once and until
+`firm resume`. Sells that reduce a position still go through; nothing
+already filled is undone. The same as the dashboard's Kill button
+([DASHBOARD.md](DASHBOARD.md#kill-switch)).
+
+What happens:
+
+1. It is recorded in the ledger (an OWNER_COMMAND, "via cli").
+2. It is sent on the bus (`control.command`; only the control service may
+   send it) to the running paper run's risk desk, which applies it, records
+   the halt and raises your urgent alert.
+3. The command waits up to `--wait` seconds for that record and says
+   "confirmed: the risk desk has killed ...".
+
+A kill **survives a restart**: the paper run's risk desk replays the
+owner's commands from its ledger when it starts. If the bus isn't running
+(or with `--no-bus`), the kill is recorded and applies when the run next
+starts; to stop a running run at once, Ctrl-C in its terminal (or
+`systemctl --user stop firm-paper@<name>`).
+
+| Option | Meaning |
+| --- | --- |
+| `--market` | the market to kill, e.g. `crypto` |
+| `--all` | every market (global) |
+| `--reason` | why (required, recorded) |
+| `--confirm` | required: without it, nothing happens |
+| `--wait` | seconds to wait for the risk desk's confirmation (default 10) |
+| `--no-bus` | only record it (applies at the run's next start) |
+| `--config` | config root (`bus.yaml`) |
+| `--state-root` | the paper run's state and ledger |
+
+```bash
+uv run firm kill --market crypto --reason "feed looks wrong" --confirm
+uv run firm kill --all --reason "going offline" --confirm
+```
+
+Exit code: 0 confirmed by the risk desk; 1 recorded but not confirmed (no
+bus, or no running paper run answered); 3 refused (no `--confirm`, missing
+reason).
+
+## firm resume
+
+Releases a kill switch (the only way to). Same path as `firm kill`: the
+ledger, the bus, the risk desk's confirmation, an alert. Refused if no kill
+switch is on for that market (or for all markets).
+
+| Option | Meaning |
+| --- | --- |
+| `--market` | the market to resume |
+| `--all` | release the global kill switch |
+| `--reason` | why (required, recorded) |
+| `--confirm` | required |
+| `--wait` | seconds to wait for the risk desk's confirmation (default 10) |
+| `--no-bus` | only record it |
+| `--config` | config root |
+| `--state-root` | the paper run's state and ledger |
+
+```bash
+uv run firm resume --market crypto --reason "checked: feed fine" --confirm
+```
+
 ## firm bus
 
 The message bus between desks (NATS with JetStream). Settings in
@@ -585,8 +649,9 @@ uv run firm research brief            # show it
 The owner's web dashboard: the research floor (see and steer dossiers), the
 paper run (account, P&L, price chart with fills, feeds, risk), the ledger
 and this command reference, with live updates and panels you can arrange.
-Loopback only. **Read-only for trading**: it can't place, size or cancel an
-order or touch risk; the kill switch comes separately. **How to turn it on,
+Loopback only. Its only trading action is the owner's **kill switch** (and
+its release), the same as `firm kill` / `firm resume`; it can't place, size
+or cancel an order or change risk limits. **How to turn it on,
 log in and use each view: [DASHBOARD.md](DASHBOARD.md).** To preview it on
 synthetic data: `scripts/dashboard_demo.py` ([Scripts](#scripts)).
 
@@ -615,7 +680,9 @@ API (all need the token): `GET /api/research`, `GET /api/research/<id>`,
 redirect | close`, `PUT /api/research/brief`, `GET /api/paper`,
 `GET /api/paper/chart?market=&venue=`, `GET /api/ledger?after=<seq> |
 before=<seq>&limit=<n>`, `GET /api/meta`, `GET /api/commands`,
-`GET | PUT /api/layouts/<research|trading>`, WebSocket `/api/live` (new
+`GET | PUT /api/layouts/<research|trading>`, `GET | POST /api/killswitch`
+(state; kill or resume, with `confirm` repeating the market or `ALL`),
+WebSocket `/api/live` (new
 ledger events as they are written). Changes need a JSON body; research
 changes are OWNER_COMMAND events in the ledger, "via dashboard".
 
@@ -647,7 +714,7 @@ Run with `uv run python scripts/<name>` (shell scripts directly).
 | --- | --- |
 | `download_data.py` | Public market data from a provider into the data store, with a sidecar per download. `--providers` lists them. Options: `--provider`, `--symbol` (as the provider spells it), `--instrument` (firm ID), `--venue`, `--asset-class crypto\|equity`, `--quote`, `--tf`, `--since`, `--until`, `--listed-at` (needed the first time), `--trades-pages N`, `--root`, `--dry-run`. |
 | `dashboard_demo.py` | Builds a demo for the dashboard from synthetic data only (a store, a real verification of the example strategy, a paper-run history with fills, dossiers in every stage). `--out DIR` (default `data-demo-dashboard`, git-ignored), `--force` to replace it. Prints the `firm dashboard serve` command for it. See [DASHBOARD.md](DASHBOARD.md#2-try-it-on-demo-data-first). |
-| `bus_smoke.py` | Starts a throwaway `nats-server` exactly as `firm bus up` does and checks the bus end to end, including that the server refuses what the permission table forbids. Run after changing `src/firm/bus/`. |
+| `bus_smoke.py` | Starts a throwaway `nats-server` (a free port, a temporary folder: never your running bus) exactly as `firm bus up` does and checks the bus end to end: the order path, heartbeats, durable delivery, alerts, the kill switch (a kill sent while risk was down still arrives; only control may send one), and that the server refuses what the permission table forbids. Run after changing `src/firm/bus/`. |
 | `check_repo.py` | The public-repo guard: no data, secrets, machine paths, big files, or strategy code outside `examples/strategies/`, `src/` and `tests/` (agent strategies live in the private store). `--staged` (pre-commit hook) or `--all` (CI). |
 | `install_paper_service.sh <name>` | Linux only: installs the `firm-paper@<name>` systemd user unit and its config file (see `deploy/README.md`). Starts nothing. |
 

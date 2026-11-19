@@ -684,6 +684,17 @@ target=None, opt_in=None)` (firm rule 8). A shared library: imports only
   checked by a test; TradingView attribution in `NOTICE`, the chart's logo
   and the page footer. Gotcha: CSS `display` beats the `hidden` attribute,
   so `app.css` sets `[hidden] { display: none !important }`.
+- `killswitch.py` (M3b): the owner's kill switch. `new_command(kind,
+  market=|None, reason=)` -> `OwnerCommand`; `issue(ledger, cmd, publish=,
+  via=)` records an OWNER_COMMAND (`request:<id>`, `requested: true`) first,
+  then publishes on `control.command` as the control service
+  (`bus_publisher`); False when it is only recorded. `owner_commands(ledger)`
+  (deduplicated by command ID, oldest first) feeds `RiskDesk.restore` at
+  paper-run start; `kill_state(ledger)` (latest per scope) feeds the CLI and
+  the dashboard; `wait_applied` watches for the desk's own record (RISK_HALT
+  "owner kill: <reason>", or OWNER_COMMAND `cmd:<id>` for a resume).
+  `kill_cli.py`: `firm kill | resume` (`--confirm` required). The API's
+  `POST /api/killswitch` needs `confirm` = the market or `ALL`.
 - `status.py`: `paper_status(ledger, data_root)` from the ledger alone:
   accounts (opening + fills), runs (last start/stop), latest feed status,
   heartbeat, halts, trades and net P&L via `journal.trades_from_ledger` (a

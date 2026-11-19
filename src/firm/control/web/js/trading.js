@@ -6,6 +6,7 @@ import { h, icon, clear, fmt, timeAgo, copyText } from "./dom.js";
 import { mountGrid, panelAction } from "./layout.js";
 import { toast } from "./ui.js";
 import { activityFeed } from "./activity.js";
+import { killBlock, onKillChange, refreshKill } from "./killswitch.js";
 
 const TRADING_EVENTS = new Set([
   "fill", "order_proposal", "order_intent", "order_update", "risk_decision", "risk_halt",
@@ -18,8 +19,8 @@ const DEFAULTS = [
   { id: "pnl", title: "Trades & P&L", subtitle: "rebuilt like the journal", x: 8, y: 0, w: 4, h: 4 },
   { id: "chart", title: "Price", subtitle: "", x: 0, y: 4, w: 8, h: 8, minW: 4, minH: 4 },
   { id: "feeds", title: "Feeds", subtitle: "live market data", x: 8, y: 4, w: 4, h: 3 },
-  { id: "risk", title: "Risk", subtitle: "heartbeat, halts, kill switch", x: 8, y: 7, w: 4, h: 5 },
-  { id: "activity", title: "Trading activity", subtitle: "live from the ledger", x: 0, y: 12, w: 12, h: 4 },
+  { id: "risk", title: "Risk", subtitle: "kill switch, heartbeat, halts", x: 8, y: 7, w: 4, h: 6 },
+  { id: "activity", title: "Trading activity", subtitle: "live from the ledger", x: 0, y: 13, w: 12, h: 4 },
 ];
 
 let panels = null;
@@ -39,6 +40,7 @@ export async function mountTrading() {
     filter: (e) => TRADING_EVENTS.has(e.type),
     empty: "No trading activity in this ledger yet.",
   });
+  onKillChange(() => status && renderRisk());
   await feed.load();
   await refreshTrading();
 }
@@ -68,6 +70,7 @@ export async function refreshTrading(withChart = false) {
   renderPnl();
   renderFeeds();
   renderRisk();
+  refreshKill();
   if (!selected && status.runs.length) selected = key(status.runs[status.runs.length - 1]);
   if (withChart || !chart) await loadChart();
 }
@@ -190,6 +193,10 @@ function renderRisk() {
   const body = clear(panels.get("risk").body);
   const hbs = Object.entries(status.heartbeat);
   body.append(
+    h("div", { class: "risk-block killswitch" },
+      h("h5", {}, icon("shield", 14), " Kill switch"),
+      killBlock(status.runs.map((r) => r.market)),
+    ),
     h("div", { class: "risk-block" },
       h("h5", {}, "Heartbeat"),
       hbs.length
@@ -204,11 +211,6 @@ function renderRisk() {
         ? h("ul", { class: "plain" }, status.halts.slice().reverse().map((x) =>
             h("li", {}, h("span", { class: "badge badge-bad" }, x.scope), ` ${x.market || "all markets"}: ${x.reason} · `, timeAgo(x.at))))
         : h("p", { class: "muted small" }, "No risk halt recorded."),
-    ),
-    h("div", { class: "risk-block killswitch" },
-      h("h5", {}, icon("shield", 14), " Kill switch"),
-      h("p", { class: "small" }, "Coming in the next release, with confirmation, through the bus and the risk desk. Until then, stop a run from its terminal with Ctrl-C, or:"),
-      codeLine("systemctl --user stop firm-paper@crypto"),
     ),
   );
 }

@@ -16,6 +16,8 @@ const IN_DASHBOARD = {
   "firm research close": "Research → Close",
   "firm research brief": "Research → Floor brief",
   "firm paper status": "Trading view",
+  "firm kill": "Trading → Risk → Kill",
+  "firm resume": "Trading → Risk → Resume",
   "firm ledger show": "Ledger view",
 };
 
@@ -31,12 +33,14 @@ const GROUP_INFO = {
   notify: "Alerts to the owner on Telegram.",
   research: "The research floor: dossiers, briefs, budgets.",
   dashboard: "This dashboard.",
+  kill: "The owner's kill switch: no new buying on a market, or everywhere.",
+  resume: "Release a kill switch.",
   version: "The version.",
 };
 
 let all = [];
 // The order you'd use them in: data, then verify, then paper trading, then the rest.
-const GROUP_ORDER = ["data", "verify", "state", "paper", "feed", "bus", "notify", "ledger", "journal", "research", "dashboard", "version"];
+const GROUP_ORDER = ["data", "verify", "state", "paper", "kill", "resume", "feed", "bus", "notify", "ledger", "journal", "research", "dashboard", "version"];
 
 export async function mountCommands() {
   const root = document.getElementById("commands-root");

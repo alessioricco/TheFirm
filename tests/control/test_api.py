@@ -135,8 +135,10 @@ def test_changes_need_a_json_body(env) -> None:
 
 
 def test_no_endpoint_can_touch_orders_or_risk(env) -> None:
+    """The one trading action is the owner's kill switch (M3b): it can only stop
+    new buying or release that stop, through the risk desk. Nothing else."""
     client, _, _ = env
-    paths = {r.path for r in client.app.routes}
+    paths = {r.path for r in client.app.routes} - {"/api/killswitch"}
     for word in ("order", "kill", "risk", "intent", "verdict", "config", "budget"):
         assert not any(word in p for p in paths), (word, paths)
 

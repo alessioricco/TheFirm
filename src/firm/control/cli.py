@@ -936,9 +936,11 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
         cmd.set_defaults(func=func)
 
+    from firm.control.kill_cli import add_kill_parsers
     from firm.control.research_cli import add_research_parser
 
     add_research_parser(sub)
+    add_kill_parsers(sub)
 
     dash = sub.add_parser(
         "dashboard", help="the owner's web dashboard (loopback only)"

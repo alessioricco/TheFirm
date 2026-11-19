@@ -25,7 +25,7 @@ import hmac
 import os
 import secrets
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, RedirectResponse
@@ -99,6 +99,13 @@ class FloorBriefBody(BaseModel):
     text: str
 
 
+class KillBody(BaseModel):
+    action: Literal["kill", "resume"]
+    market: str | None = None  # None: every market
+    reason: str = Field(min_length=1, max_length=300)
+    confirm: str  # must repeat the market's name, or ALL
+
+
 class LayoutItem(BaseModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9-]{0,40}$")
     x: int = Field(ge=0, le=11)
@@ -117,7 +124,11 @@ def create_app(
     data_root: Path,
     state_root: Path,
     poll_seconds: float = 1.0,
+    publish_factory=None,  # type: ignore[no-untyped-def]
+    kill_wait_seconds: float = 8.0,
 ) -> FastAPI:
+    """`publish_factory(config_root, state_root)`: how owner commands reach the risk
+    desk (default: the bus, as the control service)."""
     expected = load_or_create_token(state_root)
     app = FastAPI(title="The firm", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -299,6 +310,49 @@ def create_app(
     @app.get("/api/paper", dependencies=guarded)
     def paper() -> dict[str, Any]:
         return paper_status(_ledger(), data_root)
+
+    # ------------------------------------------------------------ kill switch
+    @app.get("/api/killswitch", dependencies=guarded)
+    def killswitch() -> dict[str, Any]:
+        from firm.control.killswitch import kill_state
+
+        markets = sorted(p.stem for p in (config_root / "markets").glob("*.yaml"))
+        return {"state": kill_state(_ledger()), "markets": markets}
+
+    @app.post("/api/killswitch", dependencies=change)
+    async def killswitch_command(body: KillBody) -> dict[str, Any]:
+        """The owner's kill switch (or its release), as `firm kill` / `firm resume`.
+        Recorded in the ledger, sent to the risk desk over the bus, and confirmed
+        when the desk records it. `confirm` must repeat the market (or ALL)."""
+        from firm.control.killswitch import (
+            bus_publisher,
+            issue,
+            kill_state,
+            new_command,
+            wait_applied,
+        )
+
+        expected = body.market or "ALL"
+        if body.confirm.strip() != expected:
+            raise HTTPException(400, f"type {expected} to confirm")
+        led = _ledger()
+        current = kill_state(led)
+        on = current["global"] if body.market is None else current["markets"].get(body.market)
+        if body.action == "resume" and on is None:
+            raise HTTPException(409, f"no kill switch is on for {body.market or 'all markets'}")
+        try:
+            cmd = new_command(body.action, market=body.market, reason=body.reason)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        factory = publish_factory or bus_publisher
+        sent = await issue(led, cmd, publish=factory(config_root, state_root), via="dashboard")
+        confirmed = await wait_applied(led, cmd, kill_wait_seconds) if sent else False
+        return {
+            "command_id": cmd.command_id,
+            "sent": sent,
+            "confirmed": confirmed,
+            "state": kill_state(led),
+        }
 
     @app.get("/api/paper/chart", dependencies=guarded)
     def paper_chart(market: str, venue: str, bars: int = 500) -> dict[str, Any]:

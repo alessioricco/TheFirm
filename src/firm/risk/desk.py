@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import ROUND_DOWN, Decimal
@@ -100,6 +101,17 @@ class RiskDesk:
             self._halt(cmd.scope, cmd.market, f"owner kill: {cmd.reason}", cmd.issued_at)
         else:
             self.resume(cmd)
+
+    def restore(self, commands: Iterable[OwnerCommand]) -> None:
+        """Replay the owner's kill and resume commands, oldest first (at start-up),
+        so a kill switch survives a restart. Re-recording a halt is idempotent in
+        the ledger (same halt ID)."""
+        for cmd in commands:
+            if cmd.kind is OwnerCommandKind.KILL:
+                self.command(cmd)
+            else:
+                key = None if cmd.scope is HaltScope.GLOBAL else cmd.market
+                self._halts.pop(key, None)
 
     def resume(self, cmd: OwnerCommand) -> None:
         if cmd.kind is not OwnerCommandKind.RESUME:
