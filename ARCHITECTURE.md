@@ -543,7 +543,34 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   stage → closed. No code or trial before the hypothesis; the hypothesis
   can be revised until the first trial, never after. Every stage change is
   a DOSSIER ledger event (IDs, stages, reason), never the hypothesis,
-  rationale or notes.
+  rationale or notes. Also: `pause` / `resume` (not stages: a paused
+  dossier keeps its stage), `rebrief` (drafts only), `log_work` (seconds
+  charged), `redirected_from`. `FloorBriefs`: the owner's standing brief for
+  every researcher, `research/floor_briefs.jsonl`, last one counts.
+- **Manager** (`research/manager.py`, M2): `ResearchManager(config, store,
+  backtest=, verify=, model_usage=)`. `queue()` = open, unpaused dossiers by
+  age; `running()` = the first `researchers`; `waiting()` = the rest.
+  `tick(researcher)` enforces budgets, gives each running dossier one step
+  (time charged with `log_work`), enforces again. `over_budget`: hours
+  (charged time), tokens and cloud spend (`model_usage(dossier_id)`, from the
+  ledger's MODEL_CALL events with that `dossier_id`); the trial budget is
+  checked by `ResearchTools.backtest` before each backtest (so a researcher
+  can still submit after its last one). `redirect`: a draft gets the new
+  brief; a started dossier is closed and a linked one opened.
+  `ResearchTools` is all a researcher can touch: the dossier (read), the
+  floor brief, `write_hypothesis`, `save_code` (its own folder in the
+  private store), `backtest` / `submit_candidate` (only its own code, instruments and
+  timeframes; through the injected verification desk), `note`. No budget or
+  config is reachable from it.
+- **Wiring** (`control/research.py`): `verification_desk(...)` returns the
+  `backtest` (a `ResearchBacktester` with `experiment_id` = the dossier ID)
+  and `verify` (`verify_strategy_file`, report written to
+  `<state>/reports/`) the manager needs, since research can't import the
+  verifier; `ledger_model_usage(ledger)`. `control/research_cli.py`: the
+  `firm research` commands; each change is an OWNER_COMMAND event. None of
+  them runs a researcher yet (M4). Gotcha: never name a method `submit`
+  outside order submission: rule 1's invariant test treats every `.submit(`
+  call in `src/` as an order (dossiers use `record_submission`).
 
 ## sandbox (milestone 3, R2)
 

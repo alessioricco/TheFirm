@@ -99,6 +99,9 @@ class Dossier(FirmModel):
     verdicts: list[VerdictRef] = Field(default_factory=list)
     notes: list[Note] = Field(default_factory=list)
     closed_reason: str | None = None
+    paused: bool = False  # by the owner; a paused dossier doesn't run or hold a place
+    work_seconds: float = 0.0  # researcher time charged to it (the hours budget)
+    redirected_from: str | None = None  # the dossier a redirect closed to open this one
 
 
 def _check_id(dossier_id: str) -> str:
@@ -145,6 +148,7 @@ class DossierStore:
         instruments: list[str],
         timeframes: list[str],
         budget: DossierBudget,
+        redirected_from: str | None = None,
     ) -> Dossier:
         path = self.path(dossier_id)
         if path.exists():
@@ -159,6 +163,7 @@ class DossierStore:
                 "instruments": list(instruments),
                 "timeframes": list(timeframes),
                 "budget": budget.model_dump(mode="json"),
+                "redirected_from": redirected_from,
             },
         )
         self._stage(dossier_id, None, Stage.DRAFT, "opened")
@@ -191,7 +196,7 @@ class DossierStore:
         if d.stage is Stage.HYPOTHESIS:
             self._stage(dossier_id, Stage.HYPOTHESIS, Stage.RESEARCH, "first backtest")
 
-    def submit(self, dossier_id: str, candidate_id: str) -> None:
+    def record_submission(self, dossier_id: str, candidate_id: str) -> None:
         d = self._open_dossier(dossier_id)
         if d.stage is not Stage.RESEARCH:
             raise DossierError(f"only a dossier in research can be submitted (it is {d.stage})")
@@ -215,6 +220,28 @@ class DossierStore:
             },
         )
         self._stage(dossier_id, Stage.SUBMITTED, to, f"verdict {verdict_id}: {outcome}")
+
+    def rebrief(self, dossier_id: str, brief: str) -> None:
+        """A new brief for a dossier that hasn't started (stage draft)."""
+        d = self._open_dossier(dossier_id)
+        if d.stage is not Stage.DRAFT:
+            raise DossierError("only a draft can take a new brief: redirect opens a new dossier")
+        self._append(dossier_id, {"event": "brief", "brief": brief})
+
+    def pause(self, dossier_id: str, reason: str) -> None:
+        if self._open_dossier(dossier_id).paused:
+            raise DossierError(f"dossier {dossier_id} is already paused")
+        self._append(dossier_id, {"event": "paused", "reason": reason})
+
+    def resume(self, dossier_id: str) -> None:
+        if not self._open_dossier(dossier_id).paused:
+            raise DossierError(f"dossier {dossier_id} is not paused")
+        self._append(dossier_id, {"event": "resumed"})
+
+    def log_work(self, dossier_id: str, seconds: float) -> None:
+        """Charge researcher time to the dossier (allowed after it closes: the step
+        that closed it still took time)."""
+        self._append(dossier_id, {"event": "work", "seconds": round(seconds, 3)})
 
     def note(self, dossier_id: str, text: str) -> None:
         self._open_dossier(dossier_id)
@@ -267,6 +294,7 @@ def _fold(events: list[dict[str, Any]]) -> Dossier:
         timeframes=first["timeframes"],
         budget=DossierBudget.model_validate(first["budget"]),
         opened_at=first["at"],
+        redirected_from=first.get("redirected_from"),
     )
     data = d.model_dump()
     for e in events[1:]:
@@ -294,4 +322,41 @@ def _fold(events: list[dict[str, Any]]) -> Dossier:
             data["notes"].append({"at": at, "text": e["text"]})
         elif kind == "closed":
             data["closed_reason"] = e["reason"]
+        elif kind == "brief":
+            data["brief"] = e["brief"]
+        elif kind == "paused":
+            data["paused"] = True
+        elif kind == "resumed":
+            data["paused"] = False
+        elif kind == "work":
+            data["work_seconds"] += e["seconds"]
     return Dossier.model_validate(data)
+
+
+class Brief(FirmModel):
+    at: AwareDatetime
+    text: str
+
+
+class FloorBriefs:
+    """The owner's standing brief for the whole floor (e.g. "stay uncorrelated
+    with X"): an append-only log, the last one counts, an empty one clears it."""
+
+    def __init__(
+        self, root: Path, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    ) -> None:
+        self.path = Path(root) / "research" / "floor_briefs.jsonl"
+        self.clock = clock
+
+    def set(self, text: str) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        record = {"at": self.clock().isoformat(), "text": text.strip()}
+        with self.path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def current(self) -> Brief | None:
+        if not self.path.is_file():
+            return None
+        lines = [json.loads(x) for x in self.path.read_text().splitlines() if x]
+        last = lines[-1] if lines else None
+        return Brief.model_validate(last) if last and last["text"] else None

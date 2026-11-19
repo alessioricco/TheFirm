@@ -156,3 +156,9 @@ def test_a_provider_with_no_adapter_is_refused(tmp_path) -> None:
     with pytest.raises(EgressRefused, match="no adapter"):
         gw.chat(role="research", messages=MSG, tag=DataTag.PUBLIC, target=Target("nope", "m"))
     assert calls(sink)[0]["outcome"] == "refused"
+
+
+def test_a_call_for_a_dossier_names_it_so_its_budget_can_be_charged() -> None:
+    gw, _, sink = gateway()
+    gw.chat(role="research", messages=MSG, tag=DataTag.PRIVATE, dossier_id="d-001")
+    assert calls(sink)[0]["dossier_id"] == "d-001"

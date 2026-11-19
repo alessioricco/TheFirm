@@ -25,3 +25,19 @@ def cloud_spend_gbp(ledger: Ledger, now: datetime) -> float:
         if datetime.fromisoformat(p["at"]) <= now:
             total += float(p.get("cost_gbp", 0.0))
     return total
+
+
+def dossier_model_usage(ledger: Ledger, dossier_id: str) -> tuple[int, float]:
+    """Tokens (input + output, local models included) and cloud spend (GBP) of every
+    successful model call made for one research dossier."""
+    tokens, cloud = 0, 0.0
+    for e in ledger.read():
+        p = e.payload
+        if e.event_type is not LedgerEventType.MODEL_CALL or p.get("dossier_id") != dossier_id:
+            continue
+        if p.get("outcome") != "ok":
+            continue
+        tokens += int(p.get("input_tokens", 0)) + int(p.get("output_tokens", 0))
+        if not p.get("local"):
+            cloud += float(p.get("cost_gbp", 0.0))
+    return tokens, cloud

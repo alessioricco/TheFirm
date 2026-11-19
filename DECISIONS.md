@@ -1240,3 +1240,31 @@ Firm rule 3 now covers `research.yaml`. Its invariant test stays a
 placeholder until every agent-facing interface exists; a partial test
 proves agent code (sandboxed, with the repo hidden) can't read or write any
 protected profile.
+
+## 2026-11-19 — The research manager (M3, M2)
+
+Built as a library plus owner commands, with no command that runs
+researchers yet: there is no researcher to run until the agent (M4), and a
+"floor" command that did nothing would mislead. The manager is exercised
+by a fake researcher in the tests, end to end through the real research
+backtester, verifier and sandbox.
+
+- **Scheduling is derived, not stored**: who runs is the oldest
+  `researchers` open, unpaused dossiers. Nothing to get out of step after a
+  crash or a restart, and pausing one hands its place to the next at once.
+- **Budgets are enforced by the manager, around the researcher**: a
+  researcher acts only through `ResearchTools`, which checks the budget
+  before every action, and the manager checks again after each step and
+  closes a dossier that has spent one. The trial budget is the exception
+  that proves the rule: it refuses the next backtest rather than closing
+  the dossier, so a researcher that used its last trial can still submit.
+  Each dossier keeps the budget it was opened with: lowering
+  `research.yaml` affects new dossiers, never silently a running one.
+- **Tokens and cloud spend come from the ledger** (MODEL_CALL events now
+  carry an optional `dossier_id`), so the budget can't drift from what the
+  model gateway actually recorded.
+- **Redirect closes and reopens** once research has started: the hypothesis
+  is locked by the first backtest, so a new direction is a new dossier,
+  linked to the old one. A draft just takes the new brief.
+- **Pause is not a stage**: a paused dossier keeps where it was, and only
+  stops running. Every owner command is an OWNER_COMMAND ledger event.

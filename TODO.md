@@ -376,8 +376,15 @@ researcher agent, M5 methods library, M6 promotion gate).
       the manager, not the agent.
 - [ ] Knowledge base of published methods (papers, books, public talks) the
       researchers search; method families out of scope listed.
-- [ ] Research manager: runs N researchers, queues the rest, pauses or
-      unloads when the trading stack needs resources; owner briefs.
+- [x] Research manager (M2, 2026-11-19): runs N researchers, queues the
+      rest, enforces budgets (closes a dossier that spent one), pause /
+      resume / redirect / close, floor brief; `firm research` commands.
+  - [ ] M4: `firm research floor` (or a service) that actually runs the
+        researcher agent; wire the model gateway (OLLAMA_HOST, ledger spend,
+        `dossier_id` on every call) and the verification desk
+        (`control.research.verification_desk`).
+  - [ ] Pause or unload researchers when the trading stack needs resources
+        (with the scheduler, firm rule 9).
 - [ ] ML jobs on the DGX for researchers (training, model artifacts with
       their training record); capped memory.
 - [ ] Promotion gate (deterministic) + owner veto; invariant test that no
@@ -393,8 +400,8 @@ researcher agent, M5 methods library, M6 promotion gate).
       attribution), ECharts, GridStack panels with saved layouts.
       Dependencies `fastapi`, `uvicorn` and the three vendored JS libraries
       approved by the owner.
-- [ ] CLI equivalents: `firm research start|list|show|pause|close`,
-      `firm research brief`, `firm paper status`.
+- [x] CLI: `firm research start|list|show|pause|resume|redirect|close|brief`
+      (M2). `firm paper status` still to do.
 - [ ] Prerequisite: trial Sharpes on one scale (section above).
 - [x] Prerequisite: **agent-written strategies live in the private store**,
       never in git; only hand-written examples are public. `check_repo.py`
@@ -421,9 +428,9 @@ researcher agent, M5 methods library, M6 promotion gate).
 - [x] Global trial count across all experiments, in the ledger: research
       backtests go through `verify.research.ResearchBacktester`, counted
       before any result is returned (R4, 2026-11-19).
-  - [ ] M2: when the research manager runs as its own service, it asks the
-        verification desk for backtests over the bus and publishes
-        `trial.recorded`; until then the call is in-process.
+  - [ ] When the research manager runs as its own service (not yet: M2
+        built it as a library, called in-process), it asks the verification
+        desk for backtests over the bus and publishes `trial.recorded`.
 
 ## Milestone 7: opportunity scout (after milestone 3)
 

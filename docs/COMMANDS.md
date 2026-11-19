@@ -16,7 +16,7 @@ version, `v-xxxxxxxxxxxxxxxx` a verdict. Use the ones your own runs print.
 - Reference: [data](#firm-data) · [verify](#firm-verify) · [state](#firm-state) ·
   [ledger](#firm-ledger) · [journal](#firm-journal) · [feed](#firm-feed) ·
   [paper](#firm-paper) · [bus](#firm-bus) · [notify](#firm-notify) ·
-  [version](#firm-version)
+  [research](#firm-research) · [version](#firm-version)
 - [Scripts](#scripts)
 - [Exit codes](#exit-codes) · [Where things are written](#where-things-are-written)
 
@@ -442,6 +442,127 @@ the ledger.
 | `--config` | config root (`notify.yaml`) |
 | `--state-root` | ledger |
 
+## firm research
+
+The research floor (milestone 3, being built): dossiers, the owner's
+briefs, and budgets. A **dossier** is one researcher's record for one
+strategy, from brief to verdict, kept in the private store
+(`<data root>/research/dossiers/`, never in git). Up to `researchers`
+dossiers (`config/research.yaml`) run at once, oldest first; the rest wait.
+Each keeps the budget it was opened with (trials, hours, tokens, cloud
+spend) and is closed when it has spent one.
+
+These commands manage the floor; **none of them starts a model or a
+backtest yet**: researchers run with the researcher agent (milestone 3, M4).
+Every change is an OWNER_COMMAND event in the ledger, and every stage change
+a DOSSIER event (never the hypothesis or notes).
+
+All take `--config` (config root, for `research.yaml`), `--root` (data
+store) and `--state-root` (ledger).
+
+### firm research start
+
+Opens a dossier (stage `draft`) with a brief; it joins the queue. Prints its
+ID and whether it runs or waits.
+
+| Option | Meaning |
+| --- | --- |
+| `--brief` | the brief, as text |
+| `--brief-file` | the brief, from a file (keep it out of the repo) |
+| `--market` | market profile, e.g. `crypto` |
+| `--instrument` | firm ID, e.g. `BTC-USD`; repeat for several |
+| `--tf` | timeframes, e.g. `1d` or `1h,1d`; repeat |
+| `--id` | dossier ID (default `d-<date>-<random>`) |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research start --brief "momentum on BTC after breakouts" \
+    --market crypto --instrument BTC-USD --tf 1h,1d
+```
+
+### firm research list
+
+Every dossier: stage, running / waiting / paused, budget used against
+budget, the brief; then the floor brief.
+
+| Option | Meaning |
+| --- | --- |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research show
+
+One dossier in full: brief, budget used, hypothesis and why, code (by
+hash), trials, verdicts, notes, why it closed.
+
+| Option | Meaning |
+| --- | --- |
+| `DOSSIER` | the dossier ID |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research show d-xxxxxxxx-xxxxxx
+```
+
+### firm research pause
+
+Stops a dossier from running; it gives up its place to the next in the
+queue. Its budget doesn't run while paused.
+
+| Option | Meaning |
+| --- | --- |
+| `DOSSIER` | the dossier ID |
+| `--reason` | why (recorded) |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research resume
+
+Lets a paused dossier run again (it goes back in the queue by age).
+
+| Option | Meaning |
+| --- | --- |
+| `DOSSIER` | the dossier ID |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research redirect
+
+A new brief. A dossier still in `draft` just takes it. A started one is
+closed ("redirected to ...") and a new, linked dossier opens with the new
+brief, because a hypothesis is locked once research starts.
+
+| Option | Meaning |
+| --- | --- |
+| `DOSSIER` | the dossier ID |
+| `--brief`, `--brief-file` | the new brief |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research close
+
+Closes a dossier for good, with a reason.
+
+| Option | Meaning |
+| --- | --- |
+| `DOSSIER` | the dossier ID |
+| `--reason` | why (required, recorded) |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research brief
+
+Shows the floor brief (the owner's standing direction for every
+researcher, e.g. "stay uncorrelated with the daily MA strategy"), or sets or
+clears it. The last one set counts.
+
+| Option | Meaning |
+| --- | --- |
+| `--text` | the new floor brief |
+| `--file` | the new floor brief, from a file |
+| `--clear` | remove it |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research brief --text "prefer 1h and 4h; stay uncorrelated with the daily MA"
+uv run firm research brief            # show it
+```
+
 ## firm version
 
 Prints the version (also `firm --version`).
@@ -486,3 +607,4 @@ uv run python scripts/download_data.py --provider kraken --symbol XBTUSD \
 | `<state>/bus/` | bus logins, server config, JetStream store |
 | `<state>/logs/` | `paper-<market>-<venue>.log`, `bus.log` |
 | `<state>/replays/` | `firm paper replay` scratch folders |
+| `$FIRM_DATA_ROOT/research/` | private store: `strategies/<dossier>/`, `dossiers/<id>.jsonl`, `floor_briefs.jsonl` |
