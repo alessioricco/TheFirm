@@ -102,8 +102,23 @@ def test_a_clean_strategy_gives_the_same_signals_as_in_process(backend) -> None:
 
 
 def test_the_worker_cannot_reach_the_network(tmp_path, backend) -> None:
-    body = "import socket\nsocket.create_connection(('127.0.0.1', 9), timeout=1)\n"
-    assert "not permitted" in blocked(tmp_path, backend, body, Policy(imports=OS_ACCESS))
+    import socket
+
+    server = socket.socket()  # a service on the host's loopback
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    server.settimeout(0)
+    port = server.getsockname()[1]
+    try:
+        for host, p in (("127.0.0.1", port), ("192.0.2.1", 80)):  # host, outside (TEST-NET)
+            body = f"import socket\nsocket.create_connection(({host!r}, {p}), timeout=2)\n"
+            err = blocked(tmp_path, backend, body, Policy(imports=OS_ACCESS))
+            # macOS refuses outright; Linux has its own empty network namespace
+            assert any(s in err for s in ("not permitted", "refused", "unreachable")), err
+        with pytest.raises(BlockingIOError):
+            server.accept()  # nothing ever reached the host's service
+    finally:
+        server.close()
 
 
 def test_the_worker_cannot_read_hidden_folders(tmp_path, backend) -> None:

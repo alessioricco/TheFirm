@@ -89,17 +89,24 @@ def hidden_roots(policy: Policy) -> list[str]:
 def readable_roots() -> list[str]:
     """What the worker needs to read to run: Python, its packages, the firm's code."""
     roots = {
-        sys.prefix,
-        sys.base_prefix,
+        *_python_paths(),
         sysconfig.get_paths()["purelib"],
         sysconfig.get_paths()["platlib"],
         str(Path(firm.__file__).resolve().parent.parent),  # src/ (editable) or site-packages
     }
-    return sorted({_real(r) for r in roots})
+    return sorted({_real(r) for r in roots} | set(_python_paths()))
+
+
+def _python_paths() -> set[str]:
+    """The Python install as the venv names it and as it really is. uv reaches its
+    Pythons through symlinked folders (cpython-3.14-... -> cpython-3.14.0-...), and
+    the sandbox must show both, or the venv's interpreter link leads nowhere."""
+    paths = {os.path.abspath(p) for p in (sys.prefix, sys.base_prefix)}
+    return paths | {_real(p) for p in paths}
 
 
 def exec_roots() -> list[str]:
-    return sorted({_real(sys.base_prefix), _real(sys.prefix)})
+    return sorted(_python_paths())
 
 
 def _sb(s: str) -> str:

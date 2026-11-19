@@ -153,6 +153,9 @@ class SandboxedStrategy:
         )
         reply = self._recv_header(self.policy.limits.call_seconds)
         if not reply["ok"]:
+            if reply.get("limit"):  # the worker hit a limit it could report (memory)
+                self._killed = reply["limit"]
+                raise self._failure(reply["error"])
             raise StrategyError(reply["error"])
         values = protocol.signals_from_bytes(self._recv(self.policy.limits.call_seconds))
         if len(values) != len(bars):
@@ -212,7 +215,9 @@ class SandboxedStrategy:
             except subprocess.TimeoutExpired:
                 _kill_group(proc)
                 rc = proc.wait()
-        reason = self._killed or ("CPU limit" if rc == -signal.SIGXCPU else None)
+        # killed by a signal: -N directly, 128+N when bubblewrap is the parent
+        sig = -rc if rc is not None and rc < 0 else rc - 128 if rc and rc > 128 else None
+        reason = self._killed or ("CPU limit" if sig == signal.SIGXCPU else None)
         tail = self._stderr_tail()
         self.close()
         detail = f" ({reason})" if reason else ""

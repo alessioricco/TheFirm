@@ -92,6 +92,9 @@ def serve(inp: Any, out: Any) -> None:
             values = pd.Series(sig).to_numpy(dtype=float, na_value=np.nan)
             if values.ndim != 1 or len(values) != len(bars):
                 raise ValueError(f"strategy returned {len(values)} signals for {len(bars)} bars")
+        except MemoryError as exc:  # Linux: RLIMIT_AS reached; a limit, not a strategy fault
+            out.write(protocol.header(_error(exc) | {"limit": "memory limit"}))
+            return
         except Exception as exc:
             traceback.print_exc()
             out.write(protocol.header(_error(exc)))
