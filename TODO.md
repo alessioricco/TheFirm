@@ -361,12 +361,16 @@ researcher agent, M5 methods library, M6 promotion gate).
       methods; rules, ML, LLM and the ari indicators; research loop on the
       research view with walk-forward; verifier opens OOS once; deterministic
       promotion gate to paper (owner notified, can veto); live stays manual.
-- [ ] `config/research.yaml` + strict loader: concurrent researchers
-      (default 2), per-dossier budgets (trials, hours, tokens, GPU memory,
-      cloud spend = 0), promotion gate (max paper strategies, max
-      correlation, paper allocation). Agents can't read-write it (rule 3).
-- [ ] Dossier store in the private store; dossier schema; every trial and
-      submission recorded in the ledger.
+- [x] `config/research.yaml` + strict loader: concurrent researchers
+      (default 2), per-dossier budgets (trials, hours, tokens, cloud spend =
+      0), promotion gate (3 / 0.7 / 10%). Agent code can't read or write it
+      (partial rule 3 test, tests/sandbox). (M1, 2026-11-19)
+  - [ ] GPU memory budget per dossier: with the ML desk (later), when a
+        job can use the GPU.
+  - [ ] Owner: the trials (200), hours (24) and tokens (2M) budgets are
+        placeholders; set real ones before the first research run.
+- [x] Dossier store in the private store; dossier schema; every stage change
+      a DOSSIER ledger event (trials are TRIAL events already). (M1)
 - [ ] Researcher agent loop on Certo and local models: idea (with written
       rationale) → prototype → research loop → submit; budgets enforced by
       the manager, not the agent.

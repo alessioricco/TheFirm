@@ -413,6 +413,44 @@ class ModelsConfig(FirmModel):
         return self
 
 
+# --------------------------------------------------------------------------- research
+
+
+class DossierBudget(FirmModel):
+    """What one researcher may spend on one strategy (M3; enforced by the manager)."""
+
+    trials: int = Field(ge=1)
+    wall_clock_hours: float = Field(gt=0)
+    tokens: int = Field(ge=1)
+    cloud_spend_gbp: float = Field(ge=0)  # never above the monthly egress budget
+
+
+class PromotionGate(FirmModel):
+    """When a verified strategy goes to paper by itself (M3, milestone plan M6)."""
+
+    max_paper_strategies: int = Field(ge=1)
+    max_correlation: float = Field(ge=0, le=1)  # with any strategy already in paper
+    paper_allocation_pct: float = Field(gt=0, le=100)  # of paper capital, per new strategy
+
+    @model_validator(mode="after")
+    def _fits(self) -> Self:
+        if self.max_paper_strategies * self.paper_allocation_pct > 100:
+            raise ValueError(
+                "max_paper_strategies x paper_allocation_pct exceeds 100% of paper capital"
+            )
+        return self
+
+
+class ResearchConfig(FirmModel):
+    """The research floor (`config/research.yaml`). Owner-editable; read by
+    deterministic code only: no agent may read or change it (firm rule 3)."""
+
+    research: Id
+    researchers: int = Field(ge=1)  # running at once; the rest wait in a queue
+    budgets: DossierBudget
+    promotion: PromotionGate
+
+
 # --------------------------------------------------------------------------- loader
 
 
@@ -508,6 +546,20 @@ def load_notify(root: Path, name: str = "default") -> NotifyConfig:
     cfg = _validate(NotifyConfig, path)
     if cfg.notify != name:
         raise ConfigError(f"{path}: notify {cfg.notify!r} must be {name!r}")
+    return cfg
+
+
+def load_research_config(root: Path, name: str = "default") -> ResearchConfig:
+    path = root / "research.yaml" if name == "default" else root / f"research-{name}.yaml"
+    cfg = _validate(ResearchConfig, path)
+    if cfg.research != name:
+        raise ConfigError(f"{path}: research {cfg.research!r} must be {name!r}")
+    monthly = load_models_config(root).egress.cloud_spend_budget_gbp
+    if cfg.budgets.cloud_spend_gbp > monthly:
+        raise ConfigError(
+            f"{path}: a dossier's cloud spend (£{cfg.budgets.cloud_spend_gbp}) is above the "
+            f"monthly cloud budget in models.yaml (£{monthly})"
+        )
     return cfg
 
 
