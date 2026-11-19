@@ -72,7 +72,8 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Model gateway with the data-egress gate | **implemented** as a library; no command calls a model yet |
 | Research backtests counted as trials (run by the verification desk, research view only) | **implemented** as a library, for the research floor; no command yet |
 | Unattended Linux service for `firm paper run` (systemd user unit) | **implemented**; a unit for `firm bus up` is still to do |
-| Research agents, research manager, dossiers, promotion gate | **planned** (milestone 3, in progress) |
+| Research floor: dossiers, budgets, the research manager, `firm research` commands (start, list, show, pause, resume, redirect, close, floor brief) | **implemented**; nothing runs a researcher yet |
+| Research agents (the researcher loop on Certo and local models), methods library, promotion gate | **planned** (milestone 3, in progress) |
 | Dashboard / web UI, control API, MCP endpoint | **planned** |
 | Judge (local decision model), opportunity scout | **planned** |
 | US shares paper trading (IBKR), EODHD data | **planned**; a `us_equities` profile exists and Yahoo daily bars can be downloaded, but there is no shares paper path |

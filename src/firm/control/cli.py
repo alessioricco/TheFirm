@@ -890,6 +890,10 @@ def build_parser() -> argparse.ArgumentParser:
         cmd.add_argument("--state-root", help="default $FIRM_STATE_ROOT or ./state")
         cmd.set_defaults(func=func)
 
+    from firm.control.research_cli import add_research_parser
+
+    add_research_parser(sub)
+
     feed = sub.add_parser("feed", help="live market data streams").add_subparsers(dest="feed_cmd")
     watch = feed.add_parser("watch", help="run a live stream for a while (needs network)")
     watch.add_argument("--provider", required=True, help="kraken_ws | coinbase_ws | binance_ws")
@@ -999,7 +1003,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     func = getattr(args, "func", None)
     if func is None:
-        if args.command in ("data", "state", "ledger", "journal", "feed", "paper", "notify", "bus"):
+        if args.command in (
+            "data",
+            "state",
+            "ledger",
+            "journal",
+            "feed",
+            "paper",
+            "notify",
+            "bus",
+            "research",
+        ):
             parser.parse_args([args.command, "--help"])
         print(f"firm {__version__}")
         return 0

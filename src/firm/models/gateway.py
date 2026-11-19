@@ -102,7 +102,10 @@ class ModelGateway:
         tag: DataTag,
         target: Target | None = None,
         opt_in: OwnerOptIn | None = None,
+        dossier_id: str | None = None,
     ) -> Completion:
+        """`dossier_id`: the research dossier the call works for; its tokens and cost
+        count against that dossier's budget (read back from the ledger)."""
         if not isinstance(tag, DataTag):
             raise TypeError("tag must be a DataTag (public or private)")
         if target is None:
@@ -118,6 +121,7 @@ class ModelGateway:
             "tag": tag.value,
             "opt_in_run": opt_in.run_id if opt_in else None,
             "opt_in_reason": opt_in.reason if opt_in else None,
+            "dossier_id": dossier_id,
             "messages_sha256": hashlib.sha256(
                 json.dumps([dict(m) for m in messages], sort_keys=True).encode()
             ).hexdigest(),

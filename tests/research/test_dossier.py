@@ -97,7 +97,7 @@ def test_the_path_to_a_pass(tmp_path) -> None:
     s.add_trial("d-001", "t-0000000000000001")
     s.add_trial("d-001", "t-0000000000000001")  # the same trial once
     s.add_trial("d-001", "t-0000000000000002")
-    s.submit("d-001", "c-0123456789abcdef")
+    s.record_submission("d-001", "c-0123456789abcdef")
     s.record_verdict("d-001", "v-xxxxxxxxxxxxxxxx", "pass")
     d = s.get("d-001")
     assert d.stage is Stage.PASSED and d.trial_ids == ["t-0000000000000001", "t-0000000000000002"]
@@ -115,7 +115,7 @@ def test_a_failed_submission_closes_the_dossier(tmp_path) -> None:
     s = opened(tmp_path)
     s.write_hypothesis("d-001", HYPOTHESIS, RATIONALE)
     s.add_trial("d-001", "t-0000000000000001")
-    s.submit("d-001", "c-0123456789abcdef")
+    s.record_submission("d-001", "c-0123456789abcdef")
     s.record_verdict("d-001", "v-xxxxxxxxxxxxxxxx", "fail")
     assert s.get("d-001").stage is Stage.FAILED
     with pytest.raises(DossierError, match="failed"):
@@ -126,7 +126,7 @@ def test_an_unverified_submission_goes_back_to_research(tmp_path) -> None:
     s = opened(tmp_path)
     s.write_hypothesis("d-001", HYPOTHESIS, RATIONALE)
     s.add_trial("d-001", "t-0000000000000001")
-    s.submit("d-001", "c-0123456789abcdef")
+    s.record_submission("d-001", "c-0123456789abcdef")
     s.record_verdict("d-001", "v-xxxxxxxxxxxxxxxx", "unverified")  # bad data, sandbox
     assert s.get("d-001").stage is Stage.RESEARCH
 
@@ -135,7 +135,7 @@ def test_submitting_needs_a_backtest_and_verdicts_need_a_submission(tmp_path) ->
     s = opened(tmp_path)
     s.write_hypothesis("d-001", HYPOTHESIS, RATIONALE)
     with pytest.raises(DossierError):
-        s.submit("d-001", "c-0123456789abcdef")
+        s.record_submission("d-001", "c-0123456789abcdef")
     with pytest.raises(DossierError):
         s.record_verdict("d-001", "v-xxxxxxxxxxxxxxxx", "pass")
 
