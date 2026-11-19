@@ -24,9 +24,10 @@ manager hands it one step at a time:
 
 from __future__ import annotations
 
+import inspect
 import secrets
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -42,14 +43,35 @@ Backtest = Callable[..., Mapping[str, Any]]
 Verify = Callable[..., tuple[str, str, str]]
 # model_usage(dossier_id) -> (tokens, cloud GBP), from the ledger
 ModelUsage = Callable[[str], tuple[int, float]]
+# think(dossier_id, messages) -> text: one model call through the gateway (private, local)
+Think = Callable[[str, list[dict[str, str]]], str]
+# datasets(instrument, tf) -> [(dataset_version, venue, rows)], most rows first
+Datasets = Callable[[str, str], list[tuple[str, str, int]]]
+# coder(dossier_id, task) -> CodeResult: one Certo task in the dossier's project
+Coder = Callable[[str, str], Awaitable["CodeResult"]]
+
+
+@dataclass(frozen=True)
+class CodeResult:
+    """What a Certo task produced: its verdict and the strategy file's bytes."""
+
+    verdict: str | None
+    passed: bool
+    code: bytes | None
+    note: str = ""
 
 
 class BudgetSpent(RuntimeError):
     """A dossier has spent one of its budgets: the researcher stops."""
 
 
+class GiveUp(RuntimeError):
+    """The researcher can't make progress (no working code, nothing to submit):
+    the manager closes the dossier with the reason."""
+
+
 class Researcher(Protocol):
-    def step(self, tools: ResearchTools) -> None: ...
+    def step(self, tools: ResearchTools) -> Awaitable[None] | None: ...
 
 
 @dataclass(frozen=True)
@@ -71,9 +93,13 @@ class ResearchManager:
         model_usage: ModelUsage,
         floor_briefs: FloorBriefs | None = None,
         monotonic: Callable[[], float] = time.monotonic,
+        think: Think | None = None,
+        coder: Coder | None = None,
+        datasets: Datasets | None = None,
     ) -> None:
         self.config, self.store = config, store
         self._backtest, self._verify, self._model_usage = backtest, verify, model_usage
+        self._think, self._coder, self._datasets = think, coder, datasets
         self.floor_briefs = floor_briefs or FloorBriefs(store.dir.parent.parent)
         self._monotonic = monotonic
 
@@ -168,9 +194,30 @@ class ResearchManager:
         for d in self.running():
             started = self._monotonic()
             try:
-                researcher.step(self.tools(d.dossier_id))
+                result = researcher.step(self.tools(d.dossier_id))
+                if inspect.isawaitable(result):
+                    raise TypeError("this researcher's steps are async: use atick")
             except BudgetSpent as exc:
                 self.store.close(d.dossier_id, f"budget spent: {exc}")
+            except GiveUp as exc:
+                self.store.close(d.dossier_id, f"researcher gave up: {exc}")
+            finally:
+                self.store.log_work(d.dossier_id, self._monotonic() - started)
+        self.enforce()
+
+    async def atick(self, researcher: Researcher) -> None:
+        """`tick` for a researcher whose steps wait (on Certo, on a model)."""
+        self.enforce()
+        for d in self.running():
+            started = self._monotonic()
+            try:
+                result = researcher.step(self.tools(d.dossier_id))
+                if inspect.isawaitable(result):
+                    await result
+            except BudgetSpent as exc:
+                self.store.close(d.dossier_id, f"budget spent: {exc}")
+            except GiveUp as exc:
+                self.store.close(d.dossier_id, f"researcher gave up: {exc}")
             finally:
                 self.store.log_work(d.dossier_id, self._monotonic() - started)
         self.enforce()
@@ -264,6 +311,33 @@ class ResearchTools:
 
     def note(self, text: str) -> None:
         self._m.store.note(self._id, text)
+
+    def datasets(self, instrument: str, tf: str) -> list[tuple[str, str, int]]:
+        """Dataset versions holding `instrument` at `tf`, for the dossier's brief only."""
+        d = self._check()
+        if instrument not in d.instruments or tf not in d.timeframes:
+            raise ValueError(f"{instrument} {tf} is not in the dossier's brief")
+        return [] if self._m._datasets is None else self._m._datasets(instrument, tf)
+
+    def read_code(self, file: str) -> bytes:
+        """One of this dossier's own files in the private store (as text, never run)."""
+        d = self._check()
+        return self._where(d, file, d.instruments[0], d.timeframes[0]).read_bytes()
+
+    def think(self, messages: list[dict[str, str]]) -> str:
+        """One model call (private, local) through the egress gate, charged to the dossier."""
+        self._check()
+        if self._m._think is None:
+            raise RuntimeError("no model is wired for this floor")
+        return self._m._think(self._id, messages)
+
+    async def write_code(self, task: str) -> CodeResult:
+        """One Certo task in this dossier's project (sandboxed, local model)."""
+        if self._check().hypothesis is None:
+            raise DossierError("write the hypothesis and its rationale first")
+        if self._m._coder is None:
+            raise RuntimeError("no Certo is wired for this floor")
+        return await self._m._coder(self._id, task)
 
     # ------------------------------------------------------------- plumbing
     def _root(self):  # the data store
