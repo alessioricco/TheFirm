@@ -387,10 +387,18 @@ researcher agent, M5 methods library, M6 promotion gate).
 - [x] Research manager (M2, 2026-11-19): runs N researchers, queues the
       rest, enforces budgets (closes a dossier that spent one), pause /
       resume / redirect / close, floor brief; `firm research` commands.
-  - [ ] M4: `firm research floor` (or a service) that actually runs the
-        researcher agent; wire the model gateway (OLLAMA_HOST, ledger spend,
-        `dossier_id` on every call) and the verification desk
-        (`control.research.verification_desk`).
+  - [x] M4 loop, part 1 (2026-11-19): the Certo client
+        (`firm.models.certo.CertoServer`): one server per workspace (lock),
+        one task at a time, local model only, every task a MODEL_CALL for its
+        dossier; rule 8's invariant forbids launching Certo outside
+        `firm.models`.
+  - [ ] M4 loop, part 2: Certo started inside the OS sandbox (network to the
+        DGX's Ollama only, files limited to its workspace); the researcher:
+        hypothesis through the gateway, code through Certo, saved to the
+        private store, counted backtests, one submission.
+  - [ ] M4 loop, part 3: `firm research floor` runs it; first live run on a
+        brief the owner chooses; wire the gateway (OLLAMA_HOST, ledger spend)
+        and the verification desk (`control.research.verification_desk`).
   - [ ] Pause or unload researchers when the trading stack needs resources
         (with the scheduler, firm rule 9).
 - [ ] ML jobs on the DGX for researchers (training, model artifacts with

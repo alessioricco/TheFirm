@@ -1382,3 +1382,24 @@ does.
 
 First-run budgets (owner): 50 trials and 4 hours per dossier, tokens as the
 owner set them (10M), cloud £0.
+
+## 2026-11-19 — One Certo server, one task at a time (M4 loop, part 1)
+
+Owner: "don't launch multiple MCP servers; always use just one." Agreed, and
+enforced rather than intended:
+
+- **One server per workspace**, by an exclusive `flock` taken before the
+  server starts. A lock (not a check for a running process) because the OS
+  releases it when the holder dies: a crash can't leave the floor locked
+  out, and two processes can't both win.
+- **One task at a time** in the client, because Certo itself would accept
+  parallel runs in different projects, while a local Ollama serves one
+  model at a time; parallel tasks would only swap models in and out.
+- **The client lives in `firm.models`**: Certo calls a model itself, so it is
+  a model-calling path and goes through the egress gate like any other.
+  Every task names the local model; `auto_model` and `escalate` are never
+  used (a ladder could climb to a cloud model); independent tests are off
+  (they double a run's cost). Rule 8's invariant now also refuses any code
+  outside `firm.models` that launches Certo.
+- **A task is one MODEL_CALL**, recorded when it ends, with Certo's own token
+  counts, so the dossier's token budget sees exactly what Certo used.

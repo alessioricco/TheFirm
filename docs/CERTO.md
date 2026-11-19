@@ -83,6 +83,27 @@ The workspace is in the private store: git-ignored, backed up with it, one
 project folder per research dossier. Nothing goes to stdout but MCP
 messages: errors go to stderr.
 
+## How the firm talks to Certo
+
+The research manager is the MCP client (`firm.models.certo.CertoServer`):
+
+- **One server, always.** Before it starts `scripts/certo-mcp` it takes an
+  exclusive lock on the workspace (`.firm-certo.lock`); a second server,
+  from the same process or another, is refused with a message naming the
+  process that holds it. The operating system releases the lock if that
+  process dies, so a crash never leaves it stuck.
+- **One task at a time**: a local Ollama serves one model at a time, so the
+  floor queues Certo tasks even with several researchers.
+- **Every task names the local model** and never lets Certo choose or
+  escalate (`auto_model`, `escalate`), and runs no independent tests.
+- **Every task is recorded** in the ledger when it ends, as a model call for
+  its dossier: run ID, verdict, tokens, time. The dossier's budget counts it.
+- **A run lives in the server's memory.** If the floor stops mid-task, the
+  task stops with it; on restart the floor continues it (`run_resume`)
+  rather than starting over.
+
+The server's own messages (stderr) go to `<workspace>/.firm-certo.log`.
+
 ## 4. Rules
 
 From [CLAUDE.md](../CLAUDE.md) and [SPEC.md](SPEC.md) ("Certo on the DGX"):
