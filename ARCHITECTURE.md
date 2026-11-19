@@ -217,7 +217,17 @@ are int64 ns until the reader converts them; `as_of` must be timezone-aware.
   per-instrument cap; a test keeps them equal) and records it in the report
   as `sizing`. Sharpe-based checks are unchanged by the size; returns,
   drawdowns and exposure are not.
-- `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`.
+- `stats.py`: `deflated_sharpe`, `expected_max_sharpe`, `probabilistic_sharpe`,
+  `rescale_sharpe(sr, from_periods, to_periods)` (per-bar Sharpe on another
+  bar frequency: x sqrt(from / to)).
+- Trial Sharpes on one scale (2026-11-19): each manual trial records
+  `periods_per_year` next to `sharpe_per_bar`; the trial-count check calls
+  `TrialRegistry.scaled_sharpes(candidate_ppy, ctx.trial_periods)` so the
+  variance is taken on the candidate's bar frequency. Older trials get their
+  scale from their dataset (`trial_scale.periods_from_dataset`: one bar
+  timeframe in the manifest, `session` alignment = exchange calendar, else
+  24x7); unknown ones are left out of the variance, still counted in n, and
+  reported (`trial_sharpes_unscaled`, plus `scale_periods_per_year`).
 - `state.py`: `state_root()`, `TrialRegistry` (counts canonical IDs; legacy
   IDs linked via `trial_aliases.jsonl`), `OosVault` (JSON lines; `alias`
   events link pre-content keys to content keys, and, with a `reason`, an

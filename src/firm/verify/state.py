@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +33,7 @@ from typing import Any, Literal
 
 from firm.core.domain import LedgerEventType, TrialRecord
 from firm.core.events import NULL_SINK, EventSink
+from firm.verify.stats import rescale_sharpe
 
 STATE_ROOT_ENV = "FIRM_STATE_ROOT"
 
@@ -134,8 +135,27 @@ class TrialRegistry:
     def count(self) -> int:
         return len(self.ids())
 
-    def sharpes(self) -> list[float]:
-        return [t.metrics["sharpe_per_bar"] for t in self.all() if "sharpe_per_bar" in t.metrics]
+    def scaled_sharpes(
+        self, to_periods: float, periods_of: Callable[[TrialRecord], float | None]
+    ) -> tuple[list[float], int]:
+        """Every trial's per-bar Sharpe on bars `to_periods` per year, and how many
+        trials with a Sharpe could not be put on that scale (left out).
+
+        A trial's bars per year come from its record (`periods_per_year`,
+        recorded since 2026-11-19) or, for older trials, from `periods_of`
+        (their dataset version). Trials without a Sharpe (OOS openings) are
+        counted towards n elsewhere and play no part here."""
+        out: list[float] = []
+        unscaled = 0
+        for t in self.all():
+            if "sharpe_per_bar" not in t.metrics:
+                continue
+            frm = t.metrics.get("periods_per_year") or periods_of(t)
+            if not frm:
+                unscaled += 1
+                continue
+            out.append(rescale_sharpe(t.metrics["sharpe_per_bar"], frm, to_periods))
+        return out, unscaled
 
 
 Access = Literal["first_opening", "replay", "refused"]

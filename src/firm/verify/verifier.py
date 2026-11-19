@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -32,6 +32,7 @@ from firm.core.domain import (
     CheckStatus,
     LedgerEventType,
     StrategyCandidate,
+    TrialRecord,
     Verdict,
     VerdictOutcome,
 )
@@ -130,6 +131,7 @@ def verify(
     quality_rule: str | None = None,
     quarantined: int = 0,
     equivalent_keys: Mapping[str, str] | None = None,
+    trial_periods: Callable[[TrialRecord], float | None] | None = None,
 ) -> VerificationResult:
     """`bars` are the whole evaluation window from the dataset (as_of applied)."""
     params: Mapping[str, Any] = candidate.spec.parameters
@@ -160,6 +162,7 @@ def verify(
         vault=vault,
         now=now,
         equivalent_keys=dict(equivalent_keys or {}),
+        trial_periods=trial_periods or (lambda _t: None),
     )
 
     quality = CheckResult(
