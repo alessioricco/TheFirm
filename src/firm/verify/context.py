@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import pandas as pd
 
 from firm.core.config import VerifierConfig
+from firm.core.domain import TrialRecord
 from firm.verify.backtest import BacktestResult, run_backtest
 from firm.verify.state import OosVault, TrialRegistry
 from firm.verify.strategy import ParamValue, Strategy
@@ -35,6 +36,8 @@ class VerifyContext:
     vault: OosVault
     now: datetime
     equivalent_keys: Mapping[str, str] = field(default_factory=dict)  # opened key -> why same
+    # bars per year of an older trial that didn't record it (from its dataset); None: unknown
+    trial_periods: Callable[[TrialRecord], float | None] = lambda _t: None
     _cache: dict[str, object] = field(default_factory=dict, compare=False, repr=False)
 
     @property

@@ -1074,3 +1074,26 @@ processes later changes the composition root, not the desks.
   desk use the bus client (which imports only `core`), as they use `core`
   and `data`; desks still never import each other.
 
+## 2026-11-19 — Trial Sharpes on one scale (the trial-count fix)
+
+Owner-approved 2026-11-17, landed before milestone 3. The deflated-Sharpe
+benchmark uses the variance of the Sharpe ratios of all trials; they are
+per bar, so a daily trial's sat next to an hourly one's, and an hourly
+strategy that loses badly looked mild (its per-bar Sharpe is about 1/5 of
+the daily figure for the same annual quality). Now every trial's Sharpe is
+rescaled to the candidate's bar frequency (x sqrt of the ratio of bars per
+year) before the variance is taken. New trials record their bars per year;
+older ones take it from their dataset's single bar timeframe, and a trial
+whose timeframe can't be known is left out of the variance (still counted
+in the number of trials) and the report says how many: leaving it in at the
+wrong scale is the bug being fixed.
+
+Measured on the real state (numbers in the private notes): the trials
+behind the daily pass mix 1h, 4h and 1d bars, and on one scale their spread
+is about three times wider. The daily pass no longer survives the
+correction: re-verified on a scratch copy it fails the trial-count check
+(the TODO note "changes the numbers, not the outcome" was checked on an
+earlier verdict). The verifier is stricter, not looser: the earlier pass
+benefited from the bug. What this means for the running exit run is the
+owner's call (see TODO).
+

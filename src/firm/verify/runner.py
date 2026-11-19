@@ -26,11 +26,13 @@ from firm.core.config import (
 )
 from firm.core.domain import StrategyCandidate, StrategySpec, TrialRecord
 from firm.core.events import NULL_SINK, EventSink
+from firm.core.timeframes import periods_per_year
 from firm.data.dataset import open_dataset
 from firm.data.quality import implausible_bars
 from firm.verify.backtest import metrics, run_backtest
 from firm.verify.state import OosVault, TrialRegistry, oos_scope
 from firm.verify.strategy import load_strategy
+from firm.verify.trial_scale import legacy_periods
 from firm.verify.verifier import (
     VerificationResult,
     bars_fingerprint,
@@ -133,6 +135,7 @@ def verify_strategy_file(
     )
     split = split_in_sample(bars, vcfg.oos.fraction)
     in_sample = bars.iloc[:split].reset_index(drop=True)
+    ppy = periods_per_year(profile.calendar, tf)  # the trial's scale, for the trial-count check
     is_metrics = (
         metrics(
             run_backtest(
@@ -155,7 +158,8 @@ def verify_strategy_file(
                 experiment_id="manual",
                 strategy_id=loaded.strategy.name,
                 parameters=p,
-                metrics={k: v for k, v in is_metrics.items() if k == "sharpe_per_bar"},
+                metrics={k: v for k, v in is_metrics.items() if k == "sharpe_per_bar"}
+                | ({"periods_per_year": ppy} if "sharpe_per_bar" in is_metrics else {}),
                 dataset_version=dataset_version,
                 recorded_at=now,
             )
@@ -195,6 +199,7 @@ def verify_strategy_file(
         quality_rule=rule.rule_id,
         quarantined=quarantined,
         equivalent_keys={k: eq.reason for k, eq in equivalents.items()},
+        trial_periods=legacy_periods(data_root),
     )
 
 

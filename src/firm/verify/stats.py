@@ -4,7 +4,9 @@ Bailey & López de Prado (2014), "The Deflated Sharpe Ratio". The more
 strategies were tried, the higher the Sharpe ratio the best one reaches by
 luck alone (`expected_max_sharpe`); the DSR is the probability that the
 observed Sharpe beats that bar, given the sample length and the returns'
-skewness and kurtosis. All Sharpe ratios here are per bar (not annualised).
+skewness and kurtosis. All Sharpe ratios here are per bar (not annualised),
+and the trials' Sharpes must already be on the candidate's bar frequency
+(`rescale_sharpe`; `TrialRegistry.scaled_sharpes`).
 """
 
 from __future__ import annotations
@@ -27,6 +29,18 @@ def expected_max_sharpe(n_trials: int, sharpe_variance: float) -> float:
     z1 = _N.inv_cdf(1.0 - 1.0 / n_trials)
     z2 = _N.inv_cdf(1.0 - 1.0 / (n_trials * math.e))
     return math.sqrt(sharpe_variance) * ((1 - EULER_GAMMA) * z1 + EULER_GAMMA * z2)
+
+
+def rescale_sharpe(sharpe_per_bar: float, from_periods: float, to_periods: float) -> float:
+    """A per-bar Sharpe ratio on another bar frequency (bars per year).
+
+    Annualised Sharpe = per-bar Sharpe x sqrt(bars per year), so the same
+    annual quality on bars `to_periods` per year is sr x sqrt(from / to)."""
+    if from_periods <= 0 or to_periods <= 0:
+        raise ValueError("bars per year must be positive")
+    if from_periods == to_periods:
+        return sharpe_per_bar
+    return sharpe_per_bar * math.sqrt(from_periods / to_periods)
 
 
 def moments(r: np.ndarray) -> tuple[float, float]:
