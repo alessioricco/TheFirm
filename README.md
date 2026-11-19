@@ -10,6 +10,11 @@ executes them. **Version 1 trades paper money only.**
 > Backtests, including the ones this project calls "verified", can and do
 > fail on future data. Use at your own risk.
 
+**New here? Start with the [user guide](docs/USER_GUIDE.md)**: install, a
+safe first run on synthetic data, real data, verification, paper trading,
+configuration and troubleshooting. Every command and option is in the
+[command reference](docs/COMMANDS.md).
+
 ## The idea in one paragraph
 
 Language models are good at proposing ideas and bad at being trusted with
@@ -62,8 +67,10 @@ and are still placeholders.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). Tested on macOS
 and Linux arm64; no GPU needed.
 
-**Every command, its options and worked examples (including an unattended
-paper run from download to stop) are in [docs/COMMANDS.md](docs/COMMANDS.md).**
+**The [user guide](docs/USER_GUIDE.md) walks through everything below in
+order. Every command, its options and worked examples (including an
+unattended paper run from download to stop) are in
+[docs/COMMANDS.md](docs/COMMANDS.md).**
 
 The desks talk over a message bus, so running the firm (not the tests) also
 needs the [NATS server](https://nats.io) (`nats-server`, 2.10 or later, with
