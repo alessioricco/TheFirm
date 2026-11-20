@@ -1476,3 +1476,24 @@ feedback, the owner approves every proposal, run on demand.
 - **Later**: the same role on a local model inside the firm (milestone 7
   scout) if it should run unattended.
 
+## 2026-11-20 — Claude Code as the console: a standing opt-in to read results
+
+Owner: "a" (of the three options in docs/CLAUDE_CODE.md), "and build the
+slash commands".
+
+- **What Claude Code may read, when the owner asks**: status, P&L,
+  positions, fills, verdicts, the ledger, the journal and dossiers. This is
+  private data going to a cloud model (rule 9); the owner opted in once,
+  for operating the firm. It replaces nothing in the egress gate: firm
+  agents still run locally, and the senior quant still sees outcomes only.
+- **What it never reads**: agent-written strategy code and its parameters
+  in the private store (a file's hash or its `class` line is enough to
+  launch a verified run), `.env`, the dashboard token.
+- **Paper runs default to the owner's terminal**: `/firm-paper` prepares
+  and checks, then hands over the exact commands, so the run survives the
+  session and loads `.env` (Telegram) itself; `here` runs it in the session
+  with `--no-notify` for short watched runs. Claude Code never loads `.env`.
+- **Slash commands are prompts, not code**: they call the same `firm`
+  commands as the owner, so the deployment gate, the config loader and the
+  ledger enforce the rules whatever a prompt says.
+

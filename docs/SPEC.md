@@ -211,6 +211,8 @@ firm kill --confirm
 - **Other charts** (P&L curves, drawdown, trials vs budget, distributions): Apache ECharts (Apache-2.0).
 - **Configurable panels:** a drag-and-resize grid (GridStack.js, MIT). Each panel is a type (price chart, positions, fills, P&L, risk use, feed health, researcher list, dossier view, activity log, alerts) with its own settings; layouts are saved server-side per named view (for example "Trading", "Research"), so they follow the owner to any browser.
 
+**Claude Code as a console (added Nov 20, 2026):** the owner can also run the firm by talking to Claude Code, which calls the same CLI (slash commands `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`). It acts only on the owner's request, makes the owner's decisions only when the owner names them, and can never change risk, budgets, the verifier or `live_trading`. It runs on a cloud model; the owner opted in once for it to read results when asked, never agent-written strategy code or its parameters (`docs/CLAUDE_CODE.md`).
+
 **Access:** private network only (for example Tailscale), authenticated, never on the public internet. An MCP endpoint lets Claude Code read state while building; it is read-only by default.
 
 ## Research floor (experiment agents)

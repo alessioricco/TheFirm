@@ -406,13 +406,10 @@ researcher agent, M5 methods library, M6 promotion gate).
         subagent proposes briefs (`/senior-quant`); `firm research proposals
         import|list|show|approve|reject|context`; the owner approves each;
         outcome-only feedback (DECISIONS).
-  - [ ] **Claude Code as the console** (owner, 2026-11-20; docs/CLAUDE_CODE.md).
-        Owner to decide what Claude Code (a cloud model) may read when used
-        as the daily console: (a) standing opt-in for status, P&L, fills,
-        verdicts, dossiers (never private strategy code/params); (b)
-        shareable summaries only; (c) a local console later. Then: slash
-        commands `/firm-status`, `/firm-paper`, `/firm-dashboard`,
-        `/firm-floor`; a SPEC line under "Control and notifications".
+  - [x] **Claude Code as the console** (owner, 2026-11-20; docs/CLAUDE_CODE.md):
+        option (a), standing opt-in to read results when asked (DECISIONS);
+        `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`.
+  - [ ] `/firm-floor` runs researchers once `firm research floor` exists.
   - [ ] M4 part 3: `firm research floor` (runs the session's ticks
         unattended, logs to a file, stops on owner pause/close) and the first
         live run on real data, on a senior-quant proposal the owner approves;

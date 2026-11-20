@@ -77,7 +77,7 @@ tracked in [TODO.md](../TODO.md). As of this guide:
 | Dashboard (`firm dashboard serve`, [DASHBOARD.md](DASHBOARD.md)): research floor with every steering command, paper run (account, P&L, price chart with fills, feeds, risk), ledger, command reference; live updates; arrangeable panels; token login; loopback only | **implemented** |
 | Kill switch per market and global (`firm kill` / `firm resume`, and the dashboard): through the bus to the risk desk, confirmed, survives a restart | **implemented** |
 | Kill switch from the dashboard, MCP endpoint, remote access over a private network | **planned** |
-| Claude Code as the console ([CLAUDE_CODE.md](CLAUDE_CODE.md)): launch and steer by asking, `/senior-quant` | **works today** through the CLI; one-word `/firm-*` commands and the egress choice **planned** |
+| Claude Code as the console ([CLAUDE_CODE.md](CLAUDE_CODE.md)): launch and steer by asking, `/senior-quant` | **implemented**: `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`, `/senior-quant` |
 | Judge (local decision model), opportunity scout | **planned** |
 | US shares paper trading (IBKR), EODHD data | **planned**; a `us_equities` profile exists and Yahoo daily bars can be downloaded, but there is no shares paper path |
 | Live trading with real money | **not in v1**; refused by the config loader |

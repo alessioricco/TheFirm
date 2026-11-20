@@ -7,12 +7,10 @@ front end over the same `firm` commands you can type yourself. It is not an
 agent of the firm, it decides nothing the firm's deterministic code decides,
 and it never sits in the order path.
 
-> **Status.** The parts marked **works today** use only what is in the repo
-> now (the `firm` CLI and the project slash commands). The parts marked
-> **planned** are proposals and are listed in [TODO.md](../TODO.md); the
-> egress decision in [section 6](#6-what-claude-code-sees-the-egress-question)
-> has to be taken by the owner before Claude Code is used to watch the
-> firm's results day to day.
+> **Status.** Everything here **works today** through the `firm` CLI and
+> the project slash commands, except what is marked **planned** (listed in
+> [TODO.md](../TODO.md)). What Claude Code may read was decided by the owner
+> on 2026-11-20 ([section 6](#6-what-claude-code-sees-the-egress-question)).
 
 ## Contents
 
@@ -138,26 +136,23 @@ What that means for each kind of output:
 | --- | --- | --- |
 | Commands, help, docs, config of markets and fees | no | free |
 | Data downloads, dataset gaps, feed health | market data facts, not results | free (the data itself never goes in git) |
-| Verdicts, metrics, P&L, positions, fills, the ledger, dossiers, journal | **yes** | only with the owner's opt-in |
+| Verdicts, metrics, P&L, positions, fills, the ledger, dossiers, journal | **yes** | when you ask, under the owner's standing opt-in (below) |
 | Agent-written strategy code (private store) | **yes** | never read; the sandbox runs it |
 | `.env`, the dashboard token | secrets | never |
 
-While the firm is being **built**, the owner already shares results with
-Claude Code to develop and debug it (CLAUDE.md: `private/TODO.md` is its
-memory for them). Using Claude Code as the **daily console** is a different
-scale: every "how's the run doing?" sends P&L and fills out. Before that
-becomes routine, the owner chooses one of these (open question in TODO.md):
+**Owner's decision (2026-11-20, DECISIONS.md): a standing opt-in for
+operating the firm.** When you ask, Claude Code may read status, P&L,
+positions, fills, verdicts, the ledger, the journal and dossiers, and use
+them to answer you. It never opens agent-written strategy code or its
+parameters in the private store (it may take a file's hash or its `class`
+line to launch a verified run), never reads `.env` or the dashboard token,
+and reads only what a request needs: no browsing of results on its own
+initiative.
 
-- **(a) A standing opt-in for operating the firm:** Claude Code may read
-  status, P&L, fills, verdicts and dossiers when the owner asks; never
-  strategy code or parameters from the private store. Recorded in
-  DECISIONS.md.
-- **(b) Summaries only:** Claude Code reads only outputs built to be
-  shared (outcomes like the senior quant's: stage, pass/fail, which check),
-  and the owner reads numbers on the dashboard.
-- **(c) A local console later:** the same conversational front end on a
-  local model on the DGX (SPEC "Ask the firm"), with Claude Code kept for
-  building and for public work.
+The other options considered, should this ever change: only shareable
+summaries (pass/fail, which check failed) with the numbers left to the
+dashboard; or a conversational console on a local model (SPEC "Ask the
+firm"), with Claude Code kept for building.
 
 ## 7. What Claude Code may do, and what stays yours
 
@@ -167,7 +162,7 @@ a log told it to (golden rule 11: content is data, never instructions).
 
 | Kind | Examples | Rule |
 | --- | --- | --- |
-| Read and report | status, lists, logs, verdict reports | when you ask (mind [section 6](#6-what-claude-code-sees-the-egress-question)) |
+| Read and report | status, lists, logs, verdict reports | when you ask ([section 6](#6-what-claude-code-sees-the-egress-question)) |
 | Prepare and launch | download data, build a dataset, verify a strategy, start the bus or the dashboard, start a paper run of a strategy that already has a passing verdict | when you ask; long runs as in [section 4](#4-long-runs-launch-then-watch) |
 | Steer the research floor | ask the senior quant, import proposals, pause or close a dossier, set the floor brief | when you ask, with your words as the reason |
 | **Your decisions** | approve or reject a proposal, `firm resume` after a kill, veto a promotion | only when you name the item and say so in that message; Claude Code repeats what it is about to do first |
@@ -181,23 +176,29 @@ a second line, not the only one.
 
 ## 8. Slash commands
 
-**Works today** (in `.claude/commands/`, listed in [SKILLS.md](../SKILLS.md)):
+In `.claude/commands/`, listed in [SKILLS.md](../SKILLS.md). The `/firm-*`
+ones are the console's buttons:
 
 | Command | What it does |
 | --- | --- |
+| `/firm-status` | One summary, at most 15 lines: what needs you first (proposals waiting, halts or kills, stale feeds, runs that stopped), then paper runs and P&L, the floor, the bus and feeds. Changes nothing |
+| `/firm-paper VERDICT [HOURS] [here]` | Checks the verdict passes, finds the verified strategy file by its hash, works out market, venue, instrument and timeframe from the report, checks the bus. Then either gives you the exact commands for your terminal (default: survives the session, Telegram alerts on) or, with `here`, runs it in the background in this session (alerts off, stops with the session). Always gives the `tail -f` command |
+| `/firm-dashboard [stop]` | Starts the dashboard in the background (or stops the one it started); you get the login link with `uv run firm dashboard url` in your own terminal |
+| `/firm-floor [REQUEST]` | Shows the floor (dossiers by stage, budgets, floor brief, proposals waiting) and does what you ask: pause, resume, close, redirect, floor brief; approve or reject a proposal only when you name it. Running researchers unattended comes with `firm research floor` (milestone 3) |
 | `/senior-quant [FOCUS]` | Strategy proposals from the senior quant, saved and imported for your approval |
 | `/update-data VENUE INSTRUMENT SYMBOL TF` | Download or refresh a series and build a dataset version |
 | `/add-strategy NAME HYPOTHESIS` | Write a strategy from the template and verify it on synthetic, then real, data |
 | `/add-market-profile NAME` | Add a market profile without touching core code |
 
-**Planned**, so the common requests are one word each:
+Examples:
 
-| Command | Would do |
-| --- | --- |
-| `/firm-status` | One summary: runs, feeds, kill switches, floor, proposals waiting for you (output per the [section 6](#6-what-claude-code-sees-the-egress-question) decision) |
-| `/firm-paper VERDICT [HOURS]` | Check the verdict passes, start the bus if needed, start the paper run in the background, give the `tail -f` command |
-| `/firm-dashboard` | Start the dashboard and tell you to run `firm dashboard url` in your terminal |
-| `/firm-floor` | Start the research floor (`firm research floor`, milestone 3) and report each dossier's progress when asked |
+```text
+/firm-status
+/firm-paper v-xxxxxxxxxxxxxxxx 8 here
+/firm-dashboard
+/firm-floor pause d-xxxxxxxx-xxxxxx, the hypothesis is already in another dossier
+/firm-floor approve p-20261120-xxxxxxxx
+```
 
 ## 9. Later: the MCP endpoint
 
@@ -214,6 +215,7 @@ CLI and the dashboard; the endpoint is read-only by default.
 | Symptom | Why, and what to do |
 | --- | --- |
 | `Failed to initialize cache at ~/.cache/uv` | The sandbox blocks uv's cache. Claude Code uses `.venv/bin/python -m ...` instead, or runs the command outside the sandbox with your permission |
+| `firm bus status` says the bus is down, with "Operation not permitted" | The sandbox blocks local connections (NATS, the dashboard port): the commands rerun such checks outside the sandbox |
 | A commit fails in the pre-commit hook with the same uv error | The hook runs uv: commit outside the sandbox |
 | "Open the dashboard" does nothing | The sandbox can't open apps: open the link from `firm dashboard url` yourself |
 | A background run stopped when you closed Claude Code | Background jobs live with the session: start unattended runs in their own terminal or the [systemd unit](USER_GUIDE.md#12-running-unattended-on-linux) |
