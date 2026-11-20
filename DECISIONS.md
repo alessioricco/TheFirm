@@ -1446,3 +1446,33 @@ Docker mode (an OpenHands image, internet open by default) or both.
 - **Submission = best research-view Sharpe**: simple and explicit; the
   verifier's trial-count deflation and hidden out-of-sample check exist to
   punish exactly this selection.
+
+## 2026-11-20 — A senior quant proposes briefs; the owner approves them
+
+Owner: "an agent who makes proposals about the briefs ... can be external to
+the sandbox, it can be also Claude Code itself ... inspects the internet ...
+a senior quant trader." Answers to the follow-up questions: outcome-only
+feedback, the owner approves every proposal, run on demand.
+
+- **A Claude Code subagent, web tools only**: the senior quant has
+  WebSearch and WebFetch and nothing that reads files or changes state
+  (firm rule 11: web content is data). It returns YAML; the coding session
+  saves it and `firm research proposals import` checks it strictly. It is
+  outside the firm: it never touches code, data, dossiers or orders.
+- **The owner approves each proposal**: briefs are owner direction (SPEC
+  "Research floor"); approving opens a dossier, and from there the idea is
+  tested like any other.
+- **Outcome-only feedback, a standing opt-in**: Claude Code is a cloud
+  model, so anything about our results it sees leaves the machines (rule
+  9). The owner opted in, once, for this much: per proposal, the dossier's
+  stage, each verdict's outcome and the names of the checks that didn't
+  pass. No metrics, parameters, code, notes or dataset versions. Each export
+  (`context --outcomes`) is an OWNER_COMMAND tagged as private-to-cloud.
+  The real series list (instrument, timeframe, venue) goes too, without
+  versions or dates: it says what can be tested, not what we found.
+- **Verifier check names, not thresholds**: the senior quant knows which
+  checks exist, not their numbers, so it designs for robustness rather than
+  for the bar.
+- **Later**: the same role on a local model inside the firm (milestone 7
+  scout) if it should run unattended.
+

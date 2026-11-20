@@ -16,6 +16,7 @@ their skills through Certo.)
 | `/add-strategy NAME HYPOTHESIS` | Writes a strategy from the template, verifies it on synthetic then real data, reports the verdict as is; warns that every run is a trial. |
 | `/update-data VENUE INSTRUMENT SYMBOL TF` | Downloads or refreshes a series into the data store, builds a dataset version, reports gaps and revisions. |
 | `/pre-push [TARGET]` | Checks everything about to be pushed to the public repo (guard, tests, lint, types, outgoing diff, commit emails). Never pushes. |
+| `/senior-quant [FOCUS]` | Asks the senior quant subagent (`.claude/agents/senior-quant.md`, web tools only) for strategy proposals, saves them under `private/briefs/proposals/` and imports them for the owner to approve. |
 | `/review-docs` | Reviews the docs against the code: fixes stale facts, lists SPEC deltas and the rest in TODO.md. |
 
 ## Skills from Anthropic (downloaded, git-ignored)

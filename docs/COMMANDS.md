@@ -644,6 +644,102 @@ uv run firm research brief --text "prefer 1h and 4h; stay uncorrelated with the 
 uv run firm research brief            # show it
 ```
 
+### Brief proposals from the senior quant
+
+The **senior quant** is a Claude Code subagent (`.claude/agents/senior-quant.md`,
+run with `/senior-quant` in Claude Code) that reads the web and the published
+literature and proposes strategies for the floor to test. It changes nothing
+itself: its proposals are YAML files the coding session saves under
+`private/briefs/proposals/` (git-ignored). These commands check them, record
+them in the private store (`<data root>/research/proposals/`) and turn the
+ones you approve into dossiers. Every change is an OWNER_COMMAND.
+
+### firm research proposals import
+
+Checks proposal files strictly (unknown keys, an out-of-scope family such as
+market making, an unknown market or timeframe are refused, with the reason)
+and records the good ones. The same content twice is the same proposal.
+Exit code 2 if any file was refused.
+
+| Option | Meaning |
+| --- | --- |
+| `PATHS` | proposal files, or folders of `*.yaml` |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research proposals import private/briefs/proposals/
+```
+
+### firm research proposals list
+
+Every proposal: ID, status (`proposed`, `approved`, `rejected`), family,
+market, timeframes, title, and the dossier it became.
+
+| Option | Meaning |
+| --- | --- |
+| `--status` | only `proposed`, `approved` or `rejected` |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research proposals list --status proposed
+```
+
+### firm research proposals show
+
+One proposal in full, as the brief the researcher would read.
+
+| Option | Meaning |
+| --- | --- |
+| `PROPOSAL` | the proposal ID |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research proposals approve
+
+Opens a dossier (stage `draft`) with the proposal as its brief, on the
+proposal's market, instruments and timeframes; it joins the queue.
+
+| Option | Meaning |
+| --- | --- |
+| `PROPOSAL` | the proposal ID |
+| `--id` | dossier ID (default `d-<date>-<random>`) |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research proposals approve p-20261120-xxxxxxxx
+```
+
+### firm research proposals reject
+
+Turns a proposal down. The reason is recorded and the senior quant sees it
+next time, so it doesn't propose the same thing again.
+
+| Option | Meaning |
+| --- | --- |
+| `PROPOSAL` | the proposal ID |
+| `--reason` | why (required) |
+| `--config`, `--root`, `--state-root` | as above |
+
+### firm research proposals context
+
+Prints everything the senior quant may know: what the firm can test (spot,
+bars, the verifier's checks), each market's costs (public fee schedules),
+which real series the store holds (instrument, timeframe, venue; no dataset
+versions), and past proposals with their status. With `--outcomes` it adds,
+for each approved proposal, the dossier's stage, each verdict's outcome and
+the names of the checks that didn't pass; nothing else (no metrics,
+parameters or code). That is private data going to a cloud model, under the
+owner's standing opt-in (DECISIONS.md, 2026-11-20), and each such run is an
+OWNER_COMMAND recording the egress.
+
+| Option | Meaning |
+| --- | --- |
+| `--outcomes` | add the outcomes of approved proposals (logged egress) |
+| `--config`, `--root`, `--state-root` | as above |
+
+```bash
+uv run firm research proposals context --outcomes
+```
+
 ## firm dashboard
 
 The owner's web dashboard: the research floor (see and steer dossiers), the

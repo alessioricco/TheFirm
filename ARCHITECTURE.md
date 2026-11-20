@@ -578,6 +578,19 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   best Sharpe. Unreadable answers and failed code are noted and retried a
   bounded number of times, then `GiveUp`. Dataset: the one with most rows
   for the dossier's first instrument and timeframe.
+- **Brief proposals** (`research/proposals.py`): ideas from the senior
+  quant (a Claude Code subagent, `.claude/agents/senior-quant.md`, with web
+  tools only, outside the firm). `parse_proposal(yaml, markets=)` is strict
+  (`BriefProposal`: unknown keys, out-of-scope families, unknown timeframes
+  or markets refused, at least one dated source). `ProposalStore(data_root)`:
+  `<data root>/research/proposals/<id>.jsonl`, append-only (proposed ->
+  approved | rejected); the same content twice is one proposal (sha256).
+  Approving opens a dossier with `as_brief()` as its brief.
+  `context_pack(...)`: the senior quant's whole view (firm limits, market
+  costs, real series without versions, past proposals; `outcomes()` only on
+  request: stage, verdict outcome, names of checks not passed, read from
+  `<state>/reports/`). `firm research proposals ...` in `research_cli.py`;
+  `context --outcomes` records the cloud egress as an OWNER_COMMAND.
 - **Certo projects** (`research/certo_projects.py`): `prepare_project(
   workspace, project)` makes `<workspace>/<project>` with a `.venv` whose
   `firm_packages.pth` points at the firm's site-packages (Certo uses an
