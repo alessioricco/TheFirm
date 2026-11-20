@@ -197,8 +197,8 @@ like. Both `data-*/` and `state/` are git-ignored.
 
 ### Where it comes from
 
-`scripts/download_data.py` fetches **public** market data, with no API
-keys, into your data store. You run it yourself; tests never touch the
+`firm data fetch` downloads **public** market data, with no API keys, into
+your data store, and `firm data update` keeps it current. You run it yourself; tests never touch the
 network (a socket guard fails any test that tries).
 
 | Provider | What | Caveats |
@@ -213,14 +213,27 @@ timeframes. Check each provider's terms; the data is for your own use. A
 source being usable for research says nothing about trading there with
 real money (that's the jurisdiction profile, and it's off in v1).
 
-### Download, then freeze a dataset version
+### Download a series, then keep it up to date
 
 ```bash
-uv run python scripts/download_data.py --provider coinbase --symbol BTC-USD \
+uv run firm data fetch --provider coinbase --symbol BTC-USD \
     --instrument BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
-uv run firm data build-dataset --bars coinbase:BTC-USD:1d
-#   -> ds-xxxxxxxxxxxx
+#   -> dataset ds-xxxxxxxxxxxx  ... bars
+uv run firm data list            # every series, its last closed bar, how old
+uv run firm data update          # only the new bars of every downloaded series
 ```
+
+The same is in the dashboard's **Data** tab (Update all, Download a
+series; [DASHBOARD.md](DASHBOARD.md#data)) and, in Claude Code, `/firm-data`,
+`/firm-data-update` and `/firm-data-fetch`.
+
+`fetch` builds a dataset version of the series straight away (`--no-build`
+skips it); so does `update`, for each series it extended. `update` asks
+each provider only for the bars after the last one stored (plus the last
+two again, to catch a venue changing a closed bar), skips series that are
+already current, and leaves synthetic and imported series alone. Kraken
+keeps only its last 720 bars, so update Kraken series at least that often
+(720 days for 1d, 30 days for 1h).
 
 - `--symbol` is how the **provider** spells it (`XBTUSD` on Kraken,
   `BTC-USD` on Coinbase, `BTCUSDT` on Binance); `--instrument` is the
@@ -228,7 +241,8 @@ uv run firm data build-dataset --bars coinbase:BTC-USD:1d
   needed the first time an instrument is recorded.
 - `--dry-run` prints the requests and downloads nothing.
 - Downloading again adds new captures; it never edits old ones.
-- `build-dataset` normalises the captures and freezes a version. Repeat
+- `build-dataset` normalises the captures and freezes a version of any
+  combination of series. Repeat
   `--bars` for several series, add `--trades` for trade series, and
   `--derive 1d:1w` to build coarser bars on one canonical grid (days at
   00:00 UTC, weeks on Monday). Exact syntax: [COMMANDS.md, firm data](COMMANDS.md#firm-data).

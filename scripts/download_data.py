@@ -1,5 +1,9 @@
 """Download market data from any registered provider into the store. OWNER-RUN.
 
+Prefer `firm data fetch` (same options, and it builds the dataset version)
+and `firm data update` (only the new bars of every downloaded series).
+This script stays for existing notes and scripts.
+
 Never run by tests (they use fake transports). Public endpoints only, no
 keys. Every response is stored exactly as received, as one capture with its
 `.meta.json`; build dataset versions with `firm data build-dataset`.
@@ -26,8 +30,9 @@ import sys
 from datetime import UTC, datetime
 
 from firm.data import providers
-from firm.data.fetch import Fetcher, ensure_instrument, plan
+from firm.data.fetch import Fetcher, plan
 from firm.data.store import data_root
+from firm.data.update import fetch_series
 
 
 def _day(s: str) -> datetime:
@@ -71,20 +76,20 @@ def main(argv: list[str] | None = None, *, fetcher: Fetcher | None = None) -> in
         return 0
 
     root = data_root(args.root)
-    f = fetcher or Fetcher(root)
-    ensure_instrument(
-        root,
+    fetch_series(
+        fetcher or Fetcher(root),
         provider=args.provider,
         symbol=args.symbol,
-        venue=args.venue or args.provider,
         instrument=args.instrument,
+        tf=args.tf,
+        start=start,
+        end=end,
+        venue=args.venue,
         asset_class=args.asset_class,
-        listed_at=_day(args.listed_at) if args.listed_at else None,
         quote=args.quote,
+        listed_at=_day(args.listed_at) if args.listed_at else None,
+        trades_pages=args.trades_pages,
     )
-    f.bars(args.provider, args.symbol, args.tf, start=start, end=end)
-    if args.trades_pages:
-        f.trades(args.provider, args.symbol, pages=args.trades_pages)
     return 0
 
 

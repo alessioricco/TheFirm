@@ -44,10 +44,9 @@ daily bars.
 **1. Download the bars and freeze a dataset version** (public data, no keys):
 
 ```bash
-uv run python scripts/download_data.py --provider coinbase --symbol BTC-USD \
+uv run firm data fetch --provider coinbase --symbol BTC-USD \
     --instrument BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
-uv run firm data build-dataset --bars coinbase:BTC-USD:1d
-#   -> dataset version ds-xxxxxxxxxxxx
+#   -> dataset ds-xxxxxxxxxxxx  ... bars
 ```
 
 **2. Verify the strategy on it.** Only a PASS can be deployed:
@@ -121,8 +120,84 @@ and "back" when you start `firm bus up` again.
 
 ## firm data
 
-The data store: synthetic test data, dataset versions, instrument spellings.
-Real downloads are `scripts/download_data.py` ([Scripts](#scripts)).
+The data store: what it holds, downloads and updates, synthetic test data,
+dataset versions, instrument spellings.
+
+### firm data list
+
+Lists every bar series in the store (one per provider, provider symbol and
+timeframe): the instrument it maps to, how it was captured (`api`,
+`synthetic`, `legacy_import`), the number of captures, the first bar, the
+close of the last closed bar and how long ago that was. Read-only, no
+network.
+
+| Option | Meaning |
+| --- | --- |
+| `--root` | data store |
+| `--provider`, `--symbol`, `--tf` | only matching series |
+| `--json` | machine-readable output |
+
+```bash
+uv run firm data list
+uv run firm data list --provider coinbase --json
+```
+
+### firm data fetch
+
+Downloads one series from a public provider (no keys), the first time or as
+a backfill, then normalises it into a new dataset version. Every response is
+stored exactly as received; downloading again never edits old captures.
+
+| Option | Meaning |
+| --- | --- |
+| `--provider` | `binance`, `coinbase`, `kraken`, `yahoo` (`scripts/download_data.py --providers` lists them with their timeframes) |
+| `--symbol` | as the provider spells it: `XBTUSD`, `BTC-USD`, `BTCUSDT`, `NVDA` |
+| `--instrument` | firm ID: `BTC-USD`, `NVDA.XNAS` |
+| `--tf` | timeframe (default `1d`) |
+| `--venue` | where it trades (default: the provider; shares: e.g. `xnas`) |
+| `--asset-class`, `--quote` | `crypto` (default) or `equity`; shares need `--quote` |
+| `--since`, `--until` | first and last day (default: the provider's latest page, now) |
+| `--listed-at` | listing date, needed the first time an instrument is recorded |
+| `--trades-pages N` | also fetch N pages of recent trades |
+| `--no-build` | don't build a dataset version |
+| `--config` | config root, for the data quality rule (default `config`) |
+| `--root` | data store |
+| `--dry-run` | print the requests, download nothing |
+
+```bash
+uv run firm data fetch --provider binance --symbol ETHUSDT \
+    --instrument ETH-USDT --tf 1d --since 2017-08-17 --listed-at 2017-08-17
+uv run firm data fetch --provider yahoo --symbol NVDA --instrument NVDA.XNAS \
+    --venue xnas --asset-class equity --quote USD --since 2015-01-01 \
+    --listed-at 1999-01-22 --dry-run
+```
+
+### firm data update
+
+Brings every downloaded series up to date: for each `api` series it asks
+only for the bars after the last stored close, re-reading the last two
+closed bars (a venue that changed one shows up as `revisions`). A series
+whose next bar hasn't closed yet makes no request. Synthetic and imported
+series are skipped. Each updated series becomes a new dataset version,
+printed with its bar count, `gaps` (missing bars on a fixed grid,
+quarantined ones included), `revisions` and `quarantined`. A failed series
+is reported and the others carry on (exit 3); rerunning is safe. Kraken
+serves only its last 720 bars, so a Kraken series left longer than that
+keeps a gap (the dry run says so).
+
+| Option | Meaning |
+| --- | --- |
+| `--provider`, `--symbol`, `--tf` | only matching series |
+| `--no-build` | don't build dataset versions |
+| `--config` | config root, for the data quality rule (default `config`) |
+| `--root` | data store |
+| `--dry-run` | show each series' plan and requests, download nothing |
+
+```bash
+uv run firm data update --dry-run
+uv run firm data update
+uv run firm data update --provider coinbase --tf 1h
+```
 
 ### firm data synthetic
 
@@ -712,7 +787,7 @@ Run with `uv run python scripts/<name>` (shell scripts directly).
 
 | Script | What it does |
 | --- | --- |
-| `download_data.py` | Public market data from a provider into the data store, with a sidecar per download. `--providers` lists them. Options: `--provider`, `--symbol` (as the provider spells it), `--instrument` (firm ID), `--venue`, `--asset-class crypto\|equity`, `--quote`, `--tf`, `--since`, `--until`, `--listed-at` (needed the first time), `--trades-pages N`, `--root`, `--dry-run`. |
+| `download_data.py` | The original downloader; `firm data fetch` does the same and builds the dataset version. Public market data from a provider into the data store, with a sidecar per download. `--providers` lists them. Options: `--provider`, `--symbol` (as the provider spells it), `--instrument` (firm ID), `--venue`, `--asset-class crypto\|equity`, `--quote`, `--tf`, `--since`, `--until`, `--listed-at` (needed the first time), `--trades-pages N`, `--root`, `--dry-run`. |
 | `certo-mcp` | Starts Certo's MCP server for the firm on stdio (the research manager runs it; run by hand to check it starts): the model on the DGX, rooted in `<data root>/research/certo`. Settings in `private/certo-mcp.env` (from `certo-mcp.env.example`). See [CERTO.md](CERTO.md). Run directly: `scripts/certo-mcp`. |
 | `dashboard_demo.py` | Builds a demo for the dashboard from synthetic data only (a store, a real verification of the example strategy, a paper-run history with fills, dossiers in every stage). `--out DIR` (default `data-demo-dashboard`, git-ignored), `--force` to replace it. Prints the `firm dashboard serve` command for it. See [DASHBOARD.md](DASHBOARD.md#2-try-it-on-demo-data-first). |
 | `bus_smoke.py` | Starts a throwaway `nats-server` (a free port, a temporary folder: never your running bus) exactly as `firm bus up` does and checks the bus end to end: the order path, heartbeats, durable delivery, alerts, the kill switch (a kill sent while risk was down still arrives; only control may send one), and that the server refuses what the permission table forbids. Run after changing `src/firm/bus/`. |

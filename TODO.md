@@ -302,12 +302,25 @@ counting revisions, so a re-download already yields a newer dataset version.
 
 Still to build:
 
-- [ ] Incremental fetch: start from the last stored closed bar (or trade
-      cursor) per provider/symbol/tf, with a small overlap to detect
-      revisions, instead of the full history (`firm data update`, wrapping
-      the download script). Kraken `since`, Coinbase time windows.
-- [ ] Gap detection after merge: report missing bars per series, and
-      backfill them on the next update.
+- [x] Incremental fetch of bars: `firm data update` starts from the last
+      stored closed bar per provider/symbol/tf, re-reading two bars to
+      detect revisions; `firm data list` shows each series' reach;
+      `firm data fetch` replaces the script for first downloads
+      (2026-11-20). Trades still page from the latest (no cursor kept).
+- [x] Gap detection after merge: `update`/`fetch` print missing bars per
+      series on a fixed grid (session-aligned bars: not yet).
+- [ ] Backfill gaps found inside a series on the next update (today only
+      the tail is fetched; `firm data fetch --since` backfills by hand).
+- [x] Downloads from the dashboard (Data tab: list, update, download a
+      series; background jobs, one at a time) and from Claude Code
+      (`/firm-data`, `/firm-data-update`, `/firm-data-fetch`) (2026-11-20).
+- [ ] After PR #53 merges: add the `/firm-data*` commands to
+      docs/CLAUDE_CODE.md.
+- [ ] Watchlist (`config/data/watchlist.yaml`): series the firm should
+      hold, fetched if missing, then updated (owner, 2026-11-20).
+- [ ] `firm data import` for files from other projects (legacy captures,
+      described by a small YAML; research-only), first case the old
+      abovethecharts CSVs (owner, 2026-11-20; see Milestone 1 follow-ups).
 - [ ] Incremental normalisation: rebuild only the year partitions touched by
       new captures; untouched partitions keep their files (same bytes, same
       names).

@@ -1446,3 +1446,18 @@ Docker mode (an OpenHands image, internet open by default) or both.
 - **Submission = best research-view Sharpe**: simple and explicit; the
   verifier's trial-count deflation and hidden out-of-sample check exist to
   punish exactly this selection.
+
+## 2026-11-20 — `firm data update`: tail-only, two-bar overlap, one dataset per series
+
+Owner asked for a command that downloads and updates the series already in
+the store. `firm data update` reads each series' last closed bar from its
+own captures (no separate state to drift) and asks only for what follows,
+re-reading the last two closed bars so a venue that changed one shows up
+as a revision when the dataset is built. No request when the next bar
+hasn't closed. Only all-`api` series are updated: synthetic captures are
+test data and legacy imports have no source to ask. Each updated series is
+frozen as its own new dataset version by default, so it is ready for
+`firm verify`; multi-series datasets are still `firm data build-dataset`.
+Old versions stay valid. `firm data fetch` replaces
+`scripts/download_data.py` for first downloads (the script stays, sharing
+the same code). Gaps inside a series are reported, not yet backfilled.

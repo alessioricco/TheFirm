@@ -23,6 +23,7 @@
       <nav class="tabs" role="tablist" aria-label="Views">
         <button class="tab" role="tab" data-view="research" aria-selected="true">Research</button>
         <button class="tab" role="tab" data-view="trading" aria-selected="false">Trading</button>
+        <button class="tab" role="tab" data-view="data" aria-selected="false">Data</button>
         <button class="tab" role="tab" data-view="ledger" aria-selected="false">Ledger</button>
         <button class="tab" role="tab" data-view="commands" aria-selected="false">Commands</button>
       </nav>
@@ -59,6 +60,16 @@
           <div class="view-actions" id="trading-actions"></div>
         </div>
         <div class="grid-stack" id="grid-trading"></div>
+      </section>
+
+      <section id="view-data" class="view" role="tabpanel" aria-label="Data" hidden>
+        <div class="view-head">
+          <div>
+            <h1>Data</h1>
+            <p class="view-sub">Every bar series in the store and how recent it is. Update the downloaded ones or download a new series: public market data, run on the server in the background, one download at a time.</p>
+          </div>
+        </div>
+        <div id="data-root"></div>
       </section>
 
       <section id="view-ledger" class="view" role="tabpanel" aria-label="Ledger" hidden>
