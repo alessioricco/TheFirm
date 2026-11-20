@@ -1,26 +1,34 @@
 ---
-description: Download (or refresh) a market data series into the store and build a dataset version.
-argument-hint: "<provider> <instrument> <provider symbol> <tf> [since YYYY-MM-DD]"
+description: Download a new market data series, or bring the downloaded ones up to date, and build dataset versions.
+argument-hint: "[empty: update everything | <provider> <provider symbol> <instrument> <tf> [since YYYY-MM-DD]]"
 ---
 
-Update the data series `$ARGUMENTS` in the git-ignored data store.
+Download or update data in the git-ignored data store. Request: `$ARGUMENTS`
+(empty: update every downloaded series).
+
+Use `FIRM_DOTENV=0 .venv/bin/python -m firm.control.cli` for `firm` (the
+same as `uv run firm`, without uv's cache, which the sandbox blocks).
 
 1. This uses the network (owner-approved for public market-data endpoints
    only). Tests never do. Never write synthetic data into the real store.
-2. Dry run first and show the requests:
-   `uv run python scripts/download_data.py --provider P --symbol S
-   --instrument I [--venue V] [--asset-class equity --quote USD] --tf T
-   [--since D] [--listed-at D] --dry-run` (`--providers` lists the sources).
-   `--listed-at` is needed the first time an instrument is seen; if you
-   don't know the listing date, ask instead of guessing.
-3. Run it for real. Transient errors are retried; report any that remain.
-   Re-runs are safe: captures are write-once and content-hashed.
-4. Build the dataset version, including every series it should span:
-   `uv run firm data build-dataset --bars P:S:TF [--bars ...] [--trades P:S ...]`.
-5. Report: dataset version, bars per series, first and last close time,
-   gaps, revisions (closed bars on which captures disagreed), and that the
-   still-forming bar was dropped. Compare last closes across venues if
-   more than one is present.
+   The sandbox lets a command reach only the hosts it declares: binance
+   `data-api.binance.vision`, coinbase `api.exchange.coinbase.com`, kraken
+   `api.kraken.com`, yahoo `query1.finance.yahoo.com`.
+2. Show what is there: `firm data list`.
+3. **Update** (no arguments, or the owner names a provider/series):
+   `firm data update --dry-run [--provider P --symbol S --tf T]`, show the
+   plan, then run it without `--dry-run`. Failed series are reported and
+   the rest carry on; rerunning is safe.
+4. **New series**: dry run first and show the requests:
+   `firm data fetch --provider P --symbol S --instrument I [--venue V]
+   [--asset-class equity --quote USD] --tf T [--since D] [--listed-at D]
+   --dry-run`. `--listed-at` is needed the first time an instrument is
+   seen; if you don't know the listing date, ask instead of guessing. Then
+   run it for real.
+5. Report: each series' new dataset version, bars, last close, gaps,
+   revisions (closed bars on which captures disagreed) and quarantined
+   bars, as printed. A dataset spanning several series is
+   `firm data build-dataset --bars P:S:TF [--bars ...]`.
 6. Check the data is still out of git: `python3 scripts/check_repo.py --all`.
-   Record the download, the new dataset version and anything odd in the
+   Record the download, the new dataset versions and anything odd in the
    git-ignored `private/TODO.md` (never in the public TODO.md).

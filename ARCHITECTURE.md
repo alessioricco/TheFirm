@@ -30,7 +30,7 @@ config/
 deploy/              systemd unit + runbook for the unattended paper run
 examples/strategies/  ma_crossover.py (clean), lookahead_ma.py (planted lookahead)
 scripts/
-  download_data.py                 owner-run: any registered provider -> raw captures
+  download_data.py                 owner-run: any registered provider -> raw captures (= firm data fetch)
   ari_golden/generate_baseline.py  one-off; ran with the old repo's venv
 tests/
   invariants/   one test per SPEC firm rule
@@ -153,6 +153,16 @@ Gotchas:
   only), `Fetcher(root, transport, clock, sleep)` runs a provider's plan and
   stores each response as a capture; `ensure_instrument` creates/extends the
   instrument record. Transport, clock and sleep are injectable for tests.
+- `update.py`: what the store holds and bringing it current.
+  `stored_series(root)` groups bar captures per provider/symbol/tf and
+  reads each one's reach with the provider's own parser (closed bars only;
+  legacy and malformed captures are skipped, not parsed). `fetch_series`
+  (first download, shared with `scripts/download_data.py`),
+  `plan_update`/`update_series` (from `OVERLAP_BARS` = 2 bars before the
+  last stored close to now; no request if the next bar hasn't closed; only
+  all-`api` series), `build_series` (normalise + freeze one series),
+  `gaps` (missing bars on a fixed grid). CLI: `control/data_cli.py`
+  (`firm data list|fetch|update`; `_fetcher`/`_now` are the test seams).
 - `reference.py`: `InstrumentRecord` (firm ID, provider symbols, listed /
   delisted, `status(as_of)`), versioned files, `resolve(provider, symbol)`.
 - `normalize.py`: captures → Parquet (`BAR_SCHEMA`, `TRADE_SCHEMA`), merge

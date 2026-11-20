@@ -14,7 +14,7 @@ their skills through Certo.)
 | `/add-venue-adapter VENUE` | Adds a broker or exchange behind the adapter interface; must pass the conformance suite. |
 | `/certo-task WHAT` | Writes a Certo task file (`docs/tasks/`) with script-checkable acceptance criteria; no private data. |
 | `/add-strategy NAME HYPOTHESIS` | Writes a strategy from the template, verifies it on synthetic then real data, reports the verdict as is; warns that every run is a trial. |
-| `/update-data VENUE INSTRUMENT SYMBOL TF` | Downloads or refreshes a series into the data store, builds a dataset version, reports gaps and revisions. |
+| `/update-data [PROVIDER SYMBOL INSTRUMENT TF]` | No arguments: brings every downloaded series up to date (`firm data update`). With a series: downloads it (`firm data fetch`). Builds dataset versions, reports gaps and revisions. |
 | `/pre-push [TARGET]` | Checks everything about to be pushed to the public repo (guard, tests, lint, types, outgoing diff, commit emails). Never pushes. |
 | `/review-docs` | Reviews the docs against the code: fixes stale facts, lists SPEC deltas and the rest in TODO.md. |
 

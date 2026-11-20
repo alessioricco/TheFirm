@@ -878,6 +878,9 @@ def build_parser() -> argparse.ArgumentParser:
     sym.add_argument("--provider", required=True, help="e.g. coinbase_ws")
     sym.add_argument("--symbol", required=True, help="as that provider spells it")
     sym.set_defaults(func=_cmd_add_symbol)
+    from firm.control.data_cli import add_data_store_parsers
+
+    add_data_store_parsers(data)
 
     state = sub.add_parser("state", help="verifier state (read-only)").add_subparsers(
         dest="state_cmd"

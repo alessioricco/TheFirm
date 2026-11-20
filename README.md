@@ -120,8 +120,9 @@ Exit codes: 0 pass, 1 fail, 2 unverified, 3 error.
 
 ### Real market data
 
-`scripts/download_data.py` fetches public market data (no API keys) from any
-registered provider into your local data store; you run it yourself, tests
+`firm data fetch` downloads public market data (no API keys) from any
+registered provider into your local data store, and `firm data update`
+brings every downloaded series up to date; you run it yourself, tests
 never do. Built in: **kraken**, **coinbase**, **binance** (crypto) and
 **yahoo** (shares; unofficial endpoint, prices stored un-split-adjusted).
 Check each provider's terms of use; the data is for your own use. Using a
@@ -130,8 +131,10 @@ real money: that is decided by the jurisdiction profile and is off in v1.
 
 ```bash
 uv run python scripts/download_data.py --providers        # what's available
-uv run python scripts/download_data.py --provider coinbase --symbol BTC-USD \
+uv run firm data fetch --provider coinbase --symbol BTC-USD \
     --instrument BTC-USD --tf 1d --since 2017-01-01 --listed-at 2015-01-26
+uv run firm data list                                      # what the store holds
+uv run firm data update                                    # new bars only, every series
 uv run python scripts/download_data.py --provider binance --symbol BTCUSDT \
     --instrument BTC-USDT --tf 1d --since 2017-08-17 --listed-at 2017-08-17
 uv run python scripts/download_data.py --provider yahoo --symbol NVDA \
