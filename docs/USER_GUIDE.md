@@ -223,6 +223,10 @@ uv run firm data list            # every series, its last closed bar, how old
 uv run firm data update          # only the new bars of every downloaded series
 ```
 
+The same is in the dashboard's **Data** tab (Update all, Download a
+series; [DASHBOARD.md](DASHBOARD.md#data)) and, in Claude Code, `/firm-data`,
+`/firm-data-update` and `/firm-data-fetch`.
+
 `fetch` builds a dataset version of the series straight away (`--no-build`
 skips it); so does `update`, for each series it extended. `update` asks
 each provider only for the bars after the last one stored (plus the last

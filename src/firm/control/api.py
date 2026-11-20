@@ -16,6 +16,10 @@ Loopback only for now, and only for the owner:
   ledger events live. **Read-only for trading**: nothing here can place,
   size or cancel an order or touch risk; the kill switch comes separately
   (M3b), through the bus and the risk desk.
+- **Data** (firm.control.data_api): list the store's series, update them or
+  download a new one in the background, as `firm data update|fetch`; each
+  start is an OWNER_COMMAND "via dashboard". Uses the network (public
+  market-data endpoints only).
 """
 
 from __future__ import annotations
@@ -31,6 +35,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+from firm.control.data_api import add_data_routes
 from firm.control.research import dossier_view, floor_view, open_floor, owner_command
 from firm.control.status import paper_status
 from firm.ledger.sink import ledger_path
@@ -126,9 +131,12 @@ def create_app(
     poll_seconds: float = 1.0,
     publish_factory=None,  # type: ignore[no-untyped-def]
     kill_wait_seconds: float = 8.0,
+    data_fetcher=None,  # type: ignore[no-untyped-def]
+    data_background: bool = True,
 ) -> FastAPI:
     """`publish_factory(config_root, state_root)`: how owner commands reach the risk
-    desk (default: the bus, as the control service)."""
+    desk (default: the bus, as the control service). `data_fetcher(root)`: the
+    downloader for the Data view (default: the real network one)."""
     expected = load_or_create_token(state_root)
     app = FastAPI(title="The firm", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -377,6 +385,29 @@ def create_app(
         end = before if before is not None else (head.sequence + 1 if head else 0)
         start = max(0, end - limit)
         return [_event(e) for e in led.read(from_sequence=start) if e.sequence < end]
+
+    # ------------------------------------------------------------ data store
+    def record_data(command: str, payload: dict[str, Any]) -> None:
+        from datetime import UTC, datetime
+
+        from firm.core.domain import LedgerEventType
+
+        _ledger().append(
+            LedgerEventType.OWNER_COMMAND,
+            f"owner: {command} (dashboard)"[:300],
+            {"command": command, "via": "dashboard", "at": datetime.now(UTC).isoformat()} | payload,
+        )
+
+    add_data_routes(
+        app,
+        guarded=guarded,
+        change=change,
+        config_root=config_root,
+        data_root=data_root,
+        record=record_data,
+        fetcher_factory=data_fetcher,
+        background=data_background,
+    )
 
     @app.websocket("/api/live")
     async def live(ws: WebSocket) -> None:

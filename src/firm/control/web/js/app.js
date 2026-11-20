@@ -7,10 +7,11 @@ import { toast } from "./ui.js";
 import { mountResearch, onResearchEvent, refreshResearch } from "./research.js";
 import { mountTrading, onTradingEvent, refreshTrading, themeChanged } from "./trading.js";
 import { mountLedger, onLedgerEvent } from "./ledger.js";
+import { mountData } from "./data.js";
 import { mountCommands } from "./commands.js";
 import { refreshKill } from "./killswitch.js";
 
-const VIEWS = ["research", "trading", "ledger", "commands"];
+const VIEWS = ["research", "trading", "data", "ledger", "commands"];
 const mounted = new Set();
 let meta = null;
 let current = "research";
@@ -44,6 +45,7 @@ async function show(view, push = true) {
     try {
       if (view === "research") await mountResearch(meta);
       if (view === "trading") await mountTrading();
+      if (view === "data") await mountData();
       if (view === "ledger") await mountLedger();
       if (view === "commands") await mountCommands();
     } catch (err) {

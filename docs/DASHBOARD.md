@@ -18,7 +18,7 @@ does, and how it is kept safe. Every command and option is also in the
 2. [Try it on demo data first](#2-try-it-on-demo-data-first)
 3. [Logging in](#3-logging-in)
 4. [Using it next to a paper run](#4-using-it-next-to-a-paper-run)
-5. [The four views](#5-the-four-views)
+5. [The five views](#5-the-five-views)
 6. [Arranging the panels](#6-arranging-the-panels)
 7. [How it is kept safe](#7-how-it-is-kept-safe)
 8. [From another machine](#8-from-another-machine)
@@ -98,7 +98,7 @@ dashboard only reads the ledger (SQLite allows that while the run writes),
 so starting, stopping or reloading it never disturbs the run. The same
 status is available in the terminal: `uv run firm paper status`.
 
-## 5. The four views
+## 5. The five views
 
 Switch views with the tabs at the top (or the left/right arrow keys on a
 focused tab). The top bar also shows the **Live** indicator (new ledger
@@ -181,6 +181,33 @@ Ctrl-C in its terminal or `systemctl --user stop firm-paper@<name>`. From
 a terminal the same is `uv run firm kill --market crypto --reason "..."
 --confirm` and `uv run firm resume ...` ([COMMANDS.md](COMMANDS.md#firm-kill)).
 
+### Data
+
+Every bar series in the data store, one row per provider symbol and
+timeframe: the firm instrument it maps to, how it was captured
+(**downloaded**, **synthetic** or **imported**), the number of captures,
+the first bar, the last closed bar, its age, and what an update would do
+("~18 new bar(s)", "up to date", or why it is skipped). The figures on top
+count the series, the downloaded ones, those needing an update, and
+whether a download is running.
+
+- **Update all** (or **Update** on one row) fetches only the new bars of
+  the downloaded series, as `firm data update`, after a confirmation that
+  says how many series and requests. Synthetic and imported series are
+  left alone.
+- **Download a series** fetches a new one, as `firm data fetch`: provider
+  (with what it serves), timeframe, the provider's symbol, the firm's
+  instrument ID, the listing date the first time an instrument is recorded,
+  and optionally a start and end date. Shares need a venue and a quote
+  currency.
+
+Downloads use the network (public market-data endpoints, no keys) and run
+on the server in the background, one at a time; the panel below the table
+shows the running or last download's output, and earlier ones (until the
+server restarts). Each finished series becomes a new dataset version, ready
+for `firm verify`. Each start is an OWNER_COMMAND "via dashboard". A failed
+series is reported and the rest carry on; starting again is safe.
+
 ### Ledger
 
 Every recorded event, newest first: filter by type, search the reasons,
@@ -229,6 +256,9 @@ On a narrow window or a phone the panels stack in one column.
   desk like `firm kill`. Research
   steering goes through the same rules as the CLI (a hypothesis stays
   locked, closing needs a reason, a closed dossier takes no changes).
+- **Data downloads only add.** The Data view writes new captures and
+  dataset versions to the store, from public endpoints; it never edits or
+  deletes data, and never touches orders, risk or the verifier.
 - **Everything recorded.** Each change you make is an OWNER_COMMAND event in
   the ledger, marked "via dashboard".
 - **Pinned, reviewed libraries.** The chart and panel libraries are vendored

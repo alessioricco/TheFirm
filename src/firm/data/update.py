@@ -22,6 +22,7 @@ fetch` / `update`, owner-run); tests pass a fake transport.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -248,3 +249,74 @@ def age(last_close: datetime | None, now: datetime) -> str:
     if s < 2 * 86400:
         return f"{s // 3600}h"
     return f"{s // 86400}d"
+
+
+def build_summary(root: Path, series: Series, quality: DataQualityConfig | None) -> str:
+    """Normalise one series into a new dataset version; one summary line."""
+    manifest, files = build_series(root, series, quality)
+    extra = []
+    if (g := gaps(root, files)) is not None:
+        extra.append(f"gaps={g}")
+    if rev := sum(f.revisions for f in files):
+        extra.append(f"revisions={rev}")
+    if q := sum(len(f.quarantined) for f in files):
+        extra.append(f"quarantined={q}")
+    rows = sum(f.rows for f in files)
+    return f"{manifest.dataset_version}  {rows} bars" + (f"  {' '.join(extra)}" if extra else "")
+
+
+def series_view(s: Series, now: datetime) -> dict[str, object]:
+    """One series as JSON (the CLI's `--json` and the dashboard)."""
+    p = plan_update(s, now)
+    return {
+        "series": s.key,
+        "provider": s.provider,
+        "symbol": s.symbol,
+        "tf": s.tf,
+        "venue": s.venue,
+        "instrument": s.instrument,
+        "methods": list(s.methods),
+        "captures": s.captures,
+        "first_open": s.first_open.isoformat() if s.first_open else None,
+        "last_close": s.last_close.isoformat() if s.last_close else None,
+        "last_captured_at": s.last_captured_at.isoformat() if s.last_captured_at else None,
+        "age": age(s.last_close, now),
+        "updatable": s.updatable,
+        "plan": p.note,
+        "requests": len(p.requests),
+    }
+
+
+def run_update(
+    root: Path,
+    fetcher: Fetcher,
+    todo: list[Series],
+    now: datetime,
+    quality: DataQualityConfig | None,
+    *,
+    build: bool = True,
+    out: Callable[[str], None] = print,
+    err: Callable[[str], None] = print,
+) -> int:
+    """Update each series, then build its dataset version. A failed series is
+    reported and the rest carry on. Returns the number that failed."""
+    failed = 0
+    for s in todo:
+        try:
+            p = update_series(fetcher, s, now)
+        except (OSError, ValueError) as exc:  # network or provider error: next series
+            failed += 1
+            err(f"{s.key:<28} FAILED: {exc}")
+            continue
+        out(f"{s.key:<28} {p.note}")
+        if p.start is None or not build:
+            continue
+        try:
+            (fresh,) = stored_series(root, provider=s.provider, symbol=s.symbol, tf=s.tf)
+            built = build_summary(root, fresh, quality)
+            last = fresh.last_close.strftime("%Y-%m-%d %H:%M") if fresh.last_close else "-"
+            out(f"{'':<28} last close {last}; dataset {built}")
+        except (OSError, ValueError) as exc:
+            failed += 1
+            err(f"{'':<28} dataset not built: {exc}")
+    return failed

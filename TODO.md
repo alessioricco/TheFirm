@@ -311,6 +311,11 @@ Still to build:
       series on a fixed grid (session-aligned bars: not yet).
 - [ ] Backfill gaps found inside a series on the next update (today only
       the tail is fetched; `firm data fetch --since` backfills by hand).
+- [x] Downloads from the dashboard (Data tab: list, update, download a
+      series; background jobs, one at a time) and from Claude Code
+      (`/firm-data`, `/firm-data-update`, `/firm-data-fetch`) (2026-11-20).
+- [ ] After PR #53 merges: add the `/firm-data*` commands to
+      docs/CLAUDE_CODE.md.
 - [ ] Watchlist (`config/data/watchlist.yaml`): series the firm should
       hold, fetched if missing, then updated (owner, 2026-11-20).
 - [ ] `firm data import` for files from other projects (legacy captures,

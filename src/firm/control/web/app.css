@@ -364,7 +364,7 @@ ul.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 12.5px; font-weight: 650; color: var(--text-2); }
 .field-hint { font-size: 12px; color: var(--muted); }
-input[type="text"], input[type="search"], textarea, select {
+input[type="text"], input[type="search"], input[type="date"], textarea, select {
   width: 100%; font: 13.5px/1.45 var(--font); color: var(--text); background: var(--bg-2);
   border: 1px solid var(--border-2); border-radius: 9px; padding: 9px 11px; transition: border-color .15s, box-shadow .15s;
 }
@@ -465,3 +465,15 @@ body.has-modal { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ------------------------------------------------------------- data view */
+#data-root { display: flex; flex-direction: column; gap: 14px; }
+.table-data td { vertical-align: middle; }
+.job-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.job-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.job-head h3 { margin: 0; font-size: 14px; }
+.job-summary { margin: 0; color: var(--text-2); font-size: 13px; }
+.job-log { margin: 0; padding: 12px 14px; max-height: 340px; overflow: auto; font: 12px/1.55 var(--mono); color: var(--text-2); white-space: pre-wrap; word-break: break-word; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+.job-log:empty::before { content: "No output yet."; color: var(--muted); }
+.log-detail { color: var(--muted); }
+.log-error { color: var(--bad); }

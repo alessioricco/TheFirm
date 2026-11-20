@@ -747,13 +747,23 @@ target=None, opt_in=None)` (firm rule 8). A shared library: imports only
   strict CSP (scripts only from 'self'; styles may be inline because the
   chart and grid libraries size elements that way), nosniff, no-referrer,
   DENY framing, no-store.
+- `data_api.py` + `data_jobs.py` (the Data view): `GET /api/data`
+  (`update.series_view` per series, providers, recent jobs),
+  `POST /api/data/update|fetch` (validated bodies: symbol, instrument, day
+  patterns; provider and timeframe checked against the registry), `GET
+  /api/data/jobs/<id>`. Downloads run as `DataJobs` jobs: a thread each,
+  at most one running (`JobBusy` → 409), output lines kept in memory (last
+  20 jobs; gone on restart), the same `firm.data.update` functions as the
+  CLI. Each start is an OWNER_COMMAND "data update|fetch" via dashboard.
+  `create_app(data_fetcher=, data_background=)` are the test seams.
 - `web/` (the page, M3a part 2): `index.html` (no inline script),
   `app.css` (dark and light themes as CSS variables, system fonts),
   `js/` as ES modules: `app.js` (views, live WebSocket with backoff, clock,
   theme, layout editing), `research.js` (KPIs, dossier table with budget
   meters, details drawer, every steering command as forms), `trading.js`
   (run, account, P&L, Lightweight Charts candles + fill markers, feeds,
-  risk), `ledger.js`, `commands.js`, `layout.js` (GridStack grids, locked
+  risk), `ledger.js`, `data.js` (Data view: series table,
+  update/download dialogs, polls the running job), `commands.js`, `layout.js` (GridStack grids, locked
   unless editing, saved per view), `ui.js` (modals with focus trap,
   confirmations, toasts, drawer), `activity.js`, `api.js`, `dom.js` (an
   `h()` helper: data is only ever inserted as text). `vendor/`: Lightweight

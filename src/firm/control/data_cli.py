@@ -47,43 +47,20 @@ def _quality(config: str):  # type: ignore[no-untyped-def]
 
 
 def _build(root: Path, series: Any, config: str) -> str:
-    """Normalise one series into a new dataset version; one summary line."""
-    from firm.data.update import build_series, gaps
+    from firm.data.update import build_summary
 
-    manifest, files = build_series(root, series, _quality(config))
-    rows = sum(f.rows for f in files)
-    extra = []
-    if (g := gaps(root, files)) is not None:
-        extra.append(f"gaps={g}")
-    if rev := sum(f.revisions for f in files):
-        extra.append(f"revisions={rev}")
-    if q := sum(len(f.quarantined) for f in files):
-        extra.append(f"quarantined={q}")
-    return f"{manifest.dataset_version}  {rows} bars" + (f"  {' '.join(extra)}" if extra else "")
+    return build_summary(root, series, _quality(config))
 
 
 def _cmd_list(args: argparse.Namespace) -> int:
     from firm.data.store import data_root
-    from firm.data.update import age, stored_series
+    from firm.data.update import age, series_view, stored_series
 
     root = data_root(args.root)
     now = _now()
     rows = stored_series(root, provider=args.provider, symbol=args.symbol, tf=args.tf)
     if args.json:
-        out = [
-            {
-                "series": s.key,
-                "venue": s.venue,
-                "instrument": s.instrument,
-                "methods": list(s.methods),
-                "captures": s.captures,
-                "first_open": s.first_open.isoformat() if s.first_open else None,
-                "last_close": s.last_close.isoformat() if s.last_close else None,
-                "last_captured_at": s.last_captured_at.isoformat() if s.last_captured_at else None,
-                "updatable": s.updatable,
-            }
-            for s in rows
-        ]
+        out = [series_view(s, now) for s in rows]
         print(json.dumps(out, indent=2))
         return 0
     if not rows:
@@ -138,7 +115,7 @@ def _cmd_fetch(args: argparse.Namespace) -> int:
 
 def _cmd_update(args: argparse.Namespace) -> int:
     from firm.data.store import data_root
-    from firm.data.update import plan_update, stored_series, update_series
+    from firm.data.update import plan_update, run_update, stored_series
 
     root = data_root(args.root)
     now = _now()
@@ -153,25 +130,15 @@ def _cmd_update(args: argparse.Namespace) -> int:
             for req in p.requests:
                 print("  GET", req.url)
         return 0
-    fetcher = _fetcher(root)
-    failed = 0
-    for s in todo:
-        try:
-            p = update_series(fetcher, s, now)
-        except (OSError, ValueError) as exc:  # network or provider error: next series
-            failed += 1
-            print(f"{s.key:<28} FAILED: {exc}", file=sys.stderr)
-            continue
-        print(f"{s.key:<28} {p.note}")
-        if p.start is None or args.no_build:
-            continue
-        try:
-            (fresh,) = stored_series(root, provider=s.provider, symbol=s.symbol, tf=s.tf)
-            built = _build(root, fresh, args.config)
-            print(f"{'':<28} last close {_fmt(fresh.last_close)}; dataset {built}")
-        except (OSError, ValueError) as exc:
-            failed += 1
-            print(f"{'':<28} dataset not built: {exc}", file=sys.stderr)
+    failed = run_update(
+        root,
+        _fetcher(root),
+        todo,
+        now,
+        _quality(args.config),
+        build=not args.no_build,
+        err=lambda m: print(m, file=sys.stderr),
+    )
     if failed:
         print(
             f"{failed} series failed; rerun `firm data update` (it is safe to repeat)",
