@@ -380,3 +380,38 @@ class ResearchSession:
         note = str(result.get("error") or result.get("summary") or status.get("state"))[:300]
         passed = bool(status.get("passed")) and status.get("verdict") == "verified"
         return CodeResult(status.get("verdict"), passed, code, note)
+
+
+# ------------------------------------------------------------ brief proposals
+def approve_proposal(
+    manager, ledger: Ledger, store, proposal_id: str, *, dossier_id: str | None, via: str
+):  # type: ignore[no-untyped-def]
+    """The owner approves a senior-quant proposal: a dossier opens with it as its
+    brief (CLI and dashboard). Refuses anything not in `proposed`."""
+    from firm.research.proposals import ProposalError
+
+    p = store.get(proposal_id)
+    if p.status != "proposed":
+        raise ProposalError(f"{proposal_id} is already {p.status}")
+    d = manager.start(
+        brief=p.proposal.as_brief(),
+        market=p.proposal.market,
+        instruments=p.proposal.instruments,
+        timeframes=p.proposal.timeframes,
+        dossier_id=dossier_id,
+    )
+    store.approve(proposal_id, d.dossier_id)
+    owner_command(
+        ledger, "proposals approve", {"proposal_id": proposal_id, "dossier_id": d.dossier_id}, via
+    )
+    return store.get(proposal_id), d
+
+
+def reject_proposal(ledger: Ledger, store, proposal_id: str, reason: str, *, via: str) -> None:  # type: ignore[no-untyped-def]
+    store.reject(proposal_id, reason)
+    owner_command(ledger, "proposals reject", {"proposal_id": proposal_id, "reason": reason}, via)
+
+
+def proposal_view(p) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """A proposal for the owner's eyes: everything, plus the brief it becomes."""
+    return p.model_dump(mode="json") | {"brief": p.proposal.as_brief()}

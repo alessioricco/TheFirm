@@ -8,7 +8,7 @@
 It writes a synthetic data store (Kraken BTC-USD daily bars, made up), a
 real verification of the example strategy on it, a paper-run history in the
 ledger (an account, fills, feeds, a heartbeat that was lost and came back),
-and research dossiers in every stage, so every panel has something to show.
+research dossiers in every stage, and senior-quant proposals, so every panel has something to show.
 Nothing here is real data, a real result or a real trade; the folder is
 git-ignored (`data-*/`). Delete it when you're done.
 """
@@ -328,7 +328,75 @@ def build(out: Path) -> tuple[Path, Path]:
     FloorBriefs(data).set(
         "Prefer daily and 4h bars; stay uncorrelated with the running MA crossover."
     )
+    _demo_proposals(data)
     return data, state
+
+
+def _demo_proposals(data: Path) -> None:
+    """Made-up senior-quant proposals (demo text, example.org sources)."""
+    from firm.research.proposals import BriefProposal, ProposalStore
+
+    store = ProposalStore(data)
+
+    def idea(title: str, family: str, tf: str, trades: int, **text: str) -> str:
+        p, _ = store.add(
+            BriefProposal.model_validate(
+                {
+                    "title": title,
+                    "method_family": family,
+                    "market": "crypto",
+                    "instruments": ["BTC-USD"],
+                    "timeframes": [tf],
+                    "hypothesis": text["hypothesis"],
+                    "why_edge": text["why"],
+                    "rules": text["rules"],
+                    "data_needed": f"{tf} bars, three years or more",
+                    "falsified_if": "Net Sharpe under 0.5 after the venue's costs, "
+                    "or the edge disappears when parameters move by 20%.",
+                    "expected_trades_per_month": trades,
+                    "cost_notes": "Demo proposal: few trades a month, so taker fees stay small.",
+                    "sources": [
+                        {
+                            "title": "Demo source (not a real paper)",
+                            "url": "https://example.org/demo-paper",
+                            "accessed": "2026-11-20",
+                        }
+                    ],
+                }
+            )
+        )
+        return p.proposal_id
+
+    idea(
+        "Demo: volatility-scaled trend on BTC 4h",
+        "momentum",
+        "4h",
+        6,
+        hypothesis="Demo: the sign of the 30-day return predicts the next week's sign.",
+        why="Demo: slow-moving flows and under-reaction to news.",
+        rules="Demo: target 1 when the 30-day return is positive and volatility is "
+        "below its one-year median; else 0. Parameters: lookback 30 (20-60).",
+    )
+    idea(
+        "Demo: weekend gap reversal on BTC 1d",
+        "mean_reversion",
+        "1d",
+        3,
+        hypothesis="Demo: large weekend moves partly reverse on Monday.",
+        why="Demo: thin weekend liquidity overshoots.",
+        rules="Demo: buy at Sunday's close after a weekend fall over 2 standard "
+        "deviations; sell at Tuesday's close.",
+    )
+    rejected = idea(
+        "Demo: halving-cycle seasonality",
+        "seasonality",
+        "1w",
+        1,
+        hypothesis="Demo: returns follow the four-year halving cycle.",
+        why="Demo: supply schedule narratives.",
+        rules="Demo: hold from 6 months before to 12 months after each halving.",
+    )
+    store.reject(rejected, "only three cycles of history: can't be verified honestly")
 
 
 def main() -> int:

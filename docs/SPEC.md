@@ -211,6 +211,8 @@ firm kill --confirm
 - **Other charts** (P&L curves, drawdown, trials vs budget, distributions): Apache ECharts (Apache-2.0).
 - **Configurable panels:** a drag-and-resize grid (GridStack.js, MIT). Each panel is a type (price chart, positions, fills, P&L, risk use, feed health, researcher list, dossier view, activity log, alerts) with its own settings; layouts are saved server-side per named view (for example "Trading", "Research"), so they follow the owner to any browser.
 
+**Claude Code as a console (added Nov 20, 2026):** the owner can also run the firm by talking to Claude Code, which calls the same CLI (slash commands `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`). It acts only on the owner's request, makes the owner's decisions only when the owner names them, and can never change risk, budgets, the verifier or `live_trading`. It runs on a cloud model; the owner opted in once for it to read results when asked, never agent-written strategy code or its parameters (`docs/CLAUDE_CODE.md`).
+
 **Access:** private network only (for example Tailscale), authenticated, never on the public internet. An MCP endpoint lets Claude Code read state while building; it is read-only by default.
 
 ## Research floor (experiment agents)
@@ -221,7 +223,7 @@ Autonomous researcher agents invent, test and optimise new strategies on the DGX
 
 **How a researcher works**
 
-1. **Idea:** from a published method family, an owner brief, or (milestone 7) a scout note. Sources of inspiration are published methods: academic papers, books and public talks by firms such as Jane Street, AQR, Two Sigma and Man, and well-known families (momentum, mean reversion, pairs and stat arb, funding-rate carry, cross-exchange basis, volatility regimes, order flow). These give methods, not answers; firms do not publish their strategies, and well-known effects are often weaker today. Families the paper simulator cannot test honestly (market making, high frequency) are out of scope.
+1. **Idea:** from a published method family, an owner brief, a brief proposal by the senior quant that the owner approved, or (milestone 7) a scout note. Sources of inspiration are published methods: academic papers, books and public talks by firms such as Jane Street, AQR, Two Sigma and Man, and well-known families (momentum, mean reversion, pairs and stat arb, funding-rate carry, cross-exchange basis, volatility regimes, order flow). These give methods, not answers; firms do not publish their strategies, and well-known effects are often weaker today. Families the paper simulator cannot test honestly (market making, high frequency) are out of scope.
 2. **Prototype:** rules, machine learning, or both, built on the data plane and the ari feature library; code written with local models and Certo.
 3. **Research loop:** backtest, tune, change features, retrain, with walk-forward validation on the research view only. Every run is a trial in the global count. The loop ends when the dossier's budget is spent or the researcher submits.
 4. **Submit:** the verifier runs its checks and opens the hidden out-of-sample period once. A failed version is closed; a changed strategy is a new candidate, and both count as trials.
@@ -229,6 +231,8 @@ Autonomous researcher agents invent, test and optimise new strategies on the DGX
 6. **Live:** never automatic; the owner decides (live readiness gate).
 
 **What researchers can never do:** see the hidden out-of-sample data (the data plane refuses it); change risk limits, the promotion gate or their own budgets; place orders; push strategy code to git; send private data to a cloud model without the owner's per-run opt-in.
+
+**Senior quant (brief proposals, added Nov 20, 2026):** a web-reading quant agent outside the firm (a Claude Code subagent with web tools only) designs strategies from published methods and proposes them as typed briefs. The firm checks each proposal strictly; only the owner turns one into a dossier. It sees the firm's limits, costs, which real series exist and past proposals; of results, with the owner's standing opt-in, only each proposal's stage, verdict outcome and the names of the checks that failed. It never touches code, data, dossiers or orders.
 
 **Owner direction:** research briefs (market, timeframes, themes, data to use or avoid, strategies to stay uncorrelated with), assigned to one researcher or to the whole floor; pause, redirect, close or veto from the dashboard and the CLI.
 

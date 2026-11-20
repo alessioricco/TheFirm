@@ -1446,3 +1446,54 @@ Docker mode (an OpenHands image, internet open by default) or both.
 - **Submission = best research-view Sharpe**: simple and explicit; the
   verifier's trial-count deflation and hidden out-of-sample check exist to
   punish exactly this selection.
+
+## 2026-11-20 — A senior quant proposes briefs; the owner approves them
+
+Owner: "an agent who makes proposals about the briefs ... can be external to
+the sandbox, it can be also Claude Code itself ... inspects the internet ...
+a senior quant trader." Answers to the follow-up questions: outcome-only
+feedback, the owner approves every proposal, run on demand.
+
+- **A Claude Code subagent, web tools only**: the senior quant has
+  WebSearch and WebFetch and nothing that reads files or changes state
+  (firm rule 11: web content is data). It returns YAML; the coding session
+  saves it and `firm research proposals import` checks it strictly. It is
+  outside the firm: it never touches code, data, dossiers or orders.
+- **The owner approves each proposal**: briefs are owner direction (SPEC
+  "Research floor"); approving opens a dossier, and from there the idea is
+  tested like any other.
+- **Outcome-only feedback, a standing opt-in**: Claude Code is a cloud
+  model, so anything about our results it sees leaves the machines (rule
+  9). The owner opted in, once, for this much: per proposal, the dossier's
+  stage, each verdict's outcome and the names of the checks that didn't
+  pass. No metrics, parameters, code, notes or dataset versions. Each export
+  (`context --outcomes`) is an OWNER_COMMAND tagged as private-to-cloud.
+  The real series list (instrument, timeframe, venue) goes too, without
+  versions or dates: it says what can be tested, not what we found.
+- **Verifier check names, not thresholds**: the senior quant knows which
+  checks exist, not their numbers, so it designs for robustness rather than
+  for the bar.
+- **Later**: the same role on a local model inside the firm (milestone 7
+  scout) if it should run unattended.
+
+## 2026-11-20 — Claude Code as the console: a standing opt-in to read results
+
+Owner: "a" (of the three options in docs/CLAUDE_CODE.md), "and build the
+slash commands".
+
+- **What Claude Code may read, when the owner asks**: status, P&L,
+  positions, fills, verdicts, the ledger, the journal and dossiers. This is
+  private data going to a cloud model (rule 9); the owner opted in once,
+  for operating the firm. It replaces nothing in the egress gate: firm
+  agents still run locally, and the senior quant still sees outcomes only.
+- **What it never reads**: agent-written strategy code and its parameters
+  in the private store (a file's hash or its `class` line is enough to
+  launch a verified run), `.env`, the dashboard token.
+- **Paper runs default to the owner's terminal**: `/firm-paper` prepares
+  and checks, then hands over the exact commands, so the run survives the
+  session and loads `.env` (Telegram) itself; `here` runs it in the session
+  with `--no-notify` for short watched runs. Claude Code never loads `.env`.
+- **Slash commands are prompts, not code**: they call the same `firm`
+  commands as the owner, so the deployment gate, the config loader and the
+  ledger enforce the rules whatever a prompt says.
+

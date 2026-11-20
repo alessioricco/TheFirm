@@ -223,3 +223,178 @@ def add_research_parser(sub: argparse._SubParsersAction) -> None:  # type: ignor
 
     for cmd in (st, ls, sh, pa, re_, rd, cl, br):
         common(cmd)
+    _add_proposals_parser(rs, common)
+
+
+def _add_proposals_parser(rs, common) -> None:  # type: ignore[no-untyped-def]
+    pr = rs.add_parser(
+        "proposals", help="strategy ideas from the senior quant: import, review, approve"
+    ).add_subparsers(dest="proposals_cmd")
+
+    im = pr.add_parser("import", help="check and record proposal files (YAML)")
+    im.add_argument("paths", nargs="+", help="proposal files or folders of *.yaml")
+    im.set_defaults(func=cmd_proposals_import)
+
+    li = pr.add_parser("list", help="every proposal and its status")
+    li.add_argument("--status", choices=["proposed", "approved", "rejected"])
+    li.set_defaults(func=cmd_proposals_list)
+
+    sh = pr.add_parser("show", help="one proposal in full, as the brief it would become")
+    sh.add_argument("proposal", help="proposal ID")
+    sh.set_defaults(func=cmd_proposals_show)
+
+    ap = pr.add_parser("approve", help="open a dossier with the proposal as its brief")
+    ap.add_argument("proposal", help="proposal ID")
+    ap.add_argument("--id", help="dossier ID (default d-<date>-<random>)")
+    ap.set_defaults(func=cmd_proposals_approve)
+
+    rj = pr.add_parser("reject", help="turn a proposal down, with a reason")
+    rj.add_argument("proposal", help="proposal ID")
+    rj.add_argument("--reason", required=True, help="why (recorded; the senior quant sees it)")
+    rj.set_defaults(func=cmd_proposals_reject)
+
+    cx = pr.add_parser(
+        "context", help="what the senior quant may know: markets, costs, data, past proposals"
+    )
+    cx.add_argument(
+        "--outcomes",
+        action="store_true",
+        help="add each proposal's stage, verdict outcomes and failed check names "
+        "(private data to a cloud model: logged)",
+    )
+    cx.set_defaults(func=cmd_proposals_context)
+
+    for cmd in (im, li, sh, ap, rj, cx):
+        common(cmd)
+
+
+# ---------------------------------------------------------------- proposals
+def _proposals(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    from firm.data.store import data_root
+    from firm.research.proposals import ProposalStore
+
+    return ProposalStore(data_root(args.root))
+
+
+def _markets(config: Path) -> set[str]:
+    return {p.stem for p in (config / "markets").glob("*.yaml")}
+
+
+def cmd_proposals_import(args: argparse.Namespace) -> int:
+    from firm.research.proposals import ProposalError, parse_proposal
+
+    files: list[Path] = []
+    for raw in args.paths:
+        p = Path(raw)
+        files += sorted(p.glob("*.yaml")) + sorted(p.glob("*.yml")) if p.is_dir() else [p]
+    if not files:
+        print("no proposal files (*.yaml) found", file=sys.stderr)
+        return 3
+    store, markets = _proposals(args), _markets(Path(args.config))
+    _, ledger = _floor(args)
+    bad = 0
+    for f in files:
+        try:
+            proposal = parse_proposal(f.read_text(), markets=markets)
+        except (ProposalError, OSError) as e:
+            print(f"{f}: refused: {e}", file=sys.stderr)
+            bad += 1
+            continue
+        p, new = store.add(proposal)
+        if new:
+            _owner(ledger, "proposals import", {"proposal_id": p.proposal_id})
+        print(f"{p.proposal_id}  {'new' if new else p.status + ' (already imported)'}  {f.name}")
+    return 2 if bad else 0
+
+
+def cmd_proposals_list(args: argparse.Namespace) -> int:
+    proposals = _proposals(args).list()
+    if args.status:
+        proposals = [p for p in proposals if p.status == args.status]
+    if not proposals:
+        print("no proposals: ask the senior quant (`/senior-quant` in Claude Code)")
+        return 0
+    for p in proposals:
+        extra = f" -> {p.dossier_id}" if p.dossier_id else ""
+        print(
+            f"{p.proposal_id}  {p.status:<9} {p.proposal.method_family:<18} "
+            f"{p.proposal.market} {','.join(p.proposal.timeframes)}  {p.proposal.title}{extra}"
+        )
+    return 0
+
+
+def cmd_proposals_show(args: argparse.Namespace) -> int:
+    p = _proposals(args).get(args.proposal)
+    print(f"{p.proposal_id}  {p.status}  proposed {p.proposed_at:%Y-%m-%d %H:%M} UTC")
+    print(
+        f"market {p.proposal.market}  instruments {', '.join(p.proposal.instruments)}  "
+        f"timeframes {', '.join(p.proposal.timeframes)}"
+    )
+    if p.dossier_id:
+        print(f"dossier: {p.dossier_id}")
+    if p.rejected_reason:
+        print(f"rejected: {p.rejected_reason}")
+    print()
+    print(p.proposal.as_brief())
+    return 0
+
+
+def cmd_proposals_approve(args: argparse.Namespace) -> int:
+    from firm.control.research import approve_proposal
+    from firm.research.proposals import ProposalError
+
+    manager, ledger = _floor(args)
+    try:
+        _p, d = approve_proposal(
+            manager, ledger, _proposals(args), args.proposal, dossier_id=args.id, via="cli"
+        )
+    except ProposalError as e:
+        print(str(e), file=sys.stderr)
+        return 3
+    print(f"{args.proposal} approved: {d.dossier_id}  draft  {_place(manager, d.dossier_id)}")
+    return 0
+
+
+def cmd_proposals_reject(args: argparse.Namespace) -> int:
+    from firm.control.research import reject_proposal
+    from firm.research.proposals import ProposalError
+
+    _, ledger = _floor(args)
+    try:
+        reject_proposal(ledger, _proposals(args), args.proposal, args.reason, via="cli")
+    except ProposalError as e:
+        print(str(e), file=sys.stderr)
+        return 3
+    print(f"{args.proposal} rejected")
+    return 0
+
+
+def cmd_proposals_context(args: argparse.Namespace) -> int:
+    from firm.research.proposals import context_pack
+
+    manager, ledger = _floor(args)
+    from firm.data.store import data_root
+    from firm.verify.state import state_root
+
+    text, n_outcomes = context_pack(
+        config_root=Path(args.config),
+        data_root=data_root(args.root),
+        store=_proposals(args),
+        dossiers=manager.store,
+        reports=state_root(args.state_root) / "reports",
+        with_outcomes=args.outcomes,
+    )
+    if args.outcomes:
+        # Owner's standing opt-in (DECISIONS 2026-11-20): outcomes only, to a cloud model.
+        _owner(
+            ledger,
+            "proposals context",
+            {
+                "egress": "cloud",
+                "tag": "private",
+                "fields": "stage, verdict outcome, failed check names",
+                "proposals_with_outcomes": n_outcomes,
+            },
+        )
+    print(text)
+    return 0

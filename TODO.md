@@ -402,16 +402,28 @@ researcher agent, M5 methods library, M6 promotion gate).
         (hypothesis through the gateway, code through sandboxed Certo, saved
         to the private store, counted backtests, one submission) and
         `control.research.ResearchSession`.
+  - [x] Senior quant (2026-11-20, owner): a web-reading Claude Code
+        subagent proposes briefs (`/senior-quant`); `firm research proposals
+        import|list|show|approve|reject|context`; the owner approves each;
+        outcome-only feedback (DECISIONS).
+  - [x] **Claude Code as the console** (owner, 2026-11-20; docs/CLAUDE_CODE.md):
+        option (a), standing opt-in to read results when asked (DECISIONS);
+        `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`.
+  - [x] Proposals in the dashboard (owner, 2026-11-20): read, approve, reject
+        from the Research view (`/api/proposals`).
+  - [ ] `/firm-floor` runs researchers once `firm research floor` exists.
   - [ ] M4 part 3: `firm research floor` (runs the session's ticks
         unattended, logs to a file, stops on owner pause/close) and the first
-        live run on a brief the owner chooses, on real data.
+        live run on real data, on a senior-quant proposal the owner approves;
+        wire the gateway (OLLAMA_HOST, ledger spend) and the verification
+        desk (`control.research.verification_desk`). First: check
+        that the promotion gate refuses a verdict on synthetic data (the
+        verdict report doesn't label it; `capture_methods` can), and add it
+        if not.
   - [ ] Researcher: use every instrument/timeframe of the brief (now the
         first of each); let the model choose among datasets.
   - [ ] Certo's sandbox on Linux (the DGX): bubblewrap can't open one port
         only; design it when the research floor moves there.
-  - [ ] M4 loop, part 3: `firm research floor` runs it; first live run on a
-        brief the owner chooses; wire the gateway (OLLAMA_HOST, ledger spend)
-        and the verification desk (`control.research.verification_desk`).
   - [ ] Pause or unload researchers when the trading stack needs resources
         (with the scheduler, firm rule 9).
 - [ ] ML jobs on the DGX for researchers (training, model artifacts with
