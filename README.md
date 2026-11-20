@@ -15,7 +15,8 @@ safe first run on synthetic data, real data, verification, paper trading,
 configuration and troubleshooting. Every command and option is in the
 [command reference](docs/COMMANDS.md). To watch and steer the firm from
 your browser, see [the dashboard](docs/DASHBOARD.md)
-(`uv run firm dashboard serve`).
+(`uv run firm dashboard serve`). To run it by talking to Claude Code, see
+[Claude Code as the firm's console](docs/CLAUDE_CODE.md).
 
 ## The idea in one paragraph
 
