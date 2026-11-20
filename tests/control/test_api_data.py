@@ -7,13 +7,13 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from tests.data.test_update import DAY, START, Market
 
 from firm.control.api import create_app, load_or_create_token
 from firm.core.domain import LedgerEventType
 from firm.data.fetch import Fetcher
 from firm.ledger.sink import ledger_path
 from firm.ledger.store import Ledger
+from market_fakes import DAY, START, Market
 from verify_helpers import REPO
 
 FETCH = {

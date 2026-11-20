@@ -6,11 +6,11 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from tests.data.test_update import DAY, START, Market
 
 from firm.control import data_cli
 from firm.control.cli import main
 from firm.data.fetch import Fetcher
+from market_fakes import DAY, START, Market
 
 CONFIG = str(Path(__file__).resolve().parents[2] / "config")
 
