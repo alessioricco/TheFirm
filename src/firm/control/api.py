@@ -12,7 +12,8 @@ Loopback only for now, and only for the owner:
   answers; the cookie is SameSite=Strict; the WebSocket checks the cookie.
 - **What it can do**: read the research floor and steer it (start, pause,
   resume, redirect, close, floor brief: the same as `firm research`, each an
-  OWNER_COMMAND "via dashboard"); read paper status and the ledger; push new
+  OWNER_COMMAND "via dashboard"); review the senior quant's brief proposals
+  and approve (opens a dossier) or reject them; read paper status and the ledger; push new
   ledger events live. **Read-only for trading**: nothing here can place,
   size or cancel an order or touch risk; the kill switch comes separately
   (M3b), through the bus and the risk desk.
@@ -31,7 +32,15 @@ from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from firm.control.research import dossier_view, floor_view, open_floor, owner_command
+from firm.control.research import (
+    approve_proposal,
+    dossier_view,
+    floor_view,
+    open_floor,
+    owner_command,
+    proposal_view,
+    reject_proposal,
+)
 from firm.control.status import paper_status
 from firm.ledger.sink import ledger_path
 from firm.ledger.store import Ledger
@@ -97,6 +106,14 @@ class BriefBody(BaseModel):
 
 class FloorBriefBody(BaseModel):
     text: str
+
+
+class ApproveBody(BaseModel):
+    dossier_id: str | None = None
+
+
+class RejectBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=300)
 
 
 class KillBody(BaseModel):
@@ -302,6 +319,52 @@ def create_app(
             ledger, "close", {"dossier_id": dossier_id, "reason": body.reason}, via="dashboard"
         )
         return dossier_view(manager, manager.store.get(dossier_id))
+
+    # ------------------------------------------- brief proposals (senior quant)
+    def proposals():  # type: ignore[no-untyped-def]
+        from firm.research.proposals import ProposalStore
+
+        return ProposalStore(data_root)
+
+    def decide(fn):  # type: ignore[no-untyped-def]
+        """Run a proposal decision; map refusals to HTTP errors."""
+        from firm.research.proposals import ProposalError
+
+        try:
+            return fn()
+        except ProposalError as exc:
+            msg = str(exc)
+            raise HTTPException(404 if msg.startswith("no proposal") else 409, msg) from exc
+        except DossierError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/proposals", dependencies=guarded)
+    def proposal_list() -> dict[str, Any]:
+        return {"proposals": [proposal_view(p) for p in proposals().list()]}
+
+    @app.get("/api/proposals/{proposal_id}", dependencies=guarded)
+    def proposal(proposal_id: str) -> dict[str, Any]:
+        return proposal_view(decide(lambda: proposals().get(proposal_id)))
+
+    @app.post("/api/proposals/{proposal_id}/approve", dependencies=change)
+    def approve(proposal_id: str, body: ApproveBody) -> dict[str, Any]:
+        manager, ledger = floor()
+        p, d = decide(
+            lambda: approve_proposal(
+                manager, ledger, proposals(), proposal_id,
+                dossier_id=body.dossier_id, via="dashboard",
+            )
+        )  # fmt: skip
+        return {"proposal": proposal_view(p), "dossier": dossier_view(manager, d)}
+
+    @app.post("/api/proposals/{proposal_id}/reject", dependencies=change)
+    def reject(proposal_id: str, body: RejectBody) -> dict[str, Any]:
+        _, ledger = floor()
+        store = proposals()
+        decide(lambda: reject_proposal(ledger, store, proposal_id, body.reason, via="dashboard"))
+        return proposal_view(store.get(proposal_id))
 
     # ------------------------------------------------------------ paper, ledger
     def _ledger() -> Ledger:

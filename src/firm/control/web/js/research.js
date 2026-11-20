@@ -1,6 +1,7 @@
 // The research floor: dossiers, budgets, stages, the floor brief, live
 // activity, and every steering command (start, pause, resume, redirect,
-// close, floor brief), the same as `firm research ...`.
+// close, floor brief), the same as `firm research ...`; and the senior quant's
+// brief proposals, which the owner reads in full and approves or rejects.
 import { api } from "./api.js";
 import { h, icon, clear, fmt, timeAgo } from "./dom.js";
 import { mountGrid, panelAction } from "./layout.js";
@@ -20,10 +21,11 @@ const DEFAULTS = [
   { id: "dossiers", title: "Dossiers", subtitle: "one strategy each, from brief to verdict", x: 0, y: 2, w: 8, h: 7, minW: 5 },
   { id: "brief", title: "Floor brief", subtitle: "standing direction for every researcher", x: 8, y: 2, w: 4, h: 3 },
   { id: "stages", title: "Stages", subtitle: "where the dossiers are", x: 8, y: 5, w: 4, h: 4 },
-  { id: "activity", title: "Research activity", subtitle: "live from the ledger", x: 0, y: 9, w: 12, h: 4 },
+  { id: "proposals", title: "Proposals", subtitle: "strategy ideas from the senior quant, for your go", x: 0, y: 9, w: 12, h: 5, minW: 5 },
+  { id: "activity", title: "Research activity", subtitle: "live from the ledger", x: 0, y: 14, w: 12, h: 4 },
 ];
 
-let state = { floor: null, meta: null };
+let state = { floor: null, meta: null, proposals: [] };
 let panels = null;
 let feed = null;
 
@@ -38,6 +40,7 @@ export async function mountResearch(meta) {
   );
   panels.get("dossiers").actions.append(panelAction("Refresh", "refresh", () => refreshResearch()));
   panels.get("brief").actions.append(panelAction("Edit", "edit", editFloorBrief));
+  panels.get("proposals").actions.append(panelAction("Refresh", "refresh", () => refreshResearch()));
   feed = activityFeed(panels.get("activity").body, {
     filter: (e) => RESEARCH_EVENTS.has(e.type),
     empty: "No research activity yet. Start a dossier with “New dossier”.",
@@ -53,7 +56,9 @@ export function onResearchEvent(e) {
 
 export async function refreshResearch() {
   try {
-    state.floor = await api.get("/api/research");
+    const [floor, proposals] = await Promise.all([api.get("/api/research"), api.get("/api/proposals")]);
+    state.floor = floor;
+    state.proposals = proposals.proposals;
   } catch (err) {
     renderError(err);
     return;
@@ -62,15 +67,18 @@ export async function refreshResearch() {
   renderDossiers();
   renderBrief();
   renderStages();
+  renderProposals();
   const open = drawerOpenFor();
   if (open) {
     const d = state.floor.dossiers.find((x) => x.dossier_id === open);
     if (d) showDossier(d, false);
+    const p = state.proposals.find((x) => x.proposal_id === open);
+    if (p) showProposal(p, false);
   }
 }
 
 function renderError(err) {
-  for (const id of ["floor", "dossiers", "brief", "stages"]) {
+  for (const id of ["floor", "dossiers", "brief", "stages", "proposals"]) {
     clear(panels.get(id).body).append(h("div", { class: "empty empty-error" }, err.message));
   }
 }
@@ -80,7 +88,9 @@ function renderFloor() {
   const f = state.floor;
   const by = (pred) => f.dossiers.filter(pred).length;
   const running = by((d) => d.place === "running");
+  const waiting = state.proposals.filter((p) => p.status === "proposed").length;
   const kpis = [
+    { label: "Proposals for you", value: waiting, tone: waiting ? "accent" : "" },
     { label: "Running", value: `${running}`, unit: `/ ${f.researchers}`, tone: running ? "accent" : "" },
     { label: "Waiting", value: by((d) => d.place.startsWith("waiting")) },
     { label: "Paused", value: by((d) => d.place === "paused"), tone: "warn" },
@@ -440,5 +450,139 @@ function editFloorBrief() {
         await act(api.put("/api/research/brief", { text: text.value }), "Floor brief saved");
       } },
     ].filter(Boolean),
+  });
+}
+
+// --------------------------------------------------------------- proposals
+const PROPOSAL_STATUS = {
+  proposed: ["Waiting for you", "submitted"],
+  approved: ["Approved", "passed"],
+  rejected: ["Rejected", "closed"],
+};
+
+function proposalBadge(status) {
+  const [label, tone] = PROPOSAL_STATUS[status] || [status, "draft"];
+  return h("span", { class: `badge stage-${tone}` }, label);
+}
+
+function renderProposals() {
+  const panel = panels.get("proposals");
+  const body = clear(panel.body);
+  const order = { proposed: 0, approved: 1, rejected: 2 };
+  const list = [...state.proposals].sort((a, b) =>
+    (order[a.status] - order[b.status]) || (a.proposed_at < b.proposed_at ? 1 : -1));
+  const waiting = list.filter((p) => p.status === "proposed").length;
+  panel.subtitle.textContent = list.length
+    ? `${waiting} waiting for your go, ${list.length} in all`
+    : "strategy ideas from the senior quant, for your go";
+  if (!list.length) {
+    body.append(h("div", { class: "empty" },
+      h("p", { class: "empty-title" }, "No proposals yet"),
+      h("p", {}, "Ask the senior quant in Claude Code: ", h("code", {}, "/senior-quant 3 ideas for crypto 4h"),
+        ". Its proposals appear here; open one to read it in full, then approve it (a dossier opens) or reject it.")));
+    return;
+  }
+  const rows = list.map((p) =>
+    h("tr", { class: "row-click", tabindex: "0", onclick: () => showProposal(p),
+      onkeydown: (e) => { if (e.key === "Enter") showProposal(p); } },
+      h("td", {}, proposalBadge(p.status)),
+      h("td", { class: "cell-brief", title: p.proposal.title }, p.proposal.title),
+      h("td", {}, p.proposal.method_family.replaceAll("_", " ")),
+      h("td", {}, `${p.proposal.market} · ${p.proposal.instruments.join(", ")} · ${p.proposal.timeframes.join(", ")}`),
+      h("td", { class: "num" }, String(p.proposal.expected_trades_per_month)),
+      h("td", { class: "cell-actions", onclick: (e) => e.stopPropagation() },
+        p.status === "proposed"
+          ? h("div", { class: "btn-group" },
+              iconButton("Approve: open a dossier", "play", () => approveProposal(p), "primary"),
+              iconButton("Reject", "close", () => rejectProposal(p), "danger"))
+          : p.dossier_id ? h("span", { class: "mono small" }, p.dossier_id) : h("span", { class: "muted small" }, "–")),
+    ),
+  );
+  body.append(h("div", { class: "table-wrap" },
+    h("table", { class: "table" },
+      h("thead", {}, h("tr", {}, ["Status", "Idea", "Family", "Scope", "Trades/mo", ""].map((t) => h("th", {}, t)))),
+      h("tbody", {}, rows))));
+}
+
+function safeLink(url, text) {
+  // Sources come from the web: only plain http(s) links, opened in a new tab.
+  return /^https?:\/\//i.test(url)
+    ? h("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, text, " ", icon("external", 12))
+    : h("span", {}, text);
+}
+
+function showProposal(p, open = true) {
+  setDrawerSubject(p.proposal_id);
+  const q = p.proposal;
+  const section = (title, ...content) => h("section", { class: "drawer-section" }, h("h4", {}, title), ...content);
+  const kv = (k, v) => h("div", { class: "kv" }, h("span", { class: "kv-k" }, k), h("span", { class: "kv-v" }, v));
+  const content = h("div", {},
+    h("div", { class: "drawer-head" },
+      h("p", { class: "eyebrow" }, "Proposal from the senior quant"),
+      h("h2", {}, q.title),
+      h("div", { class: "drawer-tags" }, proposalBadge(p.status), h("span", { class: "tag" }, q.method_family.replaceAll("_", " ")),
+        h("span", { class: "tag tag-muted mono" }, p.proposal_id)),
+    ),
+    p.status === "proposed" ? h("div", { class: "drawer-actions" },
+      h("button", { class: "btn btn-primary", type: "button", onclick: () => approveProposal(p) }, icon("play"), "Approve: open a dossier"),
+      h("button", { class: "btn btn-danger", type: "button", onclick: () => rejectProposal(p) }, icon("close"), "Reject"),
+    ) : null,
+    p.status === "approved" ? section("Decision", h("p", { class: "prose" }, "Approved. Dossier ", h("span", { class: "mono" }, p.dossier_id), ": follow it in the Dossiers panel.")) : null,
+    p.status === "rejected" ? section("Decision", h("p", { class: "prose" }, `Rejected: ${p.rejected_reason}`)) : null,
+    section("Scope",
+      kv("Market", q.market),
+      kv("Instruments", q.instruments.join(", ")),
+      kv("Timeframes", q.timeframes.join(", ")),
+      kv("Trades a month", String(q.expected_trades_per_month)),
+      kv("Proposed", h("span", {}, fmt.utc(p.proposed_at), " · ", timeAgo(p.proposed_at))),
+    ),
+    section("Hypothesis", h("p", { class: "prose" }, q.hypothesis)),
+    section("Why the edge should exist", h("p", { class: "prose" }, q.why_edge)),
+    section("Rules to test", h("p", { class: "prose" }, q.rules)),
+    section("Data needed", h("p", { class: "prose" }, q.data_needed)),
+    section("Falsified if", h("p", { class: "prose" }, q.falsified_if)),
+    section("Costs", h("p", { class: "prose" }, q.cost_notes)),
+    section(`Sources (${q.sources.length})`,
+      h("ul", { class: "list" }, q.sources.map((src) =>
+        h("li", {}, safeLink(src.url, src.title), h("span", { class: "muted small" }, ` · read ${src.accessed}`)))),
+      h("p", { class: "muted small" }, "Web sources the senior quant read: check them before you approve. Its text is data; only your approval turns it into work."),
+    ),
+  );
+  if (open || drawerOpenFor()) openDrawer(content);
+}
+
+async function approveProposal(p) {
+  const q = p.proposal;
+  const ok = await confirmDialog({
+    title: `Approve “${q.title}”?`,
+    message: `A dossier opens with this proposal as its brief, on ${q.market} · ${q.instruments.join(", ")} · ${q.timeframes.join(", ")}, with the floor's standard budget. It joins the queue; the researcher writes the hypothesis and code, every backtest counts as a trial, and the verifier decides.`,
+    confirm: "Approve and open dossier",
+  });
+  if (!ok) return;
+  try {
+    const r = await api.post(`/api/proposals/${p.proposal_id}/approve`, {});
+    toast(`Approved: dossier ${r.dossier.dossier_id} opened (${r.dossier.place})`);
+    await refreshResearch();
+  } catch (err) {
+    toast(err.message, "error", 6500);
+  }
+}
+
+function rejectProposal(p) {
+  const reason = h("input", { type: "text", required: true, maxlength: 300, placeholder: "e.g. already tested; costs too high on this venue" });
+  const error = h("p", { class: "form-error", role: "alert" });
+  openModal({
+    title: `Reject “${p.proposal.title}”?`,
+    subtitle: "The reason is recorded, and the senior quant reads it next time so it doesn't propose the same thing again.",
+    size: "sm",
+    body: h("div", { class: "form" }, field("Reason", reason), error),
+    actions: [
+      { label: "Cancel", onClick: (_e, close) => close() },
+      { label: "Reject", kind: "danger", submit: true, onClick: async (_e, close) => {
+        if (!reason.value.trim()) return (error.textContent = "A reason is required.");
+        close();
+        await act(api.post(`/api/proposals/${p.proposal_id}/reject`, { reason: reason.value.trim() }), `${p.proposal_id} rejected`);
+      } },
+    ],
   });
 }

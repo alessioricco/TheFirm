@@ -652,7 +652,9 @@ literature and proposes strategies for the floor to test. It changes nothing
 itself: its proposals are YAML files the coding session saves under
 `private/briefs/proposals/` (git-ignored). These commands check them, record
 them in the private store (`<data root>/research/proposals/`) and turn the
-ones you approve into dossiers. Every change is an OWNER_COMMAND.
+ones you approve into dossiers. Every change is an OWNER_COMMAND. The
+dashboard's Proposals panel does the same: read, approve, reject
+([DASHBOARD.md](DASHBOARD.md#research)).
 
 ### firm research proposals import
 

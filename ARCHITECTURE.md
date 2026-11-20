@@ -590,7 +590,10 @@ Being built in the order of `docs/plans/milestone-3.md`. So far:
   costs, real series without versions, past proposals; `outcomes()` only on
   request: stage, verdict outcome, names of checks not passed, read from
   `<state>/reports/`). `firm research proposals ...` in `research_cli.py`;
-  `context --outcomes` records the cloud egress as an OWNER_COMMAND.
+  `context --outcomes` records the cloud egress as an OWNER_COMMAND. Approve and reject go through
+  `control.research.approve_proposal` / `reject_proposal` (CLI and the
+  dashboard's `/api/proposals/...`, `via` cli or dashboard); the page's
+  Proposals panel and drawer are in `web/js/research.js`.
 - **Certo projects** (`research/certo_projects.py`): `prepare_project(
   workspace, project)` makes `<workspace>/<project>` with a `.venv` whose
   `firm_packages.pth` points at the firm's site-packages (Certo uses an

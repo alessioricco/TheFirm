@@ -73,6 +73,7 @@ Inside the session, two things are worth knowing:
 | "How is the run doing?" | `firm paper status`, the run's log, `firm ledger show` |
 | "Ask the senior quant for ideas on crypto 4h" | `/senior-quant crypto 4h` (see [COMMANDS.md](COMMANDS.md#brief-proposals-from-the-senior-quant)) |
 | "Show me the proposals" | `firm research proposals list`, `show ID` |
+| "Show me proposal p-... in the dashboard" | the dashboard's Proposals panel: read it in full and approve or reject it there yourself |
 | "Start a researcher on proposal p-..." | only on your explicit word: `firm research proposals approve p-...` |
 | "Pause d-..." / "close d-..., it's a dead end" | `firm research pause|close ...` with your reason |
 | "Stop all buying now" | `firm kill --all --reason "..." --confirm` (see [section 7](#7-what-claude-code-may-do-and-what-stays-yours)) |

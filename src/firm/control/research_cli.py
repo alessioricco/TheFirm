@@ -340,30 +340,31 @@ def cmd_proposals_show(args: argparse.Namespace) -> int:
 
 
 def cmd_proposals_approve(args: argparse.Namespace) -> int:
-    store = _proposals(args)
-    p = store.get(args.proposal)
-    if p.status != "proposed":
-        print(f"{p.proposal_id} is already {p.status}", file=sys.stderr)
-        return 3
+    from firm.control.research import approve_proposal
+    from firm.research.proposals import ProposalError
+
     manager, ledger = _floor(args)
-    d = manager.start(
-        brief=p.proposal.as_brief(),
-        market=p.proposal.market,
-        instruments=p.proposal.instruments,
-        timeframes=p.proposal.timeframes,
-        dossier_id=args.id,
-    )
-    store.approve(p.proposal_id, d.dossier_id)
-    _owner(ledger, "proposals approve", {"proposal_id": p.proposal_id, "dossier_id": d.dossier_id})
-    print(f"{p.proposal_id} approved: {d.dossier_id}  draft  {_place(manager, d.dossier_id)}")
+    try:
+        _p, d = approve_proposal(
+            manager, ledger, _proposals(args), args.proposal, dossier_id=args.id, via="cli"
+        )
+    except ProposalError as e:
+        print(str(e), file=sys.stderr)
+        return 3
+    print(f"{args.proposal} approved: {d.dossier_id}  draft  {_place(manager, d.dossier_id)}")
     return 0
 
 
 def cmd_proposals_reject(args: argparse.Namespace) -> int:
-    store = _proposals(args)
+    from firm.control.research import reject_proposal
+    from firm.research.proposals import ProposalError
+
     _, ledger = _floor(args)
-    store.reject(args.proposal, args.reason)
-    _owner(ledger, "proposals reject", {"proposal_id": args.proposal, "reason": args.reason})
+    try:
+        reject_proposal(ledger, _proposals(args), args.proposal, args.reason, via="cli")
+    except ProposalError as e:
+        print(str(e), file=sys.stderr)
+        return 3
     print(f"{args.proposal} rejected")
     return 0
 

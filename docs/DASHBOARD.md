@@ -114,10 +114,11 @@ brief to verdict.
 
 | Panel | Shows |
 | --- | --- |
-| Floor | dossiers running (of the researchers allowed at once), waiting, paused, passed, failed, closed; trials used in total |
+| Floor | proposals waiting for you; dossiers running (of the researchers allowed at once), waiting, paused, passed, failed, closed; trials used in total |
 | Dossiers | every dossier, oldest first: stage, place in the queue, brief, and its budget used (trials, tokens, hours; cloud spend when it isn't zero). Click a row for its details |
 | Floor brief | the standing direction for every researcher |
 | Stages | how many dossiers are in each stage |
+| Proposals | the senior quant's strategy ideas: waiting for you first, then approved (with the dossier they became) and rejected. Click a row to read one in full |
 | Research activity | dossier, trial, verdict, owner-command and model-call events, live |
 
 Actions, each the same as the matching `firm research` command and each
@@ -132,6 +133,20 @@ recorded in the ledger as an owner command "via dashboard":
   hypothesis is locked once research starts).
 - **Close**: final, with a reason you must give.
 - **Floor brief**: set, change or clear it.
+- **Approve** a proposal (row button or the details panel): after you
+  confirm, a dossier opens with the proposal as its brief, on its market,
+  instruments and timeframes, and joins the queue. The same as
+  `firm research proposals approve`.
+- **Reject** a proposal: with a reason you must give; the senior quant
+  reads it next time.
+
+A **proposal's details panel** shows everything the senior quant wrote:
+scope and expected trades a month, the hypothesis, why the edge should
+exist, the rules to test, the data needed, what would prove it wrong, costs,
+and its web sources as links (plain `http(s)` only, opened in a new tab).
+Read the sources before you approve: the text came from a model that read
+the web, and only your approval turns it into work. Proposals arrive with
+`/senior-quant` in Claude Code ([CLAUDE_CODE.md](CLAUDE_CODE.md)).
 
 The **details panel** (click a dossier) shows everything: brief, scope,
 budget used against budget, the hypothesis and why, code by hash, trials,

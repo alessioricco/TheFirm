@@ -22,6 +22,8 @@ Ask the senior quant for brief proposals. Focus from the owner: $ARGUMENTS
    `FIRM_DOTENV=0 uv run firm research proposals import private/briefs/proposals/`
 5. Report to the owner: `firm research proposals list --status proposed`,
    one line per idea (family, timeframe, why the edge, expected trades a
-   month), the senior quant's closing note, and the commands to decide:
+   month), the senior quant's closing note, and where to decide: the
+   dashboard's Research view, Proposals panel (read in full, approve or
+   reject; `/firm-dashboard` starts it), or the CLI:
    `uv run firm research proposals show ID`, `... approve ID`,
    `... reject ID --reason "..."`. Never approve on the owner's behalf.

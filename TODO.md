@@ -409,6 +409,8 @@ researcher agent, M5 methods library, M6 promotion gate).
   - [x] **Claude Code as the console** (owner, 2026-11-20; docs/CLAUDE_CODE.md):
         option (a), standing opt-in to read results when asked (DECISIONS);
         `/firm-status`, `/firm-paper`, `/firm-dashboard`, `/firm-floor`.
+  - [x] Proposals in the dashboard (owner, 2026-11-20): read, approve, reject
+        from the Research view (`/api/proposals`).
   - [ ] `/firm-floor` runs researchers once `firm research floor` exists.
   - [ ] M4 part 3: `firm research floor` (runs the session's ticks
         unattended, logs to a file, stops on owner pause/close) and the first
